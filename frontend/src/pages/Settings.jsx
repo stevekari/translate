@@ -1,0 +1,397 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
+import { updateProfile } from '../api/userApi';
+import { uploadMedia } from '../api/mediaApi';
+import { resolveAvatarUrl } from '../utils/avatarUrl';
+import { useTheme } from '../contexts/ThemeContext.jsx';
+import { useLanguage } from '../contexts/LanguageContext';
+import { usePWAInstall } from '../hooks/usePWAInstall';
+import { setMyStatus } from '../store/slices/presenceSlice';
+
+export default function Settings({ user, onProfileUpdate }) {
+  const navigate = useNavigate();
+  const dispatch = useDispatch();
+  const { theme, toggleTheme } = useTheme();
+  const { isStandalone, installApp } = usePWAInstall();
+  const onlineIds = useSelector((s) => s.presence?.onlineIds || []);
+  const myStatus = useSelector((s) => s.presence?.myStatus || 'online');
+  const { language, setLanguage, languageOptions, t } = useLanguage();
+
+  const [username, setUsername] = useState(user?.username || '');
+  const [displayName, setDisplayName] = useState(user?.displayName || user?.username || '');
+  const [bio, setBio] = useState(user?.bio || '');
+  const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [preferredLanguage, setPreferredLanguage] = useState(user?.preferredLanguage || 'en');
+  const [autoTranslate, setAutoTranslate] = useState(Boolean(user?.autoTranslate));
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [status, setStatus] = useState(null);
+  const [tab, setTab] = useState('profile');
+
+  useEffect(() => {
+    if (user) {
+      setUsername(user.username || '');
+      setDisplayName(user.displayName || user.username || '');
+      setBio(user.bio || '');
+      setAvatarUrl(user.avatarUrl || '');
+      setPreferredLanguage(user.preferredLanguage || 'en');
+      setAutoTranslate(Boolean(user.autoTranslate));
+    }
+  }, [user]);
+
+  const avatarPreview = resolveAvatarUrl(avatarUrl, displayName || username);
+
+  const onPickAvatar = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
+
+    const allowed = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
+    if (!allowed.has(file.type.toLowerCase())) {
+      setStatus({ type: 'error', text: t('onlyImages') });
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setStatus({ type: 'error', text: t('maxFile') });
+      return;
+    }
+
+    try {
+      setUploadingAvatar(true);
+      setStatus(null);
+      const uploaded = await uploadMedia(file, 'image');
+      setAvatarUrl(uploaded.url);
+      setStatus({ type: 'success', text: t('avatarUploaded') });
+    } catch (err) {
+      setStatus({ type: 'error', text: err.response?.data?.error || err.response?.data?.message || t('avatarUploadFailed') });
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!username.trim() || username.trim().length < 3) {
+      setStatus({ type: 'error', text: t('usernameMin') });
+      return;
+    }
+    if (newPassword && !currentPassword) {
+      setStatus({ type: 'error', text: t('enterCurrent') });
+      return;
+    }
+
+    setStatus(null);
+    setIsSaving(true);
+    try {
+      const updated = await updateProfile({
+        username: username.trim(),
+        displayName: displayName.trim() || username.trim(),
+        bio: bio.trim(),
+        avatarUrl: avatarUrl.trim(),
+        customStatus: myStatus,
+        preferredLanguage,
+        autoTranslate,
+        currentPassword: currentPassword || undefined,
+        newPassword: newPassword || undefined,
+      });
+      onProfileUpdate?.(updated);
+      setCurrentPassword('');
+      setNewPassword('');
+      setStatus({ type: 'success', text: t('profileUpdated') });
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.message || err.response?.data || t('updateFailed');
+      setStatus({ type: 'error', text: typeof msg === 'string' ? msg : JSON.stringify(msg) });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSaveTranslationSettings = async (nextLang, nextAuto) => {
+    try {
+      setIsSaving(true);
+      const updated = await updateProfile({
+        preferredLanguage: nextLang !== undefined ? nextLang : preferredLanguage,
+        autoTranslate: nextAuto !== undefined ? nextAuto : autoTranslate,
+      });
+      if (nextLang !== undefined) setPreferredLanguage(nextLang);
+      if (nextAuto !== undefined) setAutoTranslate(nextAuto);
+      onProfileUpdate?.(updated);
+      setStatus({ type: 'success', text: t('profileUpdated') });
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.message || t('updateFailed');
+      setStatus({ type: 'error', text: msg });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  return (
+    <div className="settings-layout">
+      <aside className="settings-sidebar">
+        <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>
+          <i className="fa-solid fa-user"></i> {t('profile')}
+        </button>
+        <button className={tab === 'translate' ? 'active' : ''} onClick={() => setTab('translate')}>
+          <i className="fa-solid fa-earth-americas"></i> 🌍 {t('gioTranslate')}
+        </button>
+        <button className={tab === 'appearance' ? 'active' : ''} onClick={() => setTab('appearance')}>
+          <i className="fa-solid fa-palette"></i> {t('appearance')}
+        </button>
+        <button className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>
+          <i className="fa-solid fa-lock"></i> {t('security')}
+        </button>
+      </aside>
+
+      <div className="settings-content">
+        {tab === 'profile' && (
+          <form className="settings-card" onSubmit={handleSubmit}>
+            <h1>{t('profile')}</h1>
+            <p className="settings-sub">{t('onlineFriends', { count: onlineIds.length })}</p>
+
+            <div className="avatar-editor">
+              <img className="settings-avatar-preview" src={avatarPreview} alt={t('preview')} />
+              <div>
+                <label className="btn-file">
+                  <i className="fa-solid fa-upload"></i> {t('uploadAvatar')}
+                  <input type="file" hidden accept=".png,.jpg,.jpeg,.webp" onChange={onPickAvatar} disabled={uploadingAvatar} />
+                </label>
+                {uploadingAvatar && <div className="settings-uploading">{t('uploading')}</div>}
+              </div>
+            </div>
+
+            <label>Full / Display Name</label>
+            <input
+              value={displayName}
+              onChange={(e) => setDisplayName(e.target.value)}
+              placeholder="e.g. Stephen Karikari"
+            />
+
+            <label>{t('username')} <span className="muted">(@handle)</span></label>
+            <input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder={t('username')}
+            />
+
+            <label>About / Bio</label>
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              placeholder="Frontend & Java developer passionate about real-time apps..."
+              rows={3}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '10px',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.05)',
+                color: 'inherit',
+                resize: 'vertical',
+                fontSize: '0.9rem',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+                marginBottom: '16px'
+              }}
+            />
+
+            <label>{t('avatarUrl')} <span className="muted">{t('autoFilled')}</span></label>
+            <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://..." />
+
+            {status && <div className={`settings-status ${status.type}`}>{status.text}</div>}
+
+            <div className="settings-actions">
+              <button type="submit" disabled={uploadingAvatar || isSaving}>{isSaving ? t('saving') : t('saveChanges')}</button>
+              <button type="button" className="settings-cancel" onClick={() => navigate('/friends')}>{t('cancel')}</button>
+            </div>
+          </form>
+        )}
+
+        {tab === 'translate' && (
+          <div className="settings-card">
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
+              <span style={{ fontSize: '1.8rem' }}>🌍</span>
+              <div>
+                <h2 style={{ margin: 0 }}>GioTranslate</h2>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                  “Talk to anyone. Speak your language.”
+                </p>
+              </div>
+            </div>
+
+            <div className="setting-row" style={{ marginTop: '18px' }}>
+              <div>
+                <h4>App Interface Language</h4>
+                <p>Language for menus, buttons, and app navigation.</p>
+              </div>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                aria-label="App Language"
+              >
+                {languageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="setting-row">
+              <div>
+                <h4>{t('myChatLanguage')}</h4>
+                <p>{t('myChatLanguageDesc')}</p>
+              </div>
+              <select
+                value={preferredLanguage}
+                onChange={(e) => handleSaveTranslationSettings(e.target.value, autoTranslate)}
+                aria-label={t('myChatLanguage')}
+              >
+                {languageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <div className="setting-row">
+              <div>
+                <h4>{t('autoTranslate')}</h4>
+                <p>{t('autoTranslateDesc')}</p>
+              </div>
+              <label className="toggle-switch" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
+                <input
+                  type="checkbox"
+                  checked={autoTranslate}
+                  onChange={(e) => handleSaveTranslationSettings(preferredLanguage, e.target.checked)}
+                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
+                />
+              </label>
+            </div>
+
+            {status && <div className={`settings-status ${status.type}`} style={{ margin: '14px 0' }}>{status.text}</div>}
+
+            {/* Interactive Preview Card */}
+            <div style={{
+              marginTop: '22px',
+              padding: '16px',
+              borderRadius: '12px',
+              background: 'rgba(255, 255, 255, 0.04)',
+              border: '1px solid rgba(255, 255, 255, 0.08)'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent, #f59e0b)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                  Live Preview • Conversation Flow
+                </span>
+                <span className="badge success" style={{ fontSize: '0.75rem' }}>Active</span>
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{
+                  background: 'var(--surface-hi, rgba(255,255,255,0.06))',
+                  padding: '8px 12px',
+                  borderRadius: '10px',
+                  borderBottomLeftRadius: '3px',
+                  alignSelf: 'flex-start',
+                  maxWidth: '85%',
+                  fontSize: '0.88rem'
+                }}>
+                  <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '2px' }}>🇪🇸 Friend in Spain:</div>
+                  <div>¿Cómo estás hoy?</div>
+                  <div style={{
+                    marginTop: '6px',
+                    paddingTop: '6px',
+                    borderTop: '1px solid rgba(255,255,255,0.1)',
+                    color: 'var(--text-muted, #94a3b8)',
+                    fontSize: '0.84rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '5px'
+                  }}>
+                    <span>🌍</span> <em>How are you today?</em>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {tab === 'security' && (
+          <form className="settings-card" onSubmit={handleSubmit}>
+            <h2>{t('changePassword')}</h2>
+            <label>{t('currentPassword')}</label>
+            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder={t('requiredPassword')} />
+            <label>{t('newPassword')}</label>
+            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder={t('minPassword')} />
+            {status && <div className={`settings-status ${status.type}`}>{status.text}</div>}
+            <button type="submit" disabled={isSaving}>{t('updatePassword')}</button>
+          </form>
+        )}
+
+        {tab === 'appearance' && (
+          <div className="settings-card">
+            <h2>{t('appearance')}</h2>
+            <div className="setting-row">
+              <div><h4>{t('theme')}</h4><p>{t('themeDescription')}</p></div>
+              <button type="button" onClick={toggleTheme} className="theme-toggle big"><i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}></i> {theme}</button>
+            </div>
+            <div className="setting-row">
+              <div><h4>{t('language')}</h4></div>
+              <select
+                value={language}
+                onChange={(e) => setLanguage(e.target.value)}
+                aria-label={t('language')}
+              >
+                {languageOptions.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="setting-row">
+              <div><h4>{t('myStatus')}</h4><p>{t('onlineDescription')}</p></div>
+              <select
+                value={myStatus}
+                onChange={(e) => dispatch(setMyStatus(e.target.value))}
+                className={`status-select ${myStatus}`}
+                aria-label={t('myStatus')}
+              >
+                <option value="online">🟢 {t('statusOnline')}</option>
+                <option value="busy">🟡 {t('statusBusy')}</option>
+                <option value="offline">⚪ {t('statusOffline')}</option>
+              </select>
+            </div>
+            <div className="setting-row">
+              <div><h4>{t('onlineStatus')}</h4><p>{t('onlineFriends', { count: onlineIds.length })}</p></div>
+              <span className="badge success">{t('activeOnline', { count: onlineIds.length })}</span>
+            </div>
+
+            <div className="setting-row" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div>
+                <h4>📱 Tranchat App (PWA)</h4>
+                <p>Install Tranchat on your device for instant launch and full-screen experience.</p>
+              </div>
+              {isStandalone ? (
+                <span className="badge success" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
+                  <i className="fa-solid fa-circle-check"></i> Installed
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    installApp().then((res) => {
+                      if (!res?.success) {
+                        window.dispatchEvent(new CustomEvent('open-pwa-install-modal'));
+                      }
+                    });
+                  }}
+                  className="pwa-btn-install"
+                  style={{ padding: '8px 16px', fontSize: '0.88rem' }}
+                >
+                  <i className="fa-solid fa-download"></i> Install App
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

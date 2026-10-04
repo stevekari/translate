@@ -1,0 +1,381 @@
+/* ---------- Settings page ---------- */
+
+.settings-layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 20px;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 24px;
+    font-size: 16px;
+    /* base for readability */
+}
+
+.settings-sidebar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    height: fit-content;
+    position: sticky;
+    top: 24px;
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+}
+
+.settings-sidebar button {
+    padding: 13px 14px;
+    border-radius: 10px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    text-align: left;
+    display: flex;
+    gap: 10px;
+    font-weight: 500;
+    font-size: 1rem;
+    /* bigger */
+    cursor: pointer;
+    line-height: 1.4;
+    transition: background 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.settings-sidebar button:hover {
+    background: var(--surface-hi);
+    color: var(--text);
+    transform: translateX(2px);
+}
+
+.settings-sidebar button.active {
+    background: var(--accent);
+    color: #fff;
+    box-shadow: 0 6px 16px rgba(34, 211, 238, 0.2);
+}
+
+.settings-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+}
+
+.settings-card h1 {
+    font-family: var(--font-display);
+    margin: 0;
+    font-size: clamp(1.5rem, 4vw, 1.9rem);
+    /* fluid big */
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.settings-sub {
+    color: var(--text-muted);
+    font-size: clamp(0.95rem, 2.5vw, 1.05rem);
+    margin-top: -8px;
+    line-height: 1.5;
+}
+
+.settings-form {
+    display: flex;
+    flex-direction: column;
+    background: transparent;
+    border: none;
+    padding: 0;
+    gap: 2px;
+}
+
+.settings-card>label {
+    font-size: 1rem;
+    /* was 0.82rem - now readable */
+    font-weight: 600;
+    color: var(--text);
+    margin-bottom: 8px;
+    margin-top: 20px;
+    line-height: 1.4;
+}
+
+.settings-card>label:first-of-type {
+    margin-top: 0;
+}
+
+.settings-card>input {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 14px 14px;
+    /* bigger touch */
+    color: var(--text);
+    font-size: 1.05rem;
+    /* was 0.95rem - prevents zoom on iPhone */
+    outline: none;
+    line-height: 1.4;
+}
+
+.settings-card>input:focus {
+    border-color: var(--accent);
+}
+
+.settings-form hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 24px 0 8px;
+}
+
+.avatar-editor {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.settings-avatar-preview {
+    width: 88px;
+    height: 88px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+}
+
+.btn-file {
+    background: var(--surface-hi);
+    border: 1px solid var(--border);
+    padding: 11px 18px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 1rem;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.btn-file:hover {
+    border-color: var(--accent);
+    background: var(--surface);
+    transform: translateY(-1px);
+}
+
+.settings-status {
+    margin-top: 14px;
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.settings-status.success {
+    color: var(--success);
+    background: rgba(78, 203, 143, 0.12);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 1rem;
+}
+
+.settings-status.error {
+    color: var(--danger);
+    background: rgba(226, 99, 90, 0.12);
+    padding: 12px 14px;
+    border-radius: 10px;
+    font-size: 1rem;
+}
+
+.settings-uploading {
+    margin-top: 10px;
+    color: var(--text-muted);
+    font-size: 0.95rem;
+}
+
+.settings-actions {
+    display: flex;
+    gap: 12px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+}
+
+.settings-card button[type='submit'] {
+    background: var(--accent);
+    border: none;
+    color: white;
+    font-weight: 700;
+    padding: 14px 28px;
+    border-radius: var(--radius-sm);
+    font-size: 1.05rem;
+    transition: background 0.15s ease;
+    cursor: pointer;
+    min-height: 48px;
+    cursor: pointer;
+}
+
+.settings-card button[type='submit']:hover:not(:disabled) {
+    background: var(--accent-hover);
+    transform: translateY(-1px);
+}
+
+.settings-card button:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.settings-cancel {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    font-weight: 600;
+    padding: 14px 28px;
+    border-radius: var(--radius-sm);
+    font-size: 1.05rem;
+    transition: all 0.15s ease;
+    cursor: pointer;
+    min-height: 48px;
+}
+
+.settings-cancel:hover {
+    border-color: var(--danger);
+    color: var(--danger);
+}
+
+.setting-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 18px 0;
+    border-bottom: 1px solid var(--border);
+    gap: 16px;
+    font-size: 1.05rem;
+    line-height: 1.4;
+}
+
+.setting-row:last-child {
+    border-bottom: 0;
+}
+
+.setting-row h4,
+.setting-row p {
+    margin: 0;
+}
+
+.setting-row p {
+    margin-top: 4px;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.setting-row select {
+    min-width: 160px;
+    padding: 11px 34px 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-hi);
+    color: var(--text);
+    font: inherit;
+    cursor: pointer;
+}
+
+.setting-row select:focus {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+}
+
+.theme-toggle.big {
+    min-width: 120px;
+    min-height: 42px;
+    padding: 10px 14px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    background: var(--surface-hi);
+    color: var(--text);
+    font-weight: 700;
+    text-transform: capitalize;
+    cursor: pointer;
+    transition: border-color 0.18s ease, background 0.18s ease, transform 0.18s ease;
+}
+
+.theme-toggle.big:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+}
+
+.muted {
+    color: var(--text-muted);
+    font-weight: 400;
+    font-size: 0.95rem;
+    line-height: 1.4;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 900px) {
+    .settings-layout {
+        grid-template-columns: 1fr;
+        padding: 16px;
+        gap: 16px;
+    }
+
+    .settings-sidebar {
+        position: static;
+        flex-direction: row;
+        overflow-x: auto;
+        padding: 8px;
+    }
+
+    .settings-sidebar button {
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    .settings-card {
+        padding: 20px;
+    }
+}
+
+@media (max-width: 600px) {
+    .settings-card {
+        padding: 18px 16px;
+    }
+
+    .settings-card h1 {
+        font-size: 1.5rem;
+    }
+
+    .settings-card>label {
+        font-size: 0.98rem;
+    }
+
+    .settings-card>input {
+        padding: 13px 12px;
+        font-size: 16px;
+        /* critical for iOS */
+    }
+
+    .settings-actions {
+        flex-direction: column;
+    }
+
+    .settings-actions button {
+        width: 100%;
+    }
+
+    .avatar-editor {
+        gap: 14px;
+    }
+
+    .settings-avatar-preview {
+        width: 76px;
+        height: 76px;
+    }
+
+    .setting-row {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .setting-row select,
+    .theme-toggle.big {
+        width: 100%;
+    }
+}

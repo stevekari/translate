@@ -1,0 +1,207 @@
+@import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap');
+@import './styles/navbar.css';
+@import './styles/layout.css';
+@import './styles/auth.css';
+@import './styles/friends.css';
+@import './styles/search.css';
+@import './styles/chat.css';
+@import './styles/settings.css';
+@import './styles/responsive.css';
+@import './styles/voiceMessage.css';
+@import './styles/themecontext.css';
+@import './styles/footer.css';
+@import './styles/mobileNav.css';
+
+/* LIGHT THEME - default */
+:root {
+  --bg: #faf8f2;
+  --surface: #ffffff;
+  --surface-hi: #f5f2e8;
+  --border: #e6dfcf;
+  --text: #1c1811;
+  --text-muted: #857b68;
+  --accent: #d97706;
+  --accent-hover: #b45309;
+  --accent-soft: rgba(217, 119, 6, 0.14);
+  --accent-gold: #f59e0b;
+  --accent-yellow: #eab308;
+  --warn: #eab308;
+  --danger: #ef4444;
+  --success: #10b981;
+  --radius: 14px;
+  --radius-sm: 8px;
+  --radius-pill: 9999px;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-body: 'Inter', sans-serif;
+  --bg-image-opacity: 0.18;
+  --bg-blur: 2px;
+}
+
+/* DARK THEME - warm yellowish gold luxury design */
+[data-theme='dark'] {
+  --bg: #12100c;
+  --surface: #1a1712;
+  --surface-hi: #252019;
+  --border: #3b3226;
+  --text: #fdfaf3;
+  --text-muted: #a69c8a;
+  --accent: #f59e0b;
+  --accent-hover: #fbbf24;
+  --accent-soft: rgba(245, 158, 11, 0.22);
+  --accent-gold: #fbbf24;
+  --accent-yellow: #fde047;
+  --bg-image-opacity: 0.85;
+  --bg-blur: 3px;
+}
+
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(245, 158, 11, 0.35) transparent;
+}
+
+html {
+  scroll-behavior: smooth;
+  overscroll-behavior-y: none;
+}
+
+/* Custom sleek, flexible, smooth scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  margin: 4px 0;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.35);
+  border-radius: 9999px;
+  border: 1.5px solid transparent;
+  background-clip: padding-box;
+  transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(245, 158, 11, 0.75);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background: #fbbf24;
+  background-clip: padding-box;
+}
+
+[data-theme='light'] * {
+  scrollbar-color: rgba(217, 119, 6, 0.3) transparent;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb {
+  background: rgba(217, 119, 6, 0.3);
+  background-clip: padding-box;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(217, 119, 6, 0.7);
+  background-clip: padding-box;
+}
+
+[data-theme='light'] ::-webkit-scrollbar-thumb:active {
+  background: #b45309;
+  background-clip: padding-box;
+}
+
+[data-theme='dark'] * {
+  scrollbar-color: rgba(245, 158, 11, 0.38) transparent;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(245, 158, 11, 0.38);
+  background-clip: padding-box;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:hover {
+  background: rgba(251, 191, 36, 0.8);
+  background-clip: padding-box;
+}
+
+[data-theme='dark'] ::-webkit-scrollbar-thumb:active {
+  background: #fde047;
+  background-clip: padding-box;
+}
+
+html, body, #root {
+  height: 100%;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  overscroll-behavior-y: none;
+}
+
+body {
+  margin: 0;
+  color: var(--text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  background-color: var(--bg);
+  overscroll-behavior-y: none;
+  -webkit-touch-callout: none;
+}
+
+/* Background layer - Subtle, small, centered blurred logo watermark */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: url(./assets/gc.png) center center no-repeat;
+  background-size: min(240px, 45vw);
+  filter: blur(2.5px);
+  z-index: -1;
+  opacity: 0.09;
+  pointer-events: none;
+}
+
+[data-theme='light'] body::before {
+  opacity: 0.07;
+  filter: blur(2px);
+}
+
+button {
+  font-family: var(--font-body);
+  cursor: pointer;
+}
+
+input {
+  font-family: var(--font-body);
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.app-shell {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-main {
+  flex: 1;
+}
+
+.img-round {
+  width: 80px;
+  height: 80px;
+  border-radius: 50px;
+  object-fit: cover;
+  opacity: .7;
+}

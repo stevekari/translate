@@ -1,0 +1,568 @@
+package com.stevechat.controller;
+
+import com.stevechat.dto.ConversationDto;
+import com.stevechat.dto.MessageDto;
+import com.stevechat.dto.ReactionDto;
+import com.stevechat.dto.UserDto;
+import com.stevechat.entity.Conversation;
+import com.stevechat.entity.Message;
+import com.stevechat.entity.MessageReaction;
+import com.stevechat.entity.User;
+import com.stevechat.repository.ConversationRepository;
+import com.stevechat.repository.MessageReactionRepository;
+import com.stevechat.repository.MessageRepository;
+import com.stevechat.repository.UserRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.http.ResponseEntity;
+import org.springframework.messaging.simp.SimpMessagingTemplate;
+import org.springframework.security.core.Authentication;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping({"/conversations", "/api/conversations"})
+@CrossOrigin(origins = "*", allowedHeaders = "*")
+public class ConversationController {
+
+    private final ConversationRepository conversationRepository;
+    private final MessageRepository messageRepository;
+    private final MessageReactionRepository messageReactionRepository;
+    private final UserRepository userRepository;
+    private final ObjectMapper objectMapper;
+    private final SimpMessagingTemplate messagingTemplate;
+
+    public ConversationController(ConversationRepository conversationRepository,
+                                   MessageRepository messageRepository,
+                                   MessageReactionRepository messageReactionRepository,
+                                   UserRepository userRepository,
+                                   ObjectMapper objectMapper,
+                                   SimpMessagingTemplate messagingTemplate) {
+        this.conversationRepository = conversationRepository;
+        this.messageRepository = messageRepository;
+        this.messageReactionRepository = messageReactionRepository;
+        this.userRepository = userRepository;
+        this.objectMapper = objectMapper;
+        this.messagingTemplate = messagingTemplate;
+    }
+
+    private User currentUser(Authentication auth) {
+        return userRepository.findByUsername(auth.getName())
+                .orElseThrow(() -> new RuntimeException("Authenticated user not found"));
+    }
+
+    // Start (or fetch existing) conversation with a friend
+    @PostMapping("/start")
+    public ResponseEntity<?> start(@RequestBody Map<String, Long> body, Authentication auth) {
+        User me = currentUser(auth);
+        Long friendId = body.get("friendId");
+        Long convId = body.get("conversationId");
+
+        Conversation conversation = null;
+        if (convId != null) {
+            conversation = conversationRepository.findById(convId).orElse(null);
+            if (conversation != null) {
+                if (conversation.getUserAId().equals(me.getId())) {
+                    friendId = conversation.getUserBId();
+                } else if (conversation.getUserBId().equals(me.getId())) {
+                    friendId = conversation.getUserAId();
+                }
+            }
+        }
+
+        if (friendId == null || friendId.equals(me.getId())) {
+            return ResponseEntity.badRequest().body("Invalid friendId");
+        }
+        if (!userRepository.existsById(friendId)) {
+            return ResponseEntity.badRequest().body("User not found");
+        }
+
+        Long a = Math.min(me.getId(), friendId);
+        Long b = Math.max(me.getId(), friendId);
+
+        if (conversation == null) {
+            conversation = conversationRepository.save(new Conversation(a, b, me.getId(), "PENDING"));
+
+            Map<String, Object> event = new HashMap<>();
+            event.put("type", "CONVERSATION_PENDING");
+            event.put("conversationId", conversation.getId());
+            event.put("status", "PENDING");
+            event.put("initiatorId", me.getId());
+            event.put("fromUser", new UserDto(me));
+            messagingTemplate.convertAndSend("/topic/conversation." + conversation.getId(), event);
+            messagingTemplate.convertAndSend("/topic/user." + friendId + ".conversations", event);
+            messagingTemplate.convertAndSend("/topic/user." + me.getId() + ".conversations", event);
+        } else if (!"ACCEPTED".equalsIgnoreCase(conversation.getStatus())) {
+            conversation.setStatus("PENDING");
+            conversation.setInitiatorId(me.getId());
+            conversation = conversationRepository.save(conversation);
+
+            Map<String, Object> event = new HashMap<>();
+            event.put("type", "CONVERSATION_PENDING");
+            event.put("conversationId", conversation.getId());
+            event.put("status", "PENDING");
+            event.put("initiatorId", me.getId());
+            event.put("fromUser", new UserDto(me));
+            messagingTemplate.convertAndSend("/topic/conversation." + conversation.getId(), event);
+            messagingTemplate.convertAndSend("/topic/user." + friendId + ".conversations", event);
+            messagingTemplate.convertAndSend("/topic/user." + me.getId() + ".conversations", event);
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("conversationId", conversation.getId());
+        resp.put("status", conversation.getStatus() != null ? conversation.getStatus() : "PENDING");
+        resp.put("initiatorId", conversation.getInitiatorId());
+        return ResponseEntity.ok(resp);
+    }
+
+    // Explicitly send or re-send friend request (without requiring message)
+    @PostMapping("/request")
+    public ResponseEntity<?> sendRequest(@RequestBody Map<String, Long> body, Authentication auth) {
+        User me = currentUser(auth);
+        Long friendId = body.get("friendId");
+
+        if (friendId == null || friendId.equals(me.getId())) {
+            return ResponseEntity.badRequest().body("Invalid friendId");
+        }
+        if (!userRepository.existsById(friendId)) {
+            return ResponseEntity.badRequest().body("User not found");
+        }
+
+        Long a = Math.min(me.getId(), friendId);
+        Long b = Math.max(me.getId(), friendId);
+
+        Conversation conversation = conversationRepository.findByUserAIdAndUserBId(a, b).orElse(null);
+        if (conversation == null) {
+            conversation = new Conversation(a, b, me.getId(), "PENDING");
+        } else {
+            conversation.setStatus("PENDING");
+            conversation.setInitiatorId(me.getId());
+        }
+        conversation = conversationRepository.save(conversation);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "CONVERSATION_PENDING");
+        event.put("conversationId", conversation.getId());
+        event.put("status", "PENDING");
+        event.put("initiatorId", me.getId());
+        event.put("fromUser", new UserDto(me));
+        messagingTemplate.convertAndSend("/topic/conversation." + conversation.getId(), event);
+        messagingTemplate.convertAndSend("/topic/user." + friendId + ".conversations", event);
+        messagingTemplate.convertAndSend("/topic/user." + me.getId() + ".conversations", event);
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("conversationId", conversation.getId());
+        resp.put("status", "PENDING");
+        resp.put("initiatorId", me.getId());
+        return ResponseEntity.ok(resp);
+    }
+
+    // Re-send declined request by conversationId
+    @PostMapping("/{id}/resend")
+    public ResponseEntity<?> resendRequest(@PathVariable Long id, Authentication auth) {
+        User me = currentUser(auth);
+        Conversation conv = conversationRepository.findById(id).orElse(null);
+        if (conv == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!conv.getUserAId().equals(me.getId()) && !conv.getUserBId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Not part of this conversation");
+        }
+
+        conv.setStatus("PENDING");
+        conv.setInitiatorId(me.getId());
+        conversationRepository.save(conv);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "CONVERSATION_PENDING");
+        event.put("conversationId", id);
+        event.put("status", "PENDING");
+        event.put("initiatorId", me.getId());
+        messagingTemplate.convertAndSend("/topic/conversation." + id, event);
+
+        return ResponseEntity.ok(Map.of("success", true, "status", "PENDING", "conversationId", id));
+    }
+
+    // Get relationship status with a specific user
+    @GetMapping("/with/{friendId}")
+    public ResponseEntity<?> getConversationWithUser(@PathVariable Long friendId, Authentication auth) {
+        User me = currentUser(auth);
+        Long a = Math.min(me.getId(), friendId);
+        Long b = Math.max(me.getId(), friendId);
+
+        Conversation conv = conversationRepository.findByUserAIdAndUserBId(a, b).orElse(null);
+        if (conv == null) {
+            return ResponseEntity.ok(Map.of("exists", false, "status", "NONE"));
+        }
+
+        Map<String, Object> resp = new HashMap<>();
+        resp.put("exists", true);
+        resp.put("conversationId", conv.getId());
+        resp.put("status", conv.getStatus() != null ? conv.getStatus() : "ACCEPTED");
+        resp.put("initiatorId", conv.getInitiatorId());
+        resp.put("isInitiator", conv.getInitiatorId() != null && conv.getInitiatorId().equals(me.getId()));
+        return ResponseEntity.ok(resp);
+    }
+
+    // Get single conversation details
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getConversation(@PathVariable Long id, Authentication auth) {
+        User me = currentUser(auth);
+        Conversation conv = conversationRepository.findById(id).orElse(null);
+        if (conv == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!conv.getUserAId().equals(me.getId()) && !conv.getUserBId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Not part of this conversation");
+        }
+
+        Long otherId = conv.getUserAId().equals(me.getId()) ? conv.getUserBId() : conv.getUserAId();
+        User other = userRepository.findById(otherId).orElse(null);
+        UserDto otherDto = other != null ? new UserDto(other) : null;
+
+        Message last = messageRepository
+                .findTopByConversationIdOrderByTimestampDesc(conv.getId())
+                .orElse(null);
+
+        String lastContent = null;
+        if (last != null) {
+            lastContent = last.getIsDeleted() ? "This message was deleted" : last.getContent();
+        }
+
+        ConversationDto dto = new ConversationDto(
+                conv.getId(),
+                otherDto,
+                lastContent,
+                last != null ? last.getTimestamp() : conv.getCreatedAt(),
+                conv.getStatus() != null ? conv.getStatus() : "ACCEPTED",
+                conv.getInitiatorId()
+        );
+        return ResponseEntity.ok(dto);
+    }
+
+    // Accept chat request
+    @PostMapping("/{id}/accept")
+    public ResponseEntity<?> acceptRequest(@PathVariable Long id, Authentication auth) {
+        User me = currentUser(auth);
+        Conversation conv = conversationRepository.findById(id).orElse(null);
+        if (conv == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!conv.getUserAId().equals(me.getId()) && !conv.getUserBId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Not part of this conversation");
+        }
+
+        conv.setStatus("ACCEPTED");
+        conversationRepository.save(conv);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "CONVERSATION_ACCEPTED");
+        event.put("conversationId", id);
+        event.put("status", "ACCEPTED");
+        event.put("acceptedBy", me.getId());
+        messagingTemplate.convertAndSend("/topic/conversation." + id, event);
+        messagingTemplate.convertAndSend("/topic/user." + conv.getUserAId() + ".conversations", event);
+        messagingTemplate.convertAndSend("/topic/user." + conv.getUserBId() + ".conversations", event);
+
+        return ResponseEntity.ok(Map.of("success", true, "status", "ACCEPTED", "conversationId", id));
+    }
+
+    // Decline chat request
+    @PostMapping("/{id}/decline")
+    public ResponseEntity<?> declineRequest(@PathVariable Long id, Authentication auth) {
+        User me = currentUser(auth);
+        Conversation conv = conversationRepository.findById(id).orElse(null);
+        if (conv == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!conv.getUserAId().equals(me.getId()) && !conv.getUserBId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Not part of this conversation");
+        }
+
+        conv.setStatus("DECLINED");
+        conversationRepository.save(conv);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "CONVERSATION_DECLINED");
+        event.put("conversationId", id);
+        event.put("status", "DECLINED");
+        event.put("declinedBy", me.getId());
+        messagingTemplate.convertAndSend("/topic/conversation." + id, event);
+        messagingTemplate.convertAndSend("/topic/user." + conv.getUserAId() + ".conversations", event);
+        messagingTemplate.convertAndSend("/topic/user." + conv.getUserBId() + ".conversations", event);
+
+        return ResponseEntity.ok(Map.of("success", true, "status", "DECLINED", "conversationId", id));
+    }
+
+    // List all of my conversations with a preview of the last message
+    @GetMapping("/mine")
+    public List<ConversationDto> mine(Authentication auth) {
+        User me = currentUser(auth);
+
+        return conversationRepository.findByUserAIdOrUserBId(me.getId(), me.getId())
+                .stream()
+                .map(conv -> {
+                    Long otherId = conv.getUserAId().equals(me.getId()) ? conv.getUserBId() : conv.getUserAId();
+                    User other = userRepository.findById(otherId).orElse(null);
+                    UserDto otherDto = other != null ? new UserDto(other) : null;
+
+                    Message last = messageRepository
+                            .findTopByConversationIdOrderByTimestampDesc(conv.getId())
+                            .orElse(null);
+
+                    String lastContent = null;
+                    if (last != null) {
+                        lastContent = last.getIsDeleted() ? "This message was deleted" : last.getContent();
+                    }
+
+                    return new ConversationDto(
+                            conv.getId(),
+                            otherDto,
+                            lastContent,
+                            last != null ? last.getTimestamp() : conv.getCreatedAt(),
+                            conv.getStatus() != null ? conv.getStatus() : "ACCEPTED",
+                            conv.getInitiatorId()
+                    );
+                })
+                .toList();
+    }
+
+    // Load all messages in a conversation
+    @GetMapping("/{id}/messages")
+    public ResponseEntity<?> getMessages(@PathVariable Long id, Authentication auth) {
+        User me = currentUser(auth);
+        Conversation conv = conversationRepository.findById(id).orElse(null);
+
+        if (conv == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!conv.getUserAId().equals(me.getId()) && !conv.getUserBId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Not part of this conversation");
+        }
+
+        List<Message> messageEntities = messageRepository.findByConversationIdOrderByTimestampAsc(id);
+        List<Long> msgIds = messageEntities.stream().map(Message::getId).toList();
+        Map<Long, List<ReactionDto>> reactionsMap = new HashMap<>();
+        if (!msgIds.isEmpty()) {
+            List<MessageReaction> allReactions = messageReactionRepository.findByMessageIdIn(msgIds);
+            for (MessageReaction r : allReactions) {
+                reactionsMap.computeIfAbsent(r.getMessageId(), k -> new ArrayList<>()).add(new ReactionDto(r));
+            }
+        }
+
+        List<MessageDto> messages = messageEntities.stream()
+                .map(msg -> new MessageDto(msg, reactionsMap.getOrDefault(msg.getId(), List.of())))
+                .toList();
+
+        return ResponseEntity.ok(messages);
+    }
+
+    // Mark messages in a conversation as read
+    @PostMapping("/{id}/read")
+    public ResponseEntity<?> markAsRead(@PathVariable Long id, Authentication auth) {
+        User me = currentUser(auth);
+        Conversation conv = conversationRepository.findById(id).orElse(null);
+        if (conv == null) {
+            return ResponseEntity.ok(Map.of("success", true));
+        }
+        if (!conv.getUserAId().equals(me.getId()) && !conv.getUserBId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Not part of this conversation");
+        }
+
+        List<Message> messages = messageRepository.findByConversationIdOrderByTimestampAsc(id);
+        LocalDateTime now = LocalDateTime.now();
+        boolean updated = false;
+
+        for (Message msg : messages) {
+            if (!msg.getSenderId().equals(me.getId()) && !"READ".equals(msg.getStatus())) {
+                msg.setStatus("READ");
+                msg.setReadAt(now);
+                messageRepository.save(msg);
+                updated = true;
+            }
+        }
+
+        if (updated) {
+            Map<String, Object> receiptEvent = new HashMap<>();
+            receiptEvent.put("conversationId", id);
+            receiptEvent.put("readerId", me.getId());
+            receiptEvent.put("readAt", now.toString());
+            receiptEvent.put("status", "READ");
+
+            messagingTemplate.convertAndSend("/topic/conversation." + id + ".receipts", receiptEvent);
+        }
+
+        return ResponseEntity.ok(Map.of("success", true, "readAt", now.toString()));
+    }
+
+    // Edit message REST endpoint
+    @PutMapping("/messages/{messageId}")
+    public ResponseEntity<?> editMessage(@PathVariable Long messageId, @RequestBody Map<String, String> body, Authentication auth) {
+        User me = currentUser(auth);
+        String newContent = body.get("content");
+        if (newContent == null || newContent.trim().isBlank()) {
+            return ResponseEntity.badRequest().body("Content cannot be empty");
+        }
+
+        Message message = messageRepository.findById(messageId).orElse(null);
+        if (message == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!message.getSenderId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Cannot edit other users' messages");
+        }
+
+        message.setContent(newContent.trim());
+        message.setIsEdited(true);
+        message.setEditedAt(LocalDateTime.now());
+        Message saved = messageRepository.save(message);
+
+        MessageDto dto = new MessageDto(saved, "MESSAGE_EDIT");
+        messagingTemplate.convertAndSend("/topic/conversation." + saved.getConversationId(), dto);
+        return ResponseEntity.ok(dto);
+    }
+
+    // Delete message REST endpoint (Soft delete)
+    @DeleteMapping("/messages/{messageId}")
+    public ResponseEntity<?> deleteMessage(@PathVariable Long messageId, Authentication auth) {
+        User me = currentUser(auth);
+        Message message = messageRepository.findById(messageId).orElse(null);
+        if (message == null) {
+            return ResponseEntity.notFound().build();
+        }
+        if (!message.getSenderId().equals(me.getId())) {
+            return ResponseEntity.status(403).body("Cannot delete other users' messages");
+        }
+
+        message.setIsDeleted(true);
+        message.setContent("This message was deleted");
+        Message saved = messageRepository.save(message);
+
+        MessageDto dto = new MessageDto(saved, "MESSAGE_DELETE");
+        messagingTemplate.convertAndSend("/topic/conversation." + saved.getConversationId(), dto);
+        return ResponseEntity.ok(dto);
+    }
+
+    // Toggle or update emoji reaction on a message
+    @PostMapping({"/messages/{messageId}/react", "/api/messages/{messageId}/react"})
+    public ResponseEntity<?> reactToMessage(@PathVariable Long messageId, @RequestBody Map<String, String> body, Authentication auth) {
+        User me = currentUser(auth);
+        String emoji = body.get("emoji");
+        if (emoji == null || emoji.trim().isBlank()) {
+            return ResponseEntity.badRequest().body(Map.of("error", "Emoji cannot be empty"));
+        }
+        emoji = emoji.trim();
+
+        Message message = messageRepository.findById(messageId).orElse(null);
+        if (message == null) {
+            return ResponseEntity.notFound().build();
+        }
+
+        Conversation conv = conversationRepository.findById(message.getConversationId()).orElse(null);
+        if (conv != null) {
+            if (!conv.getUserAId().equals(me.getId()) && !conv.getUserBId().equals(me.getId())) {
+                return ResponseEntity.status(403).body(Map.of("error", "Not part of this conversation"));
+            }
+        }
+
+        Optional<MessageReaction> existingOpt = messageReactionRepository.findByMessageIdAndUserId(messageId, me.getId());
+        if (existingOpt.isPresent()) {
+            MessageReaction existing = existingOpt.get();
+            if (existing.getEmoji().equals(emoji)) {
+                // Toggle off / remove reaction
+                messageReactionRepository.delete(existing);
+            } else {
+                // Update with new emoji
+                existing.setEmoji(emoji);
+                existing.setCreatedAt(LocalDateTime.now());
+                messageReactionRepository.save(existing);
+            }
+        } else {
+            // Add new reaction
+            MessageReaction newReaction = new MessageReaction(messageId, me.getId(), me.getUsername(), emoji);
+            messageReactionRepository.save(newReaction);
+        }
+
+        List<ReactionDto> updatedReactions = messageReactionRepository.findByMessageId(messageId)
+                .stream()
+                .map(ReactionDto::new)
+                .toList();
+
+        MessageDto dto = new MessageDto(message, updatedReactions, "MESSAGE_REACT");
+        messagingTemplate.convertAndSend("/topic/conversation." + message.getConversationId(), dto);
+        if (conv != null) {
+            messagingTemplate.convertAndSend("/topic/user." + conv.getUserAId() + ".messages", dto);
+            messagingTemplate.convertAndSend("/topic/user." + conv.getUserBId() + ".messages", dto);
+        }
+
+        return ResponseEntity.ok(dto);
+    }
+
+    // List all call history events for current user
+    @GetMapping("/calls")
+    public List<Map<String, Object>> getCalls(Authentication auth) {
+        User me = currentUser(auth);
+        List<Conversation> convs = conversationRepository.findByUserAIdOrUserBId(me.getId(), me.getId());
+        List<Map<String, Object>> callLogs = new ArrayList<>();
+
+        for (Conversation conv : convs) {
+            Long otherId = conv.getUserAId().equals(me.getId()) ? conv.getUserBId() : conv.getUserAId();
+            User other = userRepository.findById(otherId).orElse(null);
+            if (other == null) continue;
+            UserDto otherDto = new UserDto(other);
+
+            List<Message> messages = messageRepository.findByConversationIdOrderByTimestampAsc(conv.getId());
+            for (Message msg : messages) {
+                if (msg.getContent() != null && msg.getContent().contains("\"type\":\"call\"")) {
+                    try {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> parsed = objectMapper.readValue(msg.getContent(), Map.class);
+                        if ("call".equals(parsed.get("type"))) {
+                            Map<String, Object> item = new HashMap<>();
+                            item.put("id", msg.getId());
+                            item.put("conversationId", conv.getId());
+                            item.put("otherUser", otherDto);
+                            item.put("senderId", msg.getSenderId());
+
+                            Object callerIdObj = parsed.get("callerId");
+                            Long callerId = callerIdObj != null ? Long.parseLong(callerIdObj.toString()) : msg.getSenderId();
+                            item.put("callerId", callerId);
+
+                            item.put("mediaType", parsed.getOrDefault("mediaType", "voice"));
+                            item.put("status", parsed.getOrDefault("status", "missed"));
+                            item.put("timestamp", msg.getTimestamp());
+
+                            boolean isCaller = callerId.equals(me.getId());
+                            String direction;
+                            if (isCaller) {
+                                direction = "outgoing";
+                            } else if ("completed".equals(parsed.get("status"))) {
+                                direction = "received";
+                            } else {
+                                direction = "missed";
+                            }
+                            item.put("direction", direction);
+                            callLogs.add(item);
+                        }
+                    } catch (Exception ignored) {}
+                }
+            }
+        }
+
+        callLogs.sort((a, b) -> {
+            Object tA = a.get("timestamp");
+            Object tB = b.get("timestamp");
+            if (tA instanceof java.time.LocalDateTime && tB instanceof java.time.LocalDateTime) {
+                return ((java.time.LocalDateTime) tB).compareTo((java.time.LocalDateTime) tA);
+            }
+            return 0;
+        });
+
+        return callLogs;
+    }
+}

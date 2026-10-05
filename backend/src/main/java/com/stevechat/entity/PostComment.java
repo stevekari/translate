@@ -2,6 +2,8 @@ package com.stevechat.entity;
 
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "post_comments")
@@ -22,6 +24,16 @@ public class PostComment {
     @Column(length = 1000, nullable = false)
     private String content;
 
+    private Long parentCommentId;
+
+    @Column(length = 100)
+    private String replyToUsername;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "comment_likes", joinColumns = @JoinColumn(name = "comment_id"))
+    @Column(name = "user_id")
+    private Set<Long> likedUserIds = new HashSet<>();
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public PostComment() {}
@@ -30,6 +42,15 @@ public class PostComment {
         this.post = post;
         this.user = user;
         this.content = content;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    public PostComment(Post post, User user, String content, Long parentCommentId, String replyToUsername) {
+        this.post = post;
+        this.user = user;
+        this.content = content;
+        this.parentCommentId = parentCommentId;
+        this.replyToUsername = replyToUsername;
         this.createdAt = LocalDateTime.now();
     }
 
@@ -44,6 +65,17 @@ public class PostComment {
 
     public String getContent() { return content; }
     public void setContent(String content) { this.content = content; }
+
+    public Long getParentCommentId() { return parentCommentId; }
+    public void setParentCommentId(Long parentCommentId) { this.parentCommentId = parentCommentId; }
+
+    public String getReplyToUsername() { return replyToUsername; }
+    public void setReplyToUsername(String replyToUsername) { this.replyToUsername = replyToUsername; }
+
+    public Set<Long> getLikedUserIds() { return likedUserIds; }
+    public void setLikedUserIds(Set<Long> likedUserIds) { this.likedUserIds = likedUserIds; }
+
+    public int getLikeCount() { return likedUserIds != null ? likedUserIds.size() : 0; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }

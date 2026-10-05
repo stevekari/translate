@@ -206,6 +206,18 @@ export function useIncomingCallNotifications(userId, onMessage) {
           }
         });
 
+        // User-specific real-time notifications (Post likes, comment likes, comments, mentions)
+        client.subscribe(`/topic/user.${userId}.notifications`, (frame) => {
+          try {
+            const notif = JSON.parse(frame.body);
+            if (notif) {
+              window.dispatchEvent(new CustomEvent('tranchat-notification', { detail: notif }));
+            }
+          } catch (e) {
+            console.warn('Notification parse error', e);
+          }
+        });
+
         // User-specific conversation updates (friend requests sent/received/accepted/declined & message previews)
         client.subscribe(`/topic/user.${userId}.conversations`, (frame) => {
           try {

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getPosts, createPost, toggleLikePost, getPostComments, addComment, deletePost } from '../api/postApi';
+import { getPosts, createPost, toggleLikePost, getPostComments, addComment, toggleLikeComment, deletePost } from '../api/postApi';
 import { startConversation, quickTranslate } from '../api/conversationApi';
 import { uploadMedia } from '../api/mediaApi';
 import { resolveBackendUrl } from '../utils/apiBaseUrl';
@@ -31,6 +31,8 @@ export default function CommunityHome({ user }) {
   // Active comments accordion: { [postId]: { open: boolean, loading: boolean, list: [] } }
   const [commentsState, setCommentsState] = useState({});
   const [commentInputs, setCommentInputs] = useState({});
+  const [replyingTo, setReplyingTo] = useState({}); // { [postId]: { commentId, username, displayName } }
+  const commentInputRefs = useRef({});
 
   // Lightbox
   const [lightboxMedia, setLightboxMedia] = useState(null);
@@ -181,13 +183,43 @@ export default function CommunityHome({ user }) {
     }
   };
 
-  // Submit Comment
+  // Start Reply to a specific comment
+  const handleStartReply = (postId, comment) => {
+    setReplyingTo((prev) => ({
+      ...prev,
+      [postId]: {
+        commentId: comment.id,
+        username: comment.username,
+        displayName: comment.displayName || comment.username,
+      },
+    }));
+    setTimeout(() => {
+      commentInputRefs.current[postId]?.focus();
+    }, 50);
+  };
+
+  // Cancel Reply mode
+  const handleCancelReply = (postId) => {
+    setReplyingTo((prev) => ({
+      ...prev,
+      [postId]: null,
+    }));
+  };
+
+  // Submit Comment / Reply
   const handleAddComment = async (postId) => {
     const text = commentInputs[postId]?.trim();
     if (!text) return;
 
+    const replyContext = replyingTo[postId];
+
     try {
-      const newComment = await addComment(postId, text);
+      const newComment = await addComment(postId, {
+        content: text,
+        parentCommentId: replyContext?.commentId || null,
+        replyToUsername: replyContext?.username || null,
+      });
+
       setCommentsState((prev) => ({
         ...prev,
         [postId]: {
@@ -199,9 +231,52 @@ export default function CommunityHome({ user }) {
         prev.map((p) => (p.id === postId ? { ...p, commentsCount: p.commentsCount + 1 } : p))
       );
       setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
+      setReplyingTo((prev) => ({ ...prev, [postId]: null }));
     } catch (err) {
       console.error('Error adding comment:', err);
-      alert('Failed to post comment.');
+      alert('Failed to post reply.');
+    }
+  };
+
+  // Toggle Like on Comment
+  const handleToggleCommentLike = async (postId, commentId) => {
+    try {
+      // Optimistic update
+      setCommentsState((prev) => {
+        const currentPostComments = prev[postId]?.list || [];
+        const updatedList = currentPostComments.map((c) => {
+          if (c.id === commentId) {
+            const willLike = !c.likedByMe;
+            return {
+              ...c,
+              likedByMe: willLike,
+              likeCount: willLike ? (c.likeCount || 0) + 1 : Math.max(0, (c.likeCount || 0) - 1),
+            };
+          }
+          return c;
+        });
+        return {
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            list: updatedList,
+          },
+        };
+      });
+
+      const updated = await toggleLikeComment(postId, commentId);
+      setCommentsState((prev) => {
+        const currentPostComments = prev[postId]?.list || [];
+        return {
+          ...prev,
+          [postId]: {
+            ...prev[postId],
+            list: currentPostComments.map((c) => (c.id === commentId ? updated : c)),
+          },
+        };
+      });
+    } catch (err) {
+      console.error('Error liking comment:', err);
     }
   };
 
@@ -788,69 +863,172 @@ export default function CommunityHome({ user }) {
                   </button>
                 </footer>
 
-                {/* Comments Accordion Section */}
+                {/* Comments Section (X / Twitter Style) */}
                 {commentsInfo.open && (
-                  <div className="post-comments-drawer">
-                    <div className="comments-divider"></div>
+                  <div className="x-comments-section">
+                    <div className="x-comments-divider"></div>
 
                     {/* Comments List */}
-                    <div className="comments-list">
+                    <div className="x-comments-list">
                       {commentsInfo.loading ? (
-                        <div className="comments-loading">
+                        <div className="x-comments-loading">
                           <i className="fa-solid fa-circle-notch fa-spin"></i>
-                          <span>Loading comments...</span>
+                          <span>Loading replies...</span>
                         </div>
                       ) : commentsInfo.list.length === 0 ? (
-                        <p className="no-comments-text">No comments yet. Start the conversation!</p>
+                        <div className="x-no-comments">
+                          <i className="fa-regular fa-comments x-empty-icon"></i>
+                          <p>No replies yet. Be the first to start the conversation!</p>
+                        </div>
                       ) : (
-                        commentsInfo.list.map((c) => (
-                          <div key={c.id} className="comment-item">
-                            <div className="comment-avatar">
-                              {c.avatarUrl ? (
-                                <img src={resolveBackendUrl(c.avatarUrl)} alt={c.username} />
-                              ) : (
-                                <div className="comment-avatar-fallback">
-                                  {(c.displayName || c.username || 'U')[0].toUpperCase()}
+                        commentsInfo.list.map((c, idx) => {
+                          const isLast = idx === commentsInfo.list.length - 1;
+                          return (
+                            <div key={c.id} className="x-comment-row">
+                              {/* Left Avatar & Connecting Thread Line */}
+                              <div className="x-avatar-col">
+                                <div className="x-author-avatar">
+                                  {c.avatarUrl ? (
+                                    <img src={resolveBackendUrl(c.avatarUrl)} alt={c.username} />
+                                  ) : (
+                                    <div className="x-avatar-fallback">
+                                      {(c.displayName || c.username || 'U')[0].toUpperCase()}
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                            <div className="comment-bubble">
-                              <div className="comment-header-row">
-                                <span className="comment-author-name">{c.displayName || c.username}</span>
-                                <span className="comment-time">{formatTimeAgo(c.createdAt)}</span>
+                                {!isLast && <div className="x-thread-line"></div>}
                               </div>
-                              <p className="comment-content">{c.content}</p>
+
+                              {/* Right Content */}
+                              <div className="x-comment-body">
+                                <div className="x-comment-header">
+                                  <span className="x-author-name">{c.displayName || c.username}</span>
+                                  <span className="x-author-handle">@{c.username}</span>
+                                  <span className="x-dot-sep">·</span>
+                                  <span className="x-comment-time">{formatTimeAgo(c.createdAt)}</span>
+                                </div>
+
+                                {/* Replying to handle indicator (like on X) */}
+                                {c.replyToUsername && (
+                                  <div className="x-replying-indicator">
+                                    <span>Replying to</span>
+                                    <span className="x-reply-target">@{c.replyToUsername}</span>
+                                  </div>
+                                )}
+
+                                <p className="x-comment-text">{c.content}</p>
+
+                                {/* X-Style Action Row */}
+                                <div className="x-action-row">
+                                  {/* Reply Button */}
+                                  <button
+                                    type="button"
+                                    className="x-action-btn x-reply-btn"
+                                    onClick={() => handleStartReply(post.id, c)}
+                                    title={`Reply to @${c.username}`}
+                                  >
+                                    <i className="fa-regular fa-comment"></i>
+                                    <span className="x-action-label">Reply</span>
+                                  </button>
+
+                                  {/* Like Button */}
+                                  <button
+                                    type="button"
+                                    className={`x-action-btn x-like-btn ${c.likedByMe ? 'liked' : ''}`}
+                                    onClick={() => handleToggleCommentLike(post.id, c.id)}
+                                    title={c.likedByMe ? 'Unlike' : 'Like'}
+                                  >
+                                    <i className={`fa-${c.likedByMe ? 'solid' : 'regular'} fa-heart x-heart-icon`}></i>
+                                    {(c.likeCount > 0 || c.likedByMe) && (
+                                      <span className="x-action-count">{c.likeCount || 0}</span>
+                                    )}
+                                  </button>
+
+                                  {/* Copy / Share Button */}
+                                  <button
+                                    type="button"
+                                    className="x-action-btn x-share-btn"
+                                    onClick={() => {
+                                      navigator.clipboard?.writeText(c.content);
+                                      alert('Comment text copied!');
+                                    }}
+                                    title="Copy text"
+                                  >
+                                    <i className="fa-regular fa-copy"></i>
+                                  </button>
+                                </div>
+                              </div>
                             </div>
-                          </div>
-                        ))
+                          );
+                        })
                       )}
                     </div>
 
-                    {/* Add Comment Input */}
-                    <form
-                      className="add-comment-form"
-                      onSubmit={(e) => {
-                        e.preventDefault();
-                        handleAddComment(post.id);
-                      }}
-                    >
-                      <input
-                        type="text"
-                        className="comment-input"
-                        placeholder="Write a comment..."
-                        value={commentInputs[post.id] || ''}
-                        onChange={(e) =>
-                          setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
-                        }
-                      />
-                      <button
-                        type="submit"
-                        className="comment-send-btn"
-                        disabled={!commentInputs[post.id]?.trim()}
+                    {/* X-Style Reply Composer */}
+                    <div className="x-composer-wrapper">
+                      {/* Replying-to Active Capsule Banner */}
+                      {replyingTo[post.id] && (
+                        <div className="x-reply-active-banner">
+                          <div className="x-reply-badge">
+                            <i className="fa-solid fa-reply"></i>
+                            <span>Replying to <strong>@{replyingTo[post.id].username}</strong></span>
+                          </div>
+                          <button
+                            type="button"
+                            className="x-reply-cancel-btn"
+                            onClick={() => handleCancelReply(post.id)}
+                            title="Cancel reply"
+                          >
+                            <i className="fa-solid fa-xmark"></i>
+                          </button>
+                        </div>
+                      )}
+
+                      <form
+                        className="x-reply-form"
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleAddComment(post.id);
+                        }}
                       >
-                        <i className="fa-solid fa-arrow-up"></i>
-                      </button>
-                    </form>
+                        <div className="x-form-avatar">
+                          {user?.avatarUrl ? (
+                            <img src={resolveBackendUrl(user.avatarUrl)} alt={user.username} />
+                          ) : (
+                            <div className="x-form-avatar-fallback">
+                              {(user?.displayName || user?.username || 'U')[0].toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="x-form-input-col">
+                          <input
+                            type="text"
+                            ref={(el) => {
+                              commentInputRefs.current[post.id] = el;
+                            }}
+                            className="x-reply-input"
+                            placeholder={
+                              replyingTo[post.id]
+                                ? `Post your reply to @${replyingTo[post.id].username}...`
+                                : "Post your reply..."
+                            }
+                            value={commentInputs[post.id] || ''}
+                            onChange={(e) =>
+                              setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
+                            }
+                          />
+                        </div>
+
+                        <button
+                          type="submit"
+                          className="x-reply-submit-btn"
+                          disabled={!commentInputs[post.id]?.trim()}
+                        >
+                          <span>{replyingTo[post.id] ? 'Reply' : 'Post'}</span>
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 )}
               </article>

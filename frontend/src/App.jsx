@@ -20,6 +20,7 @@ import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { LanguageProvider } from './contexts/LanguageContext';
 import { useIncomingCallNotifications } from './hooks/useIncomingCallNotifications';
 import IncomingCallPopup from './components/IncomingCallPopup';
+import TopNotificationToast from './components/TopNotificationToast';
 
 function RequireAuth({ isAuthenticated, children }) {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -81,6 +82,7 @@ export default function App() {
     <LanguageProvider>
       <div className={`app-shell ${isChatOpen ? 'is-chat-active' : ''} ${isAuthenticated ? 'is-authenticated' : ''}`}>
         <Navbar user={user} onLogout={logout} isChatOpen={isChatOpen} />
+        <TopNotificationToast />
         <IncomingCallManager user={user} />
         <main className="app-main">
           <Routes>

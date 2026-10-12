@@ -1,5 +1,5 @@
 import { useDispatch, useSelector } from 'react-redux';
-import { resolveAvatarUrl } from '../utils/avatarUrl';
+import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import { parseMessageContent } from '../utils/messageContent';
 import { formatTimeAgo } from '../utils/timeAgo';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -42,6 +42,8 @@ export default function FriendCard({
   currentUserId,
   onClick,
   onAvatarClick,
+  onDelete,
+  onContextMenu,
   active = false
 }) {
   const dispatch = useDispatch();
@@ -95,9 +97,24 @@ export default function FriendCard({
   };
 
   return (
-    <div className={`friend-card ${active ? 'active' : ''}`} onClick={handleClick}>
+    <div
+      className={`friend-card ${active ? 'active' : ''}`}
+      onClick={handleClick}
+      onContextMenu={(e) => {
+        if (onContextMenu) {
+          e.preventDefault();
+          e.stopPropagation();
+          onContextMenu(e, friend, conversationId);
+        }
+      }}
+    >
       <div className="friend-avatar-wrap" onClick={handleAvatarClick} title="View profile">
-        <img className="friend-avatar" src={avatarSrc} alt={displayName} />
+        <img
+          className="friend-avatar"
+          src={avatarSrc}
+          alt={displayName}
+          onError={(e) => handleAvatarError(e, displayName || friend?.username)}
+        />
         <span
           className={`online-dot ${statusType}`}
           aria-label={statusLabel}
@@ -114,6 +131,21 @@ export default function FriendCard({
             )}
           </div>
           {time && <div className="friend-time">{time}</div>}
+          {onDelete && (
+            <div className="friend-card-quick-actions">
+              <button
+                type="button"
+                className="friend-card-trash-btn"
+                title={`Delete friend @${friend?.username || ''}`}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onDelete(friend, e, conversationId);
+                }}
+              >
+                <i className="fa-solid fa-trash-can"></i>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="friend-bottom">

@@ -11,11 +11,13 @@ import com.stevechat.entity.User;
 import com.stevechat.repository.ConversationRepository;
 import com.stevechat.repository.MessageReactionRepository;
 import com.stevechat.repository.MessageRepository;
+import com.stevechat.repository.MessageTranslationRepository;
 import com.stevechat.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.http.ResponseEntity;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.Authentication;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
@@ -33,6 +35,7 @@ public class ConversationController {
     private final ConversationRepository conversationRepository;
     private final MessageRepository messageRepository;
     private final MessageReactionRepository messageReactionRepository;
+    private final MessageTranslationRepository messageTranslationRepository;
     private final UserRepository userRepository;
     private final ObjectMapper objectMapper;
     private final SimpMessagingTemplate messagingTemplate;
@@ -40,12 +43,14 @@ public class ConversationController {
     public ConversationController(ConversationRepository conversationRepository,
                                    MessageRepository messageRepository,
                                    MessageReactionRepository messageReactionRepository,
+                                   MessageTranslationRepository messageTranslationRepository,
                                    UserRepository userRepository,
                                    ObjectMapper objectMapper,
                                    SimpMessagingTemplate messagingTemplate) {
         this.conversationRepository = conversationRepository;
         this.messageRepository = messageRepository;
         this.messageReactionRepository = messageReactionRepository;
+        this.messageTranslationRepository = messageTranslationRepository;
         this.userRepository = userRepository;
         this.objectMapper = objectMapper;
         this.messagingTemplate = messagingTemplate;
@@ -304,7 +309,19 @@ public class ConversationController {
     public List<ConversationDto> mine(Authentication auth) {
         User me = currentUser(auth);
 
-        return conversationRepository.findByUserAIdOrUserBId(me.getId(), me.getId())
+        List<Conversation> all = conversationRepository.findByUserAIdOrUserBId(me.getId(), me.getId());
+        java.util.Map<Long, Conversation> uniqueByOtherUser = new java.util.LinkedHashMap<>();
+        for (Conversation conv : all) {
+            Long otherId = conv.getUserAId().equals(me.getId()) ? conv.getUserBId() : conv.getUserAId();
+            if (otherId.equals(me.getId())) {
+                continue;
+            }
+            if (!uniqueByOtherUser.containsKey(otherId)) {
+                uniqueByOtherUser.put(otherId, conv);
+            }
+        }
+
+        return uniqueByOtherUser.values()
                 .stream()
                 .map(conv -> {
                     Long otherId = conv.getUserAId().equals(me.getId()) ? conv.getUserBId() : conv.getUserAId();
@@ -425,6 +442,62 @@ public class ConversationController {
         MessageDto dto = new MessageDto(saved, "MESSAGE_EDIT");
         messagingTemplate.convertAndSend("/topic/conversation." + saved.getConversationId(), dto);
         return ResponseEntity.ok(dto);
+    }
+
+    // Delete conversation and its messages
+    @DeleteMapping("/{conversationId}")
+    @Transactional
+    public ResponseEntity<?> deleteConversation(@PathVariable Long conversationId, Authentication auth) {
+        User me = currentUser(auth);
+        Conversation conversation = conversationRepository.findById(conversationId).orElse(null);
+        if (conversation == null) {
+            return ResponseEntity.ok(Map.of("message", "Conversation already removed", "conversationId", conversationId));
+        }
+        if (!conversation.getUserAId().equals(me.getId()) && !conversation.getUserBId().equals(me.getId())) {
+            return ResponseEntity.status(403).body(Map.of("error", "Unauthorized to delete this conversation"));
+        }
+
+        List<Message> messages = messageRepository.findByConversationIdOrderByTimestampAsc(conversationId);
+        for (Message m : messages) {
+            messageReactionRepository.deleteByMessageId(m.getId());
+            messageTranslationRepository.findByMessageId(m.getId()).forEach(messageTranslationRepository::delete);
+            messageRepository.delete(m);
+        }
+        conversationRepository.delete(conversation);
+
+        Map<String, Object> event = new HashMap<>();
+        event.put("type", "CONVERSATION_DELETED");
+        event.put("conversationId", conversationId);
+        messagingTemplate.convertAndSend("/topic/user." + me.getId() + ".conversations", event);
+        messagingTemplate.convertAndSend("/topic/user." + (conversation.getUserAId().equals(me.getId()) ? conversation.getUserBId() : conversation.getUserAId()) + ".conversations", event);
+
+        return ResponseEntity.ok(Map.of("message", "Conversation deleted successfully", "conversationId", conversationId));
+    }
+
+    // Delete conversation with a specific friend (by friend ID)
+    @DeleteMapping("/with/{friendId}")
+    @Transactional
+    public ResponseEntity<?> deleteConversationWithFriend(@PathVariable Long friendId, Authentication auth) {
+        User me = currentUser(auth);
+        Long a = Math.min(me.getId(), friendId);
+        Long b = Math.max(me.getId(), friendId);
+
+        List<Conversation> convs = conversationRepository.findAll().stream()
+                .filter(c -> (c.getUserAId().equals(a) && c.getUserBId().equals(b)) ||
+                             (c.getUserAId().equals(b) && c.getUserBId().equals(a)))
+                .toList();
+
+        for (Conversation conversation : convs) {
+            List<Message> messages = messageRepository.findByConversationIdOrderByTimestampAsc(conversation.getId());
+            for (Message m : messages) {
+                messageReactionRepository.deleteByMessageId(m.getId());
+                messageTranslationRepository.findByMessageId(m.getId()).forEach(messageTranslationRepository::delete);
+                messageRepository.delete(m);
+            }
+            conversationRepository.delete(conversation);
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Conversation with friend removed successfully", "friendId", friendId));
     }
 
     // Delete message REST endpoint (Soft delete)

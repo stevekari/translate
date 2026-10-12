@@ -132,4 +132,14 @@ export async function reactToMessage(messageId, emoji) {
   return res.data;
 }
 
+export function deleteConversation(conversationId) {
+  if (!conversationId) return Promise.resolve(null);
+  return api.delete(`/conversations/${conversationId}`).then((res) => res.data).catch(() => ({}));
+}
+
+export function deleteConversationWithUser(friendId) {
+  if (!friendId) return Promise.resolve(null);
+  return api.delete(`/conversations/with/${friendId}`).then((res) => res.data).catch(() => ({}));
+}
+
 

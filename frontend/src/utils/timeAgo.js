@@ -55,3 +55,75 @@ export function formatJoinedDate(dateInput) {
   return `Joined ${monthName} ${year}`;
 }
 
+export function getUserActivitySummary(isOnline, lastSeen, customStatus) {
+  if (isOnline) {
+    return {
+      statusText: 'Active now (Online)',
+      badgeClass: 'online',
+      isRecent: true,
+      label: '🟢 Active now',
+      color: '#10b981',
+      warning: '⚠️ This user is currently ONLINE and using the app right now!'
+    };
+  }
+
+  if (lastSeen) {
+    const date = new Date(lastSeen);
+    const now = new Date();
+    const diffMs = Math.max(0, now.getTime() - date.getTime());
+    const diffMinutes = Math.floor(diffMs / (1000 * 60));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMinutes < 60) {
+      const minText = diffMinutes <= 1 ? 'just now' : `${diffMinutes}m ago`;
+      return {
+        statusText: `Active ${minText}`,
+        badgeClass: 'recent',
+        isRecent: true,
+        label: `🕒 Active ${minText}`,
+        color: '#10b981',
+        warning: `⚠️ This user was active ${minText}!`
+      };
+    }
+    if (diffDays === 0) {
+      return {
+        statusText: `Active today (${diffHours}h ago)`,
+        badgeClass: 'recent',
+        isRecent: true,
+        label: `🕒 Active ${diffHours}h ago`,
+        color: '#10b981',
+        warning: `⚠️ This user was active today (${diffHours} hours ago)!`
+      };
+    }
+    if (diffDays <= 7) {
+      return {
+        statusText: `Active ${diffDays} day${diffDays > 1 ? 's' : ''} ago`,
+        badgeClass: 'recent',
+        isRecent: true,
+        label: `🕒 Active ${diffDays}d ago`,
+        color: '#f59e0b',
+        warning: `⚠️ This user was active recently (${diffDays} day${diffDays > 1 ? 's' : ''} ago)!`
+      };
+    }
+    return {
+      statusText: `Inactive for ${diffDays} days`,
+      badgeClass: 'inactive',
+      isRecent: false,
+      label: `⚪ Inactive (${diffDays}d ago)`,
+      color: '#94a3b8',
+      warning: `This user has been inactive for ${diffDays} days.`
+    };
+  }
+
+  return {
+    statusText: 'Never logged in / Inactive',
+    badgeClass: 'inactive',
+    isRecent: false,
+    label: '⚪ Inactive',
+    color: '#94a3b8',
+    warning: 'This account has no recorded activity.'
+  };
+}
+
+

@@ -15,6 +15,7 @@ public class UserDto {
     private Boolean autoTranslate;
     private LocalDateTime lastSeen;
     private LocalDateTime createdAt;
+    private String authProvider;
 
     public UserDto() {}
 
@@ -31,6 +32,7 @@ public class UserDto {
             this.autoTranslate = user.getAutoTranslate();
             this.lastSeen = user.getLastSeen();
             this.createdAt = user.getCreatedAt();
+            this.authProvider = user.getAuthProvider();
         }
     }
 
@@ -66,4 +68,8 @@ public class UserDto {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getAuthProvider() { return authProvider != null ? authProvider : "local"; }
+    public void setAuthProvider(String authProvider) { this.authProvider = authProvider; }
+    public Boolean getIsGoogleAccount() { return "google".equalsIgnoreCase(authProvider); }
 }

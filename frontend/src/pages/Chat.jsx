@@ -8,18 +8,23 @@ import {
   acceptChatRequest,
   declineChatRequest,
   resendChatRequest,
+  deleteConversation,
+  deleteConversationWithUser,
 } from '../api/conversationApi';
-import { searchUsers, getPresenceMap, updateProfile } from '../api/userApi';
+import { searchUsers, getPresenceMap, updateProfile, blockUser, unblockUser, checkIsBlocked } from '../api/userApi';
 import { useWebSocket } from '../hooks/useWebSocket';
 import MessageBubble from '../components/MessageBubble';
 import ChatInput from '../components/ChatInput';
 import FriendCard from '../components/FriendCard';
 import UserProfileModal from '../components/UserProfileModal';
+import FriendContextMenu from '../components/FriendContextMenu';
+import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LanguagePickerModal from '../components/LanguagePickerModal';
 import { getLanguageInfo } from '../utils/languages';
 import { getMessagePreview } from '../utils/messageContent';
 import { resolveAvatarUrl } from '../utils/avatarUrl';
-import { formatTimeAgo } from '../utils/timeAgo';
+import { formatTimeAgo, getUserActivitySummary } from '../utils/timeAgo';
+import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useWebRTCCall } from '../hooks/useWebRTCCall';
 import CallPanel from '../components/CallPanel';
@@ -59,6 +64,99 @@ export default function Chat({ currentUserId, currentUser }) {
   const [showChatLangModal, setShowChatLangModal] = useState(false);
   const [chatLanguage, setChatLanguage] = useState(currentUser?.preferredLanguage || language || 'en');
   const [autoTranslate, setAutoTranslate] = useState(Boolean(currentUser?.autoTranslate));
+  const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, friend: null, conversationId: null });
+  const [deleteModalTarget, setDeleteModalTarget] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isFriendBlocked, setIsFriendBlocked] = useState(false);
+  const [isBlockedByFriend, setIsBlockedByFriend] = useState(false);
+
+  useEffect(() => {
+    const fId = friend?.id || friend?.userId || friend?._id;
+    if (!fId) {
+      setIsFriendBlocked(false);
+      setIsBlockedByFriend(false);
+      return;
+    }
+    checkIsBlocked(fId)
+      .then((res) => {
+        if (res) {
+          setIsFriendBlocked(Boolean(res.blockedByMe));
+          setIsBlockedByFriend(Boolean(res.blockedByThem));
+        }
+      })
+      .catch(() => {});
+  }, [friend]);
+
+  const handleToggleBlockFriend = async (targetFriend = friend) => {
+    const fId = targetFriend?.id || targetFriend?.userId || targetFriend?._id;
+    if (!fId) return;
+    try {
+      if (isFriendBlocked) {
+        await unblockUser(fId);
+        setIsFriendBlocked(false);
+      } else {
+        await blockUser(fId);
+        setIsFriendBlocked(true);
+      }
+    } catch (err) {
+      console.error('Failed to toggle block:', err);
+    }
+  };
+
+  const handleContextMenu = (e, targetFriend, cId) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      friend: targetFriend,
+      conversationId: cId
+    });
+  };
+
+  const handleDeleteFriend = (targetFriend, e, cId) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    setContextMenu({ visible: false, x: 0, y: 0, friend: null, conversationId: null });
+    setDeleteModalTarget({ friend: targetFriend, conversationId: cId });
+  };
+
+  const handleConfirmDelete = async (targetFriend, deleteMedia) => {
+    const fId = targetFriend?.id || targetFriend?.userId || targetFriend?._id;
+    const cId = deleteModalTarget?.conversationId;
+    setIsDeleting(true);
+
+    // Persistently mark as deleted in localStorage so refreshing never brings them back
+    markFriendAsDeleted(fId, targetFriend?.username);
+
+    // Optimistically remove from conversations list and search
+    setConversations((prev) => (Array.isArray(prev) ? prev.filter((c) => c.conversationId !== cId && c.otherUser?.id !== fId && c.otherUser?.userId !== fId) : []));
+    setSearchResults((prev) => (Array.isArray(prev) ? prev.filter((u) => u.id !== fId && u.userId !== fId) : []));
+
+    // If currently chatting with this friend, navigate back to /friends
+    if (String(fId) === String(friend?.id) || (cId && String(cId) === String(conversationId))) {
+      navigate('/friends');
+    }
+
+    try {
+      const promises = [];
+      if (cId) {
+        promises.push(deleteConversation(cId));
+      }
+      if (fId) {
+        promises.push(deleteConversationWithUser(fId));
+      }
+      await Promise.allSettled(promises);
+    } catch (err) {
+      console.warn('Backend delete completed with warnings:', err);
+    } finally {
+      setIsDeleting(false);
+      setDeleteModalTarget(null);
+    }
+  };
 
   useEffect(() => {
     if (currentUser?.preferredLanguage) {
@@ -118,7 +216,9 @@ export default function Chat({ currentUserId, currentUser }) {
   }, []);
 
   const safeMessages = Array.isArray(messages) ? messages : [];
-  const safeConversations = Array.isArray(conversations) ? conversations : [];
+  const safeConversations = (Array.isArray(conversations) ? conversations : []).filter(
+    (c) => !isFriendDeleted(c?.otherUser) && (c.status === 'ACCEPTED' || String(c.conversationId) === String(conversationId))
+  );
 
   useEffect(() => {
     scrollToBottom(safeMessages.length <= 1 ? 'auto' : 'smooth');
@@ -375,7 +475,8 @@ export default function Chat({ currentUserId, currentUser }) {
     setSidebarLoading(true);
     getMyConversations()
       .then((conversationsData) => {
-        const sorted = sortConversations(conversationsData);
+        const filtered = (conversationsData || []).filter((c) => !isFriendDeleted(c?.otherUser));
+        const sorted = sortConversations(filtered);
         setConversations(sorted);
 
         const currentConversation = sorted.find(
@@ -520,6 +621,7 @@ export default function Chat({ currentUserId, currentUser }) {
   }, [trimmedSearch, dispatch]);
 
   const handleSelectFromSearch = (nextFriend) => {
+    unmarkFriendDeleted(nextFriend?.id || nextFriend?.userId, nextFriend?.username);
     setSearch('');
     setSearchFocused(false);
     setSelectedProfileUser(nextFriend);
@@ -578,6 +680,8 @@ export default function Chat({ currentUserId, currentUser }) {
                     <FriendCard
                       friend={nextFriend}
                       onAvatarClick={(f) => handleSelectFromSearch(f)}
+                      onContextMenu={(e, f) => handleContextMenu(e, f)}
+                      onDelete={(f, e) => handleDeleteFriend(f, e)}
                     />
                   </div>
                 ))}
@@ -606,6 +710,8 @@ export default function Chat({ currentUserId, currentUser }) {
                 initiatorId={conv.initiatorId}
                 currentUserId={currentUserId}
                 onAvatarClick={(f) => setSelectedProfileUser(f)}
+                onContextMenu={(e, f, cId) => handleContextMenu(e, f, cId)}
+                onDelete={(f, e, cId) => handleDeleteFriend(f, e, cId)}
                 onClick={() => navigate(`/chat/${conv.conversationId}`, { state: { friend: conv.otherUser } })}
                 active={friend?.id === conv.otherUser?.id}
               />
@@ -683,9 +789,9 @@ export default function Chat({ currentUserId, currentUser }) {
                     type="button"
                     className="chat-call-btn voice-call-btn"
                     onClick={() => call.startCall('voice')}
-                    disabled={call.callState !== 'idle' || !isAccepted}
+                    disabled={call.callState !== 'idle' || !isAccepted || isFriendBlocked || isBlockedByFriend}
                     aria-label="Start voice call"
-                    title={!isAccepted ? 'Calls available once request is accepted' : 'Start voice call'}
+                    title={isFriendBlocked ? 'Unblock user to make voice calls' : !isAccepted ? 'Calls available once request is accepted' : 'Start voice call'}
                   >
                     <i className="fa-solid fa-phone"></i>
                   </button>
@@ -694,11 +800,62 @@ export default function Chat({ currentUserId, currentUser }) {
                     type="button"
                     className="chat-call-btn video-call-btn"
                     onClick={() => call.startCall('video')}
-                    disabled={call.callState !== 'idle' || !isAccepted}
+                    disabled={call.callState !== 'idle' || !isAccepted || isFriendBlocked || isBlockedByFriend}
                     aria-label="Start video call"
-                    title={!isAccepted ? 'Calls available once request is accepted' : 'Start video call'}
+                    title={isFriendBlocked ? 'Unblock user to make video calls' : !isAccepted ? 'Calls available once request is accepted' : 'Start video call'}
                   >
                     <i className="fa-solid fa-video"></i>
+                  </button>
+                </div>
+
+                <div className="chat-header-divider" />
+
+                <div className="chat-header-actions-extra" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  {isFriendBlocked && (
+                    <span
+                      style={{
+                        background: 'rgba(239, 68, 68, 0.2)',
+                        color: '#f87171',
+                        border: '1px solid rgba(239, 68, 68, 0.35)',
+                        padding: '4px 8px',
+                        borderRadius: '6px',
+                        fontSize: '0.75rem',
+                        fontWeight: 600,
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '4px'
+                      }}
+                    >
+                      <i className="fa-solid fa-ban"></i> Blocked
+                    </span>
+                  )}
+
+                  <button
+                    type="button"
+                    className="chat-call-btn"
+                    style={{
+                      background: isFriendBlocked ? 'rgba(99, 102, 241, 0.2)' : 'rgba(239, 68, 68, 0.12)',
+                      color: isFriendBlocked ? '#818cf8' : '#ef4444',
+                      border: isFriendBlocked ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid rgba(239, 68, 68, 0.25)',
+                    }}
+                    onClick={() => handleToggleBlockFriend(friend)}
+                    title={isFriendBlocked ? `Unblock @${friend?.username || 'user'}` : `Block @${friend?.username || 'user'}`}
+                  >
+                    <i className={`fa-solid ${isFriendBlocked ? 'fa-user-check' : 'fa-ban'}`}></i>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="chat-call-btn"
+                    style={{
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      color: '#f87171',
+                      border: '1px solid rgba(239, 68, 68, 0.2)',
+                    }}
+                    onClick={(e) => handleDeleteFriend(friend, e, conversationId)}
+                    title="Delete chat"
+                  >
+                    <i className="fa-solid fa-trash-can"></i>
                   </button>
                 </div>
               </div>
@@ -958,23 +1115,81 @@ export default function Chat({ currentUserId, currentUser }) {
           onEnd={call.callState === 'incoming' ? call.rejectCall : call.endCall}
         />
 
-        <ChatInput
-          onSend={handleSend}
-          onTyping={sendTyping}
-          replyingTo={replyingTo}
-          onCancelReply={() => setReplyingTo(null)}
-          editingMessage={editingMessage}
-          onSaveEdit={handleSaveEdit}
-          onCancelEdit={() => setEditingMessage(null)}
-          disabled={!isAccepted && isRecipient ? true : isDeclined ? true : false}
-          disabledPlaceholder={
-            isRecipient
-              ? 'Accept chat request to send messages...'
-              : isDeclined
-              ? 'Chat request was declined'
-              : ''
-          }
-        />
+        {isFriendBlocked ? (
+          <div
+            style={{
+              padding: '16px 20px',
+              background: 'rgba(239, 68, 68, 0.08)',
+              borderTop: '1px solid rgba(239, 68, 68, 0.25)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '12px'
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <i className="fa-solid fa-ban" style={{ color: '#ef4444', fontSize: '1.25rem' }}></i>
+              <div>
+                <strong style={{ color: '#f8fafc', fontSize: '0.9rem', display: 'block' }}>
+                  You have blocked @{friend?.username || 'this user'}
+                </strong>
+                <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
+                  Unblock to send messages or start calls with this contact.
+                </span>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => handleToggleBlockFriend(friend)}
+              style={{
+                background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '8px',
+                padding: '8px 16px',
+                fontSize: '0.85rem',
+                fontWeight: 600,
+                cursor: 'pointer'
+              }}
+            >
+              Unblock
+            </button>
+          </div>
+        ) : isBlockedByFriend ? (
+          <div
+            style={{
+              padding: '16px 20px',
+              background: 'rgba(255, 255, 255, 0.04)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              color: '#94a3b8',
+              fontSize: '0.88rem'
+            }}
+          >
+            <i className="fa-solid fa-circle-exclamation" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i>
+            <span>You cannot send messages to @{friend?.username || 'this user'}.</span>
+          </div>
+        ) : (
+          <ChatInput
+            onSend={handleSend}
+            onTyping={sendTyping}
+            replyingTo={replyingTo}
+            onCancelReply={() => setReplyingTo(null)}
+            editingMessage={editingMessage}
+            onSaveEdit={handleSaveEdit}
+            onCancelEdit={() => setEditingMessage(null)}
+            disabled={!isAccepted && isRecipient ? true : isDeclined ? true : false}
+            disabledPlaceholder={
+              isRecipient
+                ? 'Accept chat request to send messages...'
+                : isDeclined
+                ? 'Chat request was declined'
+                : ''
+            }
+          />
+        )}
       </section>
 
       {/* WhatsApp-Style Chat Language Modal */}
@@ -998,6 +1213,41 @@ export default function Chat({ currentUserId, currentUser }) {
             setSelectedProfileUser(null);
             call.startCall(type);
           }}
+        />
+      )}
+
+      {contextMenu.visible && (
+        <FriendContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          friend={contextMenu.friend}
+          conversationId={contextMenu.conversationId}
+          onClose={() => setContextMenu({ visible: false, x: 0, y: 0, friend: null, conversationId: null })}
+          onDelete={(f, cId) => handleDeleteFriend(f, null, cId)}
+          onOpenChat={(f, cId) => {
+            if (cId) {
+              navigate(`/chat/${cId}`, { state: { friend: f } });
+            } else {
+              startConversation(f.id).then((c) => {
+                navigate(`/chat/${c.conversationId}`, { state: { friend: f } });
+              }).catch(() => {});
+            }
+          }}
+          onViewProfile={(f) => setSelectedProfileUser(f)}
+          onBlock={(f) => handleToggleBlockFriend(f)}
+          isBlocked={isFriendBlocked}
+        />
+      )}
+
+      {deleteModalTarget && (
+        <WhatsAppDeleteModal
+          friend={deleteModalTarget.friend}
+          isOpen={Boolean(deleteModalTarget)}
+          isLoading={isDeleting}
+          isOnline={onlineIds.includes(deleteModalTarget.friend?.id || deleteModalTarget.friend?.userId)}
+          presence={userStatuses[String(deleteModalTarget.friend?.id || deleteModalTarget.friend?.userId)]}
+          onClose={() => !isDeleting && setDeleteModalTarget(null)}
+          onConfirm={handleConfirmDelete}
         />
       )}
     </div>

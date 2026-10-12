@@ -37,6 +37,9 @@ public class User {
 
     private Boolean autoTranslate = false;
 
+    @Column(length = 30)
+    private String authProvider = "local";
+
     private LocalDateTime createdAt = LocalDateTime.now();
 
     public User() {}
@@ -85,4 +88,7 @@ public class User {
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getAuthProvider() { return authProvider != null ? authProvider : "local"; }
+    public void setAuthProvider(String authProvider) { this.authProvider = authProvider; }
 }

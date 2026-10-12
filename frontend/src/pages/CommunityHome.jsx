@@ -1,12 +1,19 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useSelector } from 'react-redux';
 import { getPosts, createPost, toggleLikePost, getPostComments, addComment, toggleLikeComment, deletePost } from '../api/postApi';
-import { startConversation, quickTranslate } from '../api/conversationApi';
+import { startConversation, quickTranslate, getMyConversations, deleteConversationWithUser } from '../api/conversationApi';
+import { blockUser, unblockUser } from '../api/userApi';
 import { uploadMedia } from '../api/mediaApi';
 import { resolveBackendUrl } from '../utils/apiBaseUrl';
+import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
+import { getUserActivitySummary } from '../utils/timeAgo';
 import { useLanguage } from '../contexts/LanguageContext';
-import PoloCameraModal from '../components/PoloCameraModal';
+import GioCameraModal from '../components/GioCameraModal';
 import MediaLightbox from '../components/MediaLightbox';
+import FriendContextMenu from '../components/FriendContextMenu';
+import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
+import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
 
 export default function CommunityHome({ user }) {
@@ -22,7 +29,7 @@ export default function CommunityHome({ user }) {
   const [postLanguage, setPostLanguage] = useState(user?.preferredLanguage || currentLang || 'en');
   const [attachedMedia, setAttachedMedia] = useState(null); // { url, type, name, previewUrl }
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isPoloOpen, setIsPoloOpen] = useState(false);
+  const [isGioVideoOpen, setIsGioVideoOpen] = useState(false);
 
   // Translation state for posts: { [postId]: { translatedText, sourceLang, isShowing } }
   const [translations, setTranslations] = useState({});
@@ -40,6 +47,173 @@ export default function CommunityHome({ user }) {
   // Copy feedback
   const [copiedLink, setCopiedLink] = useState(false);
   const fileInputRef = useRef(null);
+
+  // Left Sidebar: Friends List State
+  const [friendsList, setFriendsList] = useState([]);
+  const [friendsLoading, setFriendsLoading] = useState(true);
+  const [friendSearch, setFriendSearch] = useState('');
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [isDeletingUser, setIsDeletingUser] = useState(false);
+  const [deleteUserError, setDeleteUserError] = useState('');
+  const onlineIds = useSelector((state) => state.presence?.onlineIds || []);
+  const userStatuses = useSelector((state) => state.presence?.userStatuses || {});
+
+  // Right-click context menu for sidebar friends
+  const [friendContextMenu, setFriendContextMenu] = useState({ visible: false, x: 0, y: 0, friend: null });
+
+  const handleFriendContextMenu = (e, targetFriend) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setFriendContextMenu({
+      visible: true,
+      x: e.clientX,
+      y: e.clientY,
+      friend: targetFriend
+    });
+  };
+
+  // Right Sidebar: Sponsored AI Ads State
+  const [currentAdIndex, setCurrentAdIndex] = useState(0);
+  const [isAdPaused, setIsAdPaused] = useState(false);
+
+  const sponsoredAds = useMemo(() => [
+    {
+      id: 1,
+      tag: 'AI TRANSLATION • SPONSORED',
+      title: 'Neural Speech Translator 2.0',
+      desc: 'Dub and translate your voice notes & video walkie-talkies in 100+ languages in real time.',
+      cta: 'Try AI Translation',
+      icon: 'fa-solid fa-language',
+      gradient: 'linear-gradient(135deg, rgba(24, 119, 242, 0.22), rgba(13, 101, 217, 0.08))',
+      badgeColor: '#1877f2',
+      stars: '4.9 ★★★★★ (12.4k reviews)',
+      link: '/settings',
+    },
+    {
+      id: 2,
+      tag: 'PRODUCTIVITY • AI COPILOT',
+      title: 'Smart Chat Assistant & Summaries',
+      desc: 'Instant context summaries and auto-suggested smart replies for fast and effortless chats.',
+      cta: 'Explore Copilot',
+      icon: 'fa-solid fa-robot',
+      gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(109, 40, 217, 0.08))',
+      badgeColor: '#8b5cf6',
+      stars: '4.8 ★★★★★ (9.1k reviews)',
+      link: '/settings',
+    },
+    {
+      id: 3,
+      tag: 'STUDIO AUDIO • SPONSORED',
+      title: 'AI Acoustic Noise Shield',
+      desc: 'Studio-grade filtering removes 99% of background wind and traffic noise from all voice recordings.',
+      cta: 'Upgrade Audio',
+      icon: 'fa-solid fa-microphone-lines',
+      gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.08))',
+      badgeColor: '#10b981',
+      stars: '5.0 ★★★★★ (16.2k reviews)',
+      link: '/settings',
+    },
+    {
+      id: 4,
+      tag: 'GLOBAL FRIENDS • SPONSORED',
+      title: 'Meet Native Speakers Worldwide',
+      desc: 'Exchange language and culture directly with verified friends in over 120+ countries.',
+      cta: 'Find Friends',
+      icon: 'fa-solid fa-earth-americas',
+      gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.08))',
+      badgeColor: '#f59e0b',
+      stars: '4.9 ★★★★★ (21k reviews)',
+      link: '/friends',
+    },
+  ], []);
+
+  // Auto-scroll ads every 4.5 seconds
+  useEffect(() => {
+    if (isAdPaused) return;
+    const interval = setInterval(() => {
+      setCurrentAdIndex((prev) => (prev + 1) % sponsoredAds.length);
+    }, 4500);
+    return () => clearInterval(interval);
+  }, [isAdPaused, sponsoredAds.length]);
+
+  // Load Friends for Left Sidebar
+  useEffect(() => {
+    let active = true;
+    const loadFriends = async () => {
+      try {
+        setFriendsLoading(true);
+        const convs = await getMyConversations().catch(() => []);
+        let list = [];
+        const seenIds = new Set();
+        const seenUsernames = new Set();
+        const currentId = user?.userId || user?.id;
+        const currentUsername = (user?.username || '').trim().toLowerCase();
+        if (currentId) seenIds.add(currentId);
+        if (currentUsername) seenUsernames.add(currentUsername);
+
+        if (Array.isArray(convs) && convs.length > 0) {
+          for (const c of convs) {
+            const u = c.otherUser;
+            if (!u || !u.id || isFriendDeleted(u)) continue;
+            // Only mutual friends with an ACCEPTED friendship
+            if (c.status !== 'ACCEPTED') continue;
+            const uLower = (u.username || '').trim().toLowerCase();
+            if (seenIds.has(u.id) || (uLower && seenUsernames.has(uLower))) continue;
+            seenIds.add(u.id);
+            if (uLower) seenUsernames.add(uLower);
+            list.push({
+              id: u.id,
+              username: u.username,
+              displayName: u.displayName || u.username,
+              avatarUrl: u.avatarUrl,
+              conversationId: c.conversationId,
+              lastMessage: c.lastMessage,
+            });
+          }
+        }
+
+        if (active) setFriendsList(list);
+      } catch (err) {
+        console.error('Failed to load friends for sidebar:', err);
+      } finally {
+        if (active) setFriendsLoading(false);
+      }
+    };
+
+    loadFriends();
+    return () => {
+      active = false;
+    };
+  }, [user]);
+
+  const filteredFriends = useMemo(() => {
+    if (!friendSearch.trim()) return friendsList;
+    const q = friendSearch.toLowerCase();
+    return friendsList.filter(
+      (f) =>
+        f.displayName?.toLowerCase().includes(q) ||
+        f.username?.toLowerCase().includes(q)
+    );
+  }, [friendsList, friendSearch]);
+
+  const handleOpenChat = async (friend) => {
+    unmarkFriendDeleted(friend.id, friend.username);
+    if (friend.conversationId) {
+      navigate(`/chat/${friend.conversationId}`);
+    } else {
+      try {
+        const conv = await startConversation(friend.id);
+        if (conv?.id) {
+          navigate(`/chat/${conv.id}`);
+        } else {
+          navigate('/friends');
+        }
+      } catch (err) {
+        console.error('Failed to start chat:', err);
+        navigate('/friends');
+      }
+    }
+  };
 
   // Load Posts
   const fetchPosts = async () => {
@@ -81,15 +255,15 @@ export default function CommunityHome({ user }) {
     }
   };
 
-  // Handle Polo Modal Media
-  const handlePoloRecorded = (payloadStr) => {
+  // Handle Gio Video Modal Media
+  const handleGioVideoRecorded = (payloadStr) => {
     try {
       const data = typeof payloadStr === 'string' ? JSON.parse(payloadStr) : payloadStr;
       if (data && data.mediaUrl) {
         setAttachedMedia({
           url: data.mediaUrl,
           type: data.type || 'video',
-          name: data.fileName || 'Polo Video Note',
+          name: data.fileName || 'Gio Video Note',
           previewUrl: resolveBackendUrl(data.mediaUrl),
           transcript: data.transcript || '',
         });
@@ -98,7 +272,7 @@ export default function CommunityHome({ user }) {
         }
       }
     } catch (err) {
-      console.error('Error parsing polo payload:', err);
+      console.error('Error parsing Gio video payload:', err);
     }
   };
 
@@ -331,6 +505,7 @@ export default function CommunityHome({ user }) {
   // Start 1-on-1 Chat with Post Creator
   const handleStartChatWithUser = async (postUser) => {
     if (!postUser || !postUser.id) return;
+    unmarkFriendDeleted(postUser.id, postUser.username);
     if (String(postUser.id) === String(user?.userId || user?.id)) {
       alert("This is your own post!");
       return;
@@ -353,6 +528,56 @@ export default function CommunityHome({ user }) {
     } catch (err) {
       console.error('Error starting conversation:', err);
       navigate('/friends');
+    }
+  };
+
+  // Instant click-to-delete user from sidebar & feed with WhatsApp-style modal
+  const handleDeleteFriendEasy = (friend, e) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
+    }
+    setUserToDelete(friend);
+  };
+
+  // Block user like Telegram
+  const handleBlockFriend = async (targetFriend) => {
+    const fId = targetFriend?.id || targetFriend?.userId;
+    if (!fId) return;
+    try {
+      await blockUser(fId);
+      // Remove from sidebar list optimistically
+      setFriendsList((prev) => prev.filter((f) => f.id !== fId && f.userId !== fId));
+    } catch (err) {
+      console.error('Failed to block friend:', err);
+    }
+  };
+
+  // Delete user conversation from sidebar & feed (WhatsApp style confirmation)
+  const handleConfirmDeleteSidebarUser = async (targetFriend = userToDelete) => {
+    const friendToDelete = targetFriend || userToDelete;
+    if (!friendToDelete) return;
+    setIsDeletingUser(true);
+    setDeleteUserError('');
+
+    const fId = friendToDelete.id || friendToDelete.userId || friendToDelete._id;
+    // 1. Mark permanently deleted so they NEVER return on refresh
+    markFriendAsDeleted(fId, friendToDelete.username);
+
+    // 2. Optimistically remove from sidebar & feed
+    setFriendsList((prev) => prev.filter((f) => f.id !== fId && f.userId !== fId));
+    setPosts((prev) => prev.filter((p) => p.user?.id !== fId && p.userId !== fId));
+
+    try {
+      if (fId) {
+        await deleteConversationWithUser(fId);
+      }
+      setUserToDelete(null);
+    } catch (err) {
+      console.warn('Backend delete conversation completed:', err);
+      setUserToDelete(null);
+    } finally {
+      setIsDeletingUser(false);
     }
   };
 
@@ -404,10 +629,201 @@ export default function CommunityHome({ user }) {
     return posts;
   }, [posts, filter]);
 
+  const currentAd = sponsoredAds[currentAdIndex] || sponsoredAds[0];
+
   return (
-    <div className="community-page-container">
-      {/* 1. Top Hero & Invite Friends Banner */}
-      <section className="community-hero-card">
+    <div className="community-home-wrapper">
+      {/* =========================================================================
+          LEFT SIDEBAR: Profile, Friends List & Quick Contacts
+          ========================================================================= */}
+      <aside className="community-sidebar-left">
+        {/* User Mini Profile Card */}
+        {user && (
+          <div
+            className="sidebar-card user-mini-card"
+            onClick={() => navigate('/settings')}
+            title="View profile & settings"
+          >
+            <div className="mini-card-avatar-wrap">
+              <img
+                src={resolveAvatarUrl(user.avatarUrl, user.displayName || user.username)}
+                alt={user.username}
+                className="mini-card-avatar"
+                onError={(e) => handleAvatarError(e, user.displayName || user.username)}
+              />
+              <span className="mini-card-status-dot online" />
+            </div>
+            <div className="mini-card-meta">
+              {user.displayName && user.displayName.trim().toLowerCase() !== user.username.trim().toLowerCase() ? (
+                <>
+                  <span className="mini-card-name">{user.displayName}</span>
+                  <span className="mini-card-handle">@{user.username}</span>
+                </>
+              ) : (
+                <span className="mini-card-name">@{user.username}</span>
+              )}
+            </div>
+            <i className="fa-solid fa-chevron-right mini-card-arrow"></i>
+          </div>
+        )}
+
+        {/* Friends & Contacts List */}
+        <div className="sidebar-card friends-sidebar-card">
+          <div className="sidebar-header">
+            <div className="sidebar-title-row">
+              <i className="fa-solid fa-user-group sidebar-icon"></i>
+              <h3>Friends & Contacts</h3>
+            </div>
+            <div className="sidebar-header-actions">
+              <button
+                type="button"
+                className="sidebar-clean-badge-btn"
+                onClick={() => navigate('/settings?tab=users')}
+                title="Clean & manage inactive users"
+              >
+                <i className="fa-solid fa-broom"></i> Clean
+              </button>
+              <span className="sidebar-count-badge">
+                {filteredFriends.length}
+              </span>
+            </div>
+          </div>
+
+          {/* Friends Search Input */}
+          <div className="sidebar-search-box">
+            <i className="fa-solid fa-magnifying-glass search-mini-icon"></i>
+            <input
+              type="text"
+              placeholder="Search contacts..."
+              value={friendSearch}
+              onChange={(e) => setFriendSearch(e.target.value)}
+              className="sidebar-search-input"
+            />
+            {friendSearch && (
+              <button
+                type="button"
+                className="search-clear-btn"
+                onClick={() => setFriendSearch('')}
+                title="Clear search"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            )}
+          </div>
+
+          {/* Friends List Container */}
+          <div className="sidebar-friends-list">
+            {friendsLoading ? (
+              <div className="sidebar-loading">
+                <i className="fa-solid fa-spinner fa-spin"></i>
+                <span>Loading contacts...</span>
+              </div>
+            ) : filteredFriends.length === 0 ? (
+              <div className="sidebar-empty">
+                <i className="fa-solid fa-user-xmark"></i>
+                <p>No contacts found</p>
+              </div>
+            ) : (
+              filteredFriends.map((friend) => {
+                const isOnline = onlineIds.includes(friend.id);
+                const friendLastSeen = userStatuses[friend.id]?.lastSeen || friend.lastSeen;
+                const activity = getUserActivitySummary(isOnline, friendLastSeen, userStatuses[friend.id]?.status);
+                const status = userStatuses[friend.id]?.status || (isOnline ? 'online' : 'offline');
+                return (
+                  <div
+                    key={friend.id}
+                    className="sidebar-friend-item"
+                    onClick={() => handleOpenChat(friend)}
+                    onContextMenu={(e) => handleFriendContextMenu(e, friend)}
+                    title={`Click to chat with ${friend.displayName || friend.username} • Right-click to delete • ${activity.statusText}`}
+                  >
+                    <div className="friend-avatar-wrap">
+                      <img
+                        src={resolveAvatarUrl(friend.avatarUrl, friend.displayName || friend.username)}
+                        alt={friend.displayName || friend.username}
+                        className="friend-avatar"
+                        onError={(e) => handleAvatarError(e, friend.displayName || friend.username)}
+                      />
+                      <span className={`friend-status-dot ${status}`} />
+                    </div>
+                    <div className="friend-info">
+                      <span className="friend-name">
+                        {friend.displayName && friend.displayName.trim().toLowerCase() !== friend.username.trim().toLowerCase()
+                          ? friend.displayName
+                          : `@${friend.username}`}
+                      </span>
+                      <span className={`friend-status-label ${activity.badgeClass}`} title={activity.statusText}>
+                        {activity.label}
+                      </span>
+                    </div>
+                    <div className="friend-actions-group">
+                      <button
+                        type="button"
+                        className="friend-chat-icon-btn"
+                        title="Send message"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleOpenChat(friend);
+                        }}
+                      >
+                        <i className="fa-solid fa-comment-dots"></i>
+                      </button>
+                      <button
+                        type="button"
+                        className="friend-delete-icon-btn"
+                        title={`Delete / clean @${friend.username}`}
+                        onClick={(e) => handleDeleteFriendEasy(friend, e)}
+                      >
+                        <i className="fa-solid fa-trash-can"></i>
+                      </button>
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+
+          <div className="sidebar-footer-link">
+            <button
+              type="button"
+              onClick={() => navigate('/friends')}
+              className="sidebar-see-all-btn"
+            >
+              <i className="fa-solid fa-users"></i> See All Friends ({friendsList.length})
+            </button>
+          </div>
+        </div>
+
+        {/* Shortcuts */}
+        <div className="sidebar-card shortcuts-card">
+          <h4 className="shortcuts-title">Shortcuts</h4>
+          <div className="shortcuts-list">
+            <button type="button" className="shortcut-btn" onClick={() => navigate('/friends')}>
+              <i className="fa-solid fa-comments shortcut-icon" style={{ color: '#1877f2' }}></i>
+              <span>Direct Messages</span>
+            </button>
+            <button type="button" className="shortcut-btn" onClick={() => navigate('/calls')}>
+              <i className="fa-solid fa-video shortcut-icon" style={{ color: '#10b981' }}></i>
+              <span>Audio & Video Calls</span>
+            </button>
+            <button type="button" className="shortcut-btn" onClick={() => setIsGioVideoOpen(true)}>
+              <i className="fa-solid fa-camera-rotate shortcut-icon" style={{ color: '#f59e0b' }}></i>
+              <span>Gio Video Note</span>
+            </button>
+            <button type="button" className="shortcut-btn" onClick={() => navigate('/settings')}>
+              <i className="fa-solid fa-earth-americas shortcut-icon" style={{ color: '#8b5cf6' }}></i>
+              <span>GioTranslate Settings</span>
+            </button>
+          </div>
+        </div>
+      </aside>
+
+      {/* =========================================================================
+          CENTER COLUMN: Main Community Feed
+          ========================================================================= */}
+      <main className="community-feed-center">
+        {/* 1. Top Hero & Invite Friends Banner */}
+        <section className="community-hero-card">
         <div className="community-hero-content">
           <div className="community-hero-badge">
             <span className="hero-sparkle">✨</span> Global Community & Friends
@@ -416,7 +832,7 @@ export default function CommunityHome({ user }) {
             Connect & Chat with Friends Worldwide 🌍
           </h1>
           <p className="community-hero-subtitle">
-            Share moments, voice & Marco Polo video walkie-talkies, and break language barriers instantly with AI live translation.
+            Share moments, voice & Gio video walkie-talkies, and break language barriers instantly with AI live translation.
           </p>
         </div>
 
@@ -490,7 +906,7 @@ export default function CommunityHome({ user }) {
           <div className="creator-input-wrap">
             <textarea
               className="creator-textarea"
-              placeholder={`What's happening, ${user?.displayName || user?.username || 'friend'}? Share a thought, photo, or Marco Polo video...`}
+              placeholder={`What's happening, ${user?.displayName || user?.username || 'friend'}? Share a thought, photo, or Gio video...`}
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
               rows={postText.length > 80 ? 3 : 2}
@@ -515,11 +931,11 @@ export default function CommunityHome({ user }) {
               </div>
             )}
 
-            {(attachedMedia.type === 'video' || attachedMedia.type === 'polo') && (
+            {(attachedMedia.type === 'video' || attachedMedia.type === 'polo' || attachedMedia.type === 'gio') && (
               <div className="preview-video-wrap">
                 <video src={attachedMedia.previewUrl} controls playsInline />
                 <div className="video-badge-tag">
-                  <i className="fa-solid fa-video"></i> Polo Video Note
+                  <i className="fa-solid fa-video"></i> Gio Video Note
                 </div>
                 <button
                   type="button"
@@ -556,16 +972,16 @@ export default function CommunityHome({ user }) {
               <span className="tool-label">Photo</span>
             </button>
 
-            {/* 2. Record Marco Polo Video Walkie-Talkie */}
+            {/* 2. Record Gio Video Walkie-Talkie */}
             <button
               type="button"
-              className="tool-btn polo-tool-btn"
-              onClick={() => setIsPoloOpen(true)}
-              title="Record Marco Polo Video Note"
+              className="tool-btn polo-tool-btn gio-tool-btn"
+              onClick={() => setIsGioVideoOpen(true)}
+              title="Record Gio Video Note"
               disabled={isSubmitting}
             >
-              <i className="fa-solid fa-video tool-icon-polo"></i>
-              <span className="tool-label">Polo Video</span>
+              <i className="fa-solid fa-video tool-icon-polo tool-icon-gio"></i>
+              <span className="tool-label">Gio Video</span>
             </button>
 
             {/* 3. Post Language Selector */}
@@ -624,7 +1040,7 @@ export default function CommunityHome({ user }) {
           onClick={() => setFilter('video')}
         >
           <i className="fa-solid fa-video"></i>
-          <span>Polo Videos</span>
+          <span>Gio Videos</span>
         </button>
 
         <button
@@ -686,8 +1102,14 @@ export default function CommunityHome({ user }) {
                     </div>
                     <div className="author-meta">
                       <div className="author-name-row">
-                        <span className="author-display-name">{post.displayName || post.username}</span>
-                        <span className="author-handle">@{post.username}</span>
+                        {post.displayName && post.displayName.trim().toLowerCase() !== post.username.trim().toLowerCase() ? (
+                          <>
+                            <span className="author-display-name">{post.displayName}</span>
+                            <span className="author-handle">@{post.username}</span>
+                          </>
+                        ) : (
+                          <span className="author-display-name">@{post.username}</span>
+                        )}
                         {post.language && (
                           <span className="post-lang-badge">
                             {post.language.toUpperCase()}
@@ -800,7 +1222,7 @@ export default function CommunityHome({ user }) {
                           className="post-video-player"
                         />
                         <div className="post-video-badge">
-                          <i className="fa-solid fa-walkie-talkie"></i> Marco Polo Note
+                          <i className="fa-solid fa-video"></i> Gio Video Note
                         </div>
                       </div>
                     )}
@@ -902,8 +1324,14 @@ export default function CommunityHome({ user }) {
                               {/* Right Content */}
                               <div className="x-comment-body">
                                 <div className="x-comment-header">
-                                  <span className="x-author-name">{c.displayName || c.username}</span>
-                                  <span className="x-author-handle">@{c.username}</span>
+                                  {c.displayName && c.displayName.trim().toLowerCase() !== c.username.trim().toLowerCase() ? (
+                                    <>
+                                      <span className="x-author-name">{c.displayName}</span>
+                                      <span className="x-author-handle">@{c.username}</span>
+                                    </>
+                                  ) : (
+                                    <span className="x-author-name">@{c.username}</span>
+                                  )}
                                   <span className="x-dot-sep">·</span>
                                   <span className="x-comment-time">{formatTimeAgo(c.createdAt)}</span>
                                 </div>
@@ -1036,6 +1464,166 @@ export default function CommunityHome({ user }) {
           })
         )}
       </section>
+      </main>
+
+      {/* =========================================================================
+          RIGHT SIDEBAR: Sponsored AI Ads, Scrolling & Trending
+          ========================================================================= */}
+      <aside className="community-sidebar-right">
+        {/* Card 1: Interactive Sponsored AI Ads Carousel */}
+        <div
+          className="sidebar-card sponsored-card"
+          onMouseEnter={() => setIsAdPaused(true)}
+          onMouseLeave={() => setIsAdPaused(false)}
+        >
+          <div className="sponsored-header">
+            <span className="sponsored-label">
+              <i className="fa-solid fa-rectangle-ad sponsored-tag-icon"></i>
+              <span>Sponsored</span>
+            </span>
+            <div className="sponsored-actions">
+              <span className="sponsored-info-icon" title="Featured AI tools & sponsor suggestions">
+                <i className="fa-solid fa-circle-info"></i>
+              </span>
+            </div>
+          </div>
+
+          {/* Active Ad Showcase */}
+          <div className="ad-carousel-card" style={{ background: currentAd.gradient }}>
+            <div className="ad-top-row">
+              <span className="ad-badge" style={{ background: currentAd.badgeColor }}>
+                {currentAd.tag}
+              </span>
+              <div className="ad-icon-circle">
+                <i className={currentAd.icon}></i>
+              </div>
+            </div>
+
+            <h3 className="ad-title">{currentAd.title}</h3>
+            <p className="ad-desc">{currentAd.desc}</p>
+            <span className="ad-stars">{currentAd.stars}</span>
+
+            <div className="ad-cta-row">
+              <button
+                type="button"
+                className="ad-cta-btn"
+                onClick={currentAd.action}
+              >
+                <span>{currentAd.cta}</span>
+                <i className="fa-solid fa-arrow-up-right-from-square"></i>
+              </button>
+            </div>
+          </div>
+
+          {/* Carousel Pagination & Controls */}
+          <div className="ad-controls-row">
+            <button
+              type="button"
+              className="ad-nav-btn"
+              onClick={() => setCurrentAdIndex((prev) => (prev - 1 + sponsoredAds.length) % sponsoredAds.length)}
+              title="Previous Ad"
+            >
+              <i className="fa-solid fa-chevron-left"></i>
+            </button>
+
+            <div className="ad-dots-wrap">
+              {sponsoredAds.map((ad, idx) => (
+                <button
+                  key={ad.id}
+                  type="button"
+                  className={`ad-dot ${idx === currentAdIndex ? 'active' : ''}`}
+                  onClick={() => setCurrentAdIndex(idx)}
+                  title={ad.title}
+                />
+              ))}
+            </div>
+
+            <button
+              type="button"
+              className="ad-nav-btn"
+              onClick={() => setCurrentAdIndex((prev) => (prev + 1) % sponsoredAds.length)}
+              title="Next Ad"
+            >
+              <i className="fa-solid fa-chevron-right"></i>
+            </button>
+          </div>
+        </div>
+
+        {/* Card 2: Scrolling AI Spotlight Ticker */}
+        <div className="sidebar-card ai-spotlight-card">
+          <div className="spotlight-header">
+            <span className="spotlight-title">
+              <i className="fa-solid fa-bolt" style={{ color: '#eab308' }}></i>
+              <span>AI Tech Spotlight</span>
+            </span>
+            <span className="spotlight-badge">New</span>
+          </div>
+
+          <div className="spotlight-scroller-wrap">
+            <div className="spotlight-ticker-track">
+              <div className="spotlight-item" onClick={() => navigate('/settings')}>
+                <div className="spotlight-item-icon" style={{ background: 'rgba(24, 119, 242, 0.15)', color: '#1877f2' }}>
+                  <i className="fa-solid fa-microphone-lines"></i>
+                </div>
+                <div className="spotlight-item-text">
+                  <strong>Neural Voice Dubbing</strong>
+                  <p>Instant speech synthesis in 100+ native dialects.</p>
+                </div>
+              </div>
+
+              <div className="spotlight-item" onClick={() => navigate('/settings')}>
+                <div className="spotlight-item-icon" style={{ background: 'rgba(139, 92, 246, 0.15)', color: '#8b5cf6' }}>
+                  <i className="fa-solid fa-brain"></i>
+                </div>
+                <div className="spotlight-item-text">
+                  <strong>Deep Context Summaries</strong>
+                  <p>Catch up on long conversation threads in 1 tap.</p>
+                </div>
+              </div>
+
+              <div className="spotlight-item" onClick={() => navigate('/settings')}>
+                <div className="spotlight-item-icon" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#10b981' }}>
+                  <i className="fa-solid fa-shield-halved"></i>
+                </div>
+                <div className="spotlight-item-text">
+                  <strong>Quantum E2E Privacy</strong>
+                  <p>Next-gen encrypted storage for secret chats.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 3: Trending Topics */}
+        <div className="sidebar-card trending-card">
+          <h4 className="trending-title">
+            <i className="fa-solid fa-arrow-trend-up"></i>
+            <span>Trending in Community</span>
+          </h4>
+          <div className="trending-list">
+            <div className="trending-item">
+              <span className="trending-category">Technology • Trending</span>
+              <strong>#AITranslation</strong>
+              <span className="trending-count">34.2K posts</span>
+            </div>
+            <div className="trending-item">
+              <span className="trending-category">Social • Trending</span>
+              <strong>#GioVideoMoments</strong>
+              <span className="trending-count">22.8K posts</span>
+            </div>
+            <div className="trending-item">
+              <span className="trending-category">Community • Trending</span>
+              <strong>#GlobalFriends</strong>
+              <span className="trending-count">19.5K posts</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="sidebar-footer">
+          <p>© 2026 Tranchat • Privacy • Terms • Ad Choices • Cookies</p>
+        </div>
+      </aside>
 
       {/* Lightbox for full image viewing */}
       {lightboxMedia && (
@@ -1046,13 +1634,36 @@ export default function CommunityHome({ user }) {
         />
       )}
 
-      {/* Marco Polo Camera & Walkie-Talkie Recorder Modal */}
-      <PoloCameraModal
-        isOpen={isPoloOpen}
-        onClose={() => setIsPoloOpen(false)}
-        onSend={handlePoloRecorded}
+      {/* Gio Video Camera & Recorder Modal */}
+      <GioCameraModal
+        isOpen={isGioVideoOpen}
+        onClose={() => setIsGioVideoOpen(false)}
+        onSend={handleGioVideoRecorded}
         friendName="Community Post"
       />
+
+      {/* WhatsApp-Style Delete Friend Modal */}
+      <WhatsAppDeleteModal
+        isOpen={Boolean(userToDelete)}
+        friend={userToDelete}
+        isDeleting={isDeletingUser}
+        onClose={() => !isDeletingUser && setUserToDelete(null)}
+        onConfirm={handleConfirmDeleteSidebarUser}
+      />
+
+
+      {friendContextMenu.visible && (
+        <FriendContextMenu
+          x={friendContextMenu.x}
+          y={friendContextMenu.y}
+          friend={friendContextMenu.friend}
+          onClose={() => setFriendContextMenu({ visible: false, x: 0, y: 0, friend: null })}
+          onDelete={(f) => handleDeleteFriendEasy(f)}
+          onOpenChat={(f) => handleOpenChat(f)}
+          onViewProfile={(f) => handleOpenChat(f)}
+          onBlock={(f) => handleBlockFriend(f)}
+        />
+      )}
     </div>
   );
 }

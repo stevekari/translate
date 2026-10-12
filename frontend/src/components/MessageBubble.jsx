@@ -4,7 +4,7 @@ import { resolveBackendUrl } from '../utils/apiBaseUrl';
 import VoiceMessage from './VoiceMessage';
 import MediaLightbox from './MediaLightbox';
 import LanguagePickerModal from './LanguagePickerModal';
-import PoloVideoViewer from './PoloVideoViewer';
+import GioVideoViewer from './GioVideoViewer';
 import { useLanguage } from '../contexts/LanguageContext';
 import { translateMessage } from '../api/conversationApi';
 import { getLanguageInfo } from '../utils/languages';
@@ -79,7 +79,7 @@ export default function MessageBubble({
 }) {
   const { t, language } = useLanguage();
   const [showFullImage, setShowFullImage] = useState(false);
-  const [showPoloViewer, setShowPoloViewer] = useState(false);
+  const [showGioVideoViewer, setShowGioVideoViewer] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
   const [showReactionPicker, setShowReactionPicker] = useState(false);
   const [showFullEmojiPicker, setShowFullEmojiPicker] = useState(false);
@@ -616,9 +616,9 @@ export default function MessageBubble({
           </>
         )}
 
-        {/* 📹 Video Note / Polo Walkie-Talkie Message */}
-        {!isDeleted && (parsed.type === 'video' || parsed.type === 'polo') && (
-          <div className="polo-bubble-card" onClick={() => setShowPoloViewer(true)}>
+        {/* 📹 Video Note / Gio Video Walkie-Talkie Message */}
+        {!isDeleted && (parsed.type === 'video' || parsed.type === 'polo' || parsed.type === 'gio') && (
+          <div className="polo-bubble-card gio-bubble-card" onClick={() => setShowGioVideoViewer(true)}>
             <div className="polo-bubble-preview-wrap">
               <video src={mediaSrc} className="polo-bubble-thumb" preload="metadata" />
               <div className="polo-bubble-play-overlay">
@@ -638,10 +638,10 @@ export default function MessageBubble({
               </div>
             )}
 
-            {showPoloViewer && (
-              <PoloVideoViewer
-                isOpen={showPoloViewer}
-                onClose={() => setShowPoloViewer(false)}
+            {showGioVideoViewer && (
+              <GioVideoViewer
+                isOpen={showGioVideoViewer}
+                onClose={() => setShowGioVideoViewer(false)}
                 videoMessage={{ ...message, content: parsed }}
                 currentUser={currentUser}
                 onReact={onReact}

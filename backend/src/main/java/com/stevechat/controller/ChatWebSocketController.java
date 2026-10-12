@@ -4,10 +4,12 @@ import com.stevechat.config.WebSocketEventListener;
 import com.stevechat.dto.MessageDto;
 import com.stevechat.dto.ReactionDto;
 import com.stevechat.dto.SendMessageRequest;
+import com.stevechat.entity.BlockedUser;
 import com.stevechat.entity.Conversation;
 import com.stevechat.entity.Message;
 import com.stevechat.entity.MessageReaction;
 import com.stevechat.entity.User;
+import com.stevechat.repository.BlockedUserRepository;
 import com.stevechat.repository.ConversationRepository;
 import com.stevechat.repository.MessageReactionRepository;
 import com.stevechat.repository.MessageRepository;
@@ -35,6 +37,7 @@ public class ChatWebSocketController {
     private final ConversationRepository conversationRepository;
     private final MessageReactionRepository messageReactionRepository;
     private final UserRepository userRepository;
+    private final BlockedUserRepository blockedUserRepository;
     private final SimpMessagingTemplate messagingTemplate;
     private final ObjectMapper objectMapper;
 
@@ -42,12 +45,14 @@ public class ChatWebSocketController {
                                     ConversationRepository conversationRepository,
                                     MessageReactionRepository messageReactionRepository,
                                     UserRepository userRepository,
+                                    BlockedUserRepository blockedUserRepository,
                                     SimpMessagingTemplate messagingTemplate,
                                     ObjectMapper objectMapper) {
         this.messageRepository = messageRepository;
         this.conversationRepository = conversationRepository;
         this.messageReactionRepository = messageReactionRepository;
         this.userRepository = userRepository;
+        this.blockedUserRepository = blockedUserRepository;
         this.messagingTemplate = messagingTemplate;
         this.objectMapper = objectMapper;
     }
@@ -64,6 +69,14 @@ public class ChatWebSocketController {
 
         if (!conv.getUserAId().equals(senderId) && !conv.getUserBId().equals(senderId)) {
             throw new RuntimeException("Not part of this conversation");
+        }
+
+        Long otherUserId = conv.getUserAId().equals(senderId) ? conv.getUserBId() : conv.getUserAId();
+        if (blockedUserRepository.existsByBlockerIdAndBlockedId(otherUserId, senderId)) {
+            throw new RuntimeException("You cannot send messages to this user because they blocked you.");
+        }
+        if (blockedUserRepository.existsByBlockerIdAndBlockedId(senderId, otherUserId)) {
+            throw new RuntimeException("You have blocked this user. Unblock them to send messages.");
         }
 
         if ("DECLINED".equalsIgnoreCase(conv.getStatus())) {
@@ -300,6 +313,12 @@ public class ChatWebSocketController {
                 .orElseThrow(() -> new RuntimeException("Conversation not found"));
         if (!conversation.getUserAId().equals(senderId) && !conversation.getUserBId().equals(senderId)) {
             throw new RuntimeException("Not part of this conversation");
+        }
+
+        Long otherUserId = conversation.getUserAId().equals(senderId) ? conversation.getUserBId() : conversation.getUserAId();
+        if (blockedUserRepository.existsByBlockerIdAndBlockedId(otherUserId, senderId) ||
+            blockedUserRepository.existsByBlockerIdAndBlockedId(senderId, otherUserId)) {
+            return;
         }
 
         signal.put("senderId", senderId);

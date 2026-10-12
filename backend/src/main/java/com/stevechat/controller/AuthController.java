@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -23,11 +24,19 @@ public class AuthController {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
+    private final com.stevechat.security.PasswordValidator passwordValidator;
+    private final com.stevechat.security.LoginAttemptService loginAttemptService;
 
-    public AuthController(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtUtil jwtUtil) {
+    public AuthController(UserRepository userRepository,
+                          PasswordEncoder passwordEncoder,
+                          JwtUtil jwtUtil,
+                          com.stevechat.security.PasswordValidator passwordValidator,
+                          com.stevechat.security.LoginAttemptService loginAttemptService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
+        this.passwordValidator = passwordValidator;
+        this.loginAttemptService = loginAttemptService;
     }
 
     @GetMapping({"/health", "/status"})
@@ -40,34 +49,74 @@ public class AuthController {
 
     @PostMapping({"/register", "/auth/register"})
     public ResponseEntity<?> register(@RequestBody RegisterRequest request) {
-        if (userRepository.existsByUsername(request.getUsername())) {
+        if (request.getUsername() == null || request.getUsername().trim().isBlank()) {
+            return ResponseEntity.badRequest().body("Username cannot be empty");
+        }
+        if (request.getEmail() == null || request.getEmail().trim().isBlank()) {
+            return ResponseEntity.badRequest().body("Email cannot be empty");
+        }
+        if (userRepository.existsByUsername(request.getUsername().trim())) {
             return ResponseEntity.badRequest().body("Username is already taken");
         }
-        if (userRepository.existsByEmail(request.getEmail())) {
+        if (userRepository.existsByEmail(request.getEmail().trim().toLowerCase())) {
             return ResponseEntity.badRequest().body("Email is already registered");
         }
 
+        try {
+            passwordValidator.validate(request.getPassword(), request.getUsername().trim());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        }
+
         User user = new User(
-                request.getUsername(),
-                request.getEmail(),
+                request.getUsername().trim(),
+                request.getEmail().trim().toLowerCase(),
                 passwordEncoder.encode(request.getPassword())
         );
         userRepository.save(user);
 
         String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl()));
+        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), user.getAuthProvider()));
     }
 
     @PostMapping({"/login", "/auth/login"})
     public ResponseEntity<?> login(@RequestBody AuthRequest request) {
-        User user = userRepository.findByUsername(request.getUsername()).orElse(null);
+        String username = request.getUsername() != null ? request.getUsername().trim() : "";
 
-        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
-            return ResponseEntity.status(401).body("Invalid username or password");
+        if (loginAttemptService.isBlocked(username)) {
+            long remainingMinutes = loginAttemptService.getRemainingLockMinutes(username);
+            return ResponseEntity.status(429).body(
+                    "Security Lockout: Account temporarily locked due to multiple failed login attempts. Try again in "
+                            + remainingMinutes + " minute" + (remainingMinutes == 1 ? "" : "s") + " to protect against unauthorized access."
+            );
         }
 
+        User user = userRepository.findByUsername(username).orElse(null);
+
+        if (user == null || !passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginAttemptService.loginFailed(username);
+            if (loginAttemptService.isBlocked(username)) {
+                long remainingMinutes = loginAttemptService.getRemainingLockMinutes(username);
+                return ResponseEntity.status(429).body(
+                        "Security Lockout Activated: 5 consecutive failed login attempts reached. Account locked for "
+                                + remainingMinutes + " minutes to block hacker intrusions."
+                );
+            }
+            int remaining = loginAttemptService.getRemainingAttempts(username);
+            return ResponseEntity.status(401).body(
+                    "Invalid username or password. " + remaining + " attempt" + (remaining == 1 ? "" : "s")
+                            + " remaining before account security lockout."
+            );
+        }
+
+        // Reset failed login attempts on successful authentication
+        loginAttemptService.loginSucceeded(username);
+
+        user.setLastSeen(LocalDateTime.now());
+        userRepository.save(user);
+
         String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl()));
+        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), user.getAuthProvider()));
     }
 
     @PostMapping({"/google", "/auth/google", "/login/google"})
@@ -114,6 +163,7 @@ public class AuthController {
                 user.setAvatarUrl(photoUrl);
             }
 
+            user.setAuthProvider("google");
             user = userRepository.save(user);
         } else {
             String photoUrl = request.getPhotoUrl() != null ? request.getPhotoUrl().trim() : null;
@@ -122,6 +172,10 @@ public class AuthController {
             }
 
             boolean updated = false;
+            if (!"google".equalsIgnoreCase(user.getAuthProvider())) {
+                user.setAuthProvider("google");
+                updated = true;
+            }
             if ((user.getAvatarUrl() == null || user.getAvatarUrl().isBlank()) && photoUrl != null && !photoUrl.isBlank()) {
                 user.setAvatarUrl(photoUrl);
                 updated = true;
@@ -130,12 +184,11 @@ public class AuthController {
                 user.setDisplayName(request.getDisplayName().trim());
                 updated = true;
             }
-            if (updated) {
-                user = userRepository.save(user);
-            }
+            user.setLastSeen(LocalDateTime.now());
+            user = userRepository.save(user);
         }
 
         String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl()));
+        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), "google"));
     }
 }

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
-import { getUserProfile } from '../api/userApi';
+import { getUserProfile, blockUser, unblockUser, checkIsBlocked } from '../api/userApi';
 import {
   startConversation,
   sendFriendRequest,
@@ -10,6 +10,7 @@ import {
   declineChatRequest,
 } from '../api/conversationApi';
 import { formatJoinedDate, formatLastSeenText } from '../utils/timeAgo';
+import { unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/profileModal.css';
 
 export default function UserProfileModal({ user, userId, onClose, onStartCall }) {
@@ -19,6 +20,8 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
   const [relationship, setRelationship] = useState({ exists: false, status: 'NONE', isInitiator: false, conversationId: null });
   const [relLoading, setRelLoading] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState('');
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [blockLoading, setBlockLoading] = useState(false);
 
   const targetId = String(user?.id || user?.userId || userId);
   const presenceState = useSelector((state) => state.presence?.userStatuses?.[targetId]);
@@ -43,6 +46,14 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
         .then((rel) => {
           if (rel && rel.status) {
             setRelationship(rel);
+          }
+        })
+        .catch(() => {});
+
+      checkIsBlocked(friendId)
+        .then((res) => {
+          if (res && res.blockedByMe !== undefined) {
+            setIsBlocked(Boolean(res.blockedByMe));
           }
         })
         .catch(() => {});
@@ -108,12 +119,35 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
   const handleSendMessage = async () => {
     const friendIdToUse = profile?.id || profile?.userId || userId;
     if (!friendIdToUse) return;
+    unmarkFriendDeleted(friendIdToUse, profile?.username);
     try {
       const res = await startConversation(friendIdToUse);
       onClose();
       navigate(`/chat/${res.conversationId}`, { state: { friend: profile } });
     } catch (err) {
       console.error('Failed to start chat', err);
+    }
+  };
+
+  const handleToggleBlock = async () => {
+    const friendIdToUse = profile?.id || profile?.userId || userId;
+    if (!friendIdToUse) return;
+    setBlockLoading(true);
+    try {
+      if (isBlocked) {
+        await unblockUser(friendIdToUse);
+        setIsBlocked(false);
+        setActionSuccessMsg('User unblocked');
+      } else {
+        await blockUser(friendIdToUse);
+        setIsBlocked(true);
+        setActionSuccessMsg('User blocked');
+      }
+      setTimeout(() => setActionSuccessMsg(''), 3000);
+    } catch (err) {
+      console.error('Failed to toggle block:', err);
+    } finally {
+      setBlockLoading(false);
     }
   };
 
@@ -267,6 +301,35 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
               <span>Send Friend Request</span>
             </button>
           )}
+
+          {/* Telegram-style Block / Unblock User */}
+          <div style={{ width: '100%', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+            <button
+              type="button"
+              className={`profile-action-btn ${isBlocked ? 'secondary' : 'danger'}`}
+              onClick={handleToggleBlock}
+              disabled={blockLoading}
+              style={{
+                width: '100%',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '8px',
+                padding: '10px 16px',
+                borderRadius: '10px',
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                cursor: 'pointer',
+                background: isBlocked ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.12)',
+                border: isBlocked ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid rgba(239, 68, 68, 0.3)',
+                color: isBlocked ? '#818cf8' : '#f87171',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <i className={`fa-solid ${isBlocked ? 'fa-user-check' : 'fa-ban'}`}></i>
+              <span>{isBlocked ? 'Unblock User' : 'Block User'}</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

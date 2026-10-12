@@ -93,7 +93,7 @@ export default function App() {
             <Route path="/friends" element={<RequireAuth isAuthenticated={isAuthenticated}><FriendsList /></RequireAuth>} />
             <Route path="/calls" element={<RequireAuth isAuthenticated={isAuthenticated}><Calls currentUserId={user?.userId || user?.id} /></RequireAuth>} />
             <Route path="/chat/:conversationId" element={<RequireAuth isAuthenticated={isAuthenticated}><Chat currentUserId={user?.userId || user?.id} currentUser={user} /></RequireAuth>} />
-            <Route path="/settings" element={<RequireAuth isAuthenticated={isAuthenticated}><Settings user={user} onProfileUpdate={updateStoredUser} /></RequireAuth>} />
+            <Route path="/settings" element={<RequireAuth isAuthenticated={isAuthenticated}><Settings user={user} onProfileUpdate={updateStoredUser} onLogout={logout} /></RequireAuth>} />
             <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} replace />} />
           </Routes>
         </main>

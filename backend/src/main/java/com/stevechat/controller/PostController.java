@@ -2,9 +2,12 @@ package com.stevechat.controller;
 
 import com.stevechat.dto.CommentDto;
 import com.stevechat.dto.PostDto;
+import com.stevechat.entity.Conversation;
 import com.stevechat.entity.Post;
 import com.stevechat.entity.PostComment;
 import com.stevechat.entity.User;
+import com.stevechat.repository.BlockedUserRepository;
+import com.stevechat.repository.ConversationRepository;
 import com.stevechat.repository.PostCommentRepository;
 import com.stevechat.repository.PostRepository;
 import com.stevechat.repository.UserRepository;
@@ -16,8 +19,10 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @RestController
@@ -28,15 +33,21 @@ public class PostController {
     private final PostRepository postRepository;
     private final PostCommentRepository postCommentRepository;
     private final UserRepository userRepository;
+    private final ConversationRepository conversationRepository;
+    private final BlockedUserRepository blockedUserRepository;
     private final SimpMessagingTemplate messagingTemplate;
 
     public PostController(PostRepository postRepository,
                           PostCommentRepository postCommentRepository,
                           UserRepository userRepository,
+                          ConversationRepository conversationRepository,
+                          BlockedUserRepository blockedUserRepository,
                           SimpMessagingTemplate messagingTemplate) {
         this.postRepository = postRepository;
         this.postCommentRepository = postCommentRepository;
         this.userRepository = userRepository;
+        this.conversationRepository = conversationRepository;
+        this.blockedUserRepository = blockedUserRepository;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -98,8 +109,25 @@ public class PostController {
     @GetMapping
     public ResponseEntity<List<PostDto>> getAllPosts(Authentication auth) {
         User me = currentUser(auth);
+
+        // Find mutual friends: users with an ACCEPTED conversation and not blocked
+        List<Conversation> myConvs = conversationRepository.findByUserAIdOrUserBId(me.getId(), me.getId());
+        Set<Long> mutualFriendIds = new HashSet<>();
+        mutualFriendIds.add(me.getId()); // User always sees their own posts
+
+        for (Conversation c : myConvs) {
+            if ("ACCEPTED".equalsIgnoreCase(c.getStatus())) {
+                Long friendId = c.getUserAId().equals(me.getId()) ? c.getUserBId() : c.getUserAId();
+                if (!blockedUserRepository.existsByBlockerIdAndBlockedId(me.getId(), friendId) &&
+                    !blockedUserRepository.existsByBlockerIdAndBlockedId(friendId, me.getId())) {
+                    mutualFriendIds.add(friendId);
+                }
+            }
+        }
+
         List<Post> posts = postRepository.findAllByOrderByCreatedAtDesc();
         List<PostDto> dtos = posts.stream()
+                .filter(p -> p.getUser() != null && mutualFriendIds.contains(p.getUser().getId()))
                 .map(p -> toPostDto(p, me.getId()))
                 .collect(Collectors.toList());
         return ResponseEntity.ok(dtos);

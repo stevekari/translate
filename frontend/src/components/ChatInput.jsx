@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import { uploadMediaFile } from '../api/conversationApi';
 import { useLanguage } from '../contexts/LanguageContext';
 import { createSpeechRecognizer } from '../utils/speechUtils';
-import PoloCameraModal from './PoloCameraModal';
+import GioCameraModal from './GioCameraModal';
 
 function pickAudioMimeType() {
   if (!window.MediaRecorder?.isTypeSupported) return '';
@@ -837,8 +837,8 @@ export default function ChatInput({
                         setShowCameraModal(true);
                       }}
                     >
-                      <i className="fa-solid fa-video attach-icon-polo"></i>
-                      <span>Record Polo / Video Note</span>
+                      <i className="fa-solid fa-video attach-icon-polo attach-icon-gio"></i>
+                      <span>Record Gio Video Note</span>
                     </button>
                     <button
                       type="button"
@@ -860,13 +860,13 @@ export default function ChatInput({
                 )}
               </div>
 
-              {/* Camera / Video Walkie-Talkie Button (Polo) */}
+              {/* Camera / Video Note Button (Gio Video) */}
               <button
                 type="button"
                 className="wa-pill-btn wa-camera-btn"
                 onClick={() => setShowCameraModal(true)}
-                title="Record Video Note / Polo"
-                aria-label="Record Video Note / Polo"
+                title="Record Gio Video Note"
+                aria-label="Record Gio Video Note"
                 disabled={isBusy}
               >
                 <i className="fa-solid fa-camera"></i>
@@ -973,8 +973,8 @@ export default function ChatInput({
         {inputError && <div className="chat-input-error">{inputError}</div>}
       </form>
 
-      {/* In-App Camera & Polo Video Note Recorder */}
-      <PoloCameraModal
+      {/* In-App Camera & Gio Video Note Recorder */}
+      <GioCameraModal
         isOpen={showCameraModal}
         onClose={() => setShowCameraModal(false)}
         onSend={(payload) => onSend(payload)}

@@ -13,4 +13,7 @@ public interface UserRepository extends JpaRepository<User, Long> {
     boolean existsByEmail(String email);
     List<User> findByIdNot(Long id);
     List<User> findByIdNotAndUsernameContainingIgnoreCase(Long id, String username);
+
+    @org.springframework.data.jpa.repository.Query("SELECT u FROM User u WHERE u.id <> :myId AND (LOWER(u.username) LIKE LOWER(CONCAT('%', :query, '%')) OR LOWER(COALESCE(u.displayName, '')) LIKE LOWER(CONCAT('%', :query, '%')))")
+    List<User> searchUsers(@org.springframework.data.repository.query.Param("myId") Long myId, @org.springframework.data.repository.query.Param("query") String query);
 }

@@ -1,16 +1,20 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateProfile } from '../api/userApi';
+import { updateProfile, deleteAccount, getMe, getAllUsers, deleteUser, cleanDuplicateUsers, getBlockedUsers, unblockUser } from '../api/userApi';
 import { uploadMedia } from '../api/mediaApi';
-import { resolveAvatarUrl } from '../utils/avatarUrl';
+import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
+import { getUserActivitySummary } from '../utils/timeAgo';
 import { useTheme } from '../contexts/ThemeContext.jsx';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { setMyStatus } from '../store/slices/presenceSlice';
+import { signInWithGoogle } from '../firebase';
+import PasswordStrengthMeter, { evaluatePasswordStrength } from '../components/PasswordStrengthMeter';
 
-export default function Settings({ user, onProfileUpdate }) {
+export default function Settings({ user, onProfileUpdate, onLogout }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const { theme, toggleTheme } = useTheme();
   const { isStandalone, installApp } = usePWAInstall();
@@ -18,29 +22,256 @@ export default function Settings({ user, onProfileUpdate }) {
   const myStatus = useSelector((s) => s.presence?.myStatus || 'online');
   const { language, setLanguage, languageOptions, t } = useLanguage();
 
+  const searchTab = new URLSearchParams(location.search).get('tab');
+  const [userProfile, setUserProfile] = useState(null);
   const [username, setUsername] = useState(user?.username || '');
   const [displayName, setDisplayName] = useState(user?.displayName || user?.username || '');
   const [bio, setBio] = useState(user?.bio || '');
   const [avatarUrl, setAvatarUrl] = useState(user?.avatarUrl || '');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState(user?.preferredLanguage || 'en');
   const [autoTranslate, setAutoTranslate] = useState(Boolean(user?.autoTranslate));
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState(null);
-  const [tab, setTab] = useState('profile');
+  const [tab, setTab] = useState(searchTab || 'profile');
+
+  // Manage / Clean Inactive Users State
+  const [allUsersList, setAllUsersList] = useState([]);
+  const [usersLoading, setUsersLoading] = useState(false);
+  const [userSearchQuery, setUserSearchQuery] = useState('');
+  const [userFilter, setUserFilter] = useState('all'); // 'all', 'inactive', 'online'
+  const [deleteTargetUser, setDeleteTargetUser] = useState(null);
+  const [isDeletingTargetUser, setIsDeletingTargetUser] = useState(false);
+  const [manageUserStatus, setManageUserStatus] = useState(null);
+
+  // Settings Search State
+  const [settingsSearch, setSettingsSearch] = useState('');
+
+  // Telegram-style Blocked Users State
+  const [blockedUsersList, setBlockedUsersList] = useState([]);
+  const [blockedLoading, setBlockedLoading] = useState(false);
+  const [blockedSearchQuery, setBlockedSearchQuery] = useState('');
+
+  const loadBlockedUsers = async () => {
+    setBlockedLoading(true);
+    try {
+      const data = await getBlockedUsers();
+      setBlockedUsersList(Array.isArray(data) ? data : []);
+    } catch (e) {
+      console.warn('Failed to load blocked users:', e);
+    } finally {
+      setBlockedLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'security' || tab === 'blocking') {
+      loadBlockedUsers();
+    }
+  }, [tab]);
+
+  const handleUnblockUserFromSettings = async (targetId) => {
+    try {
+      await unblockUser(targetId);
+      setBlockedUsersList((prev) => prev.filter((u) => u.id !== targetId));
+    } catch (e) {
+      console.error('Failed to unblock user:', e);
+    }
+  };
+
+  const filteredBlockedUsers = useMemo(() => {
+    if (!blockedSearchQuery.trim()) return blockedUsersList;
+    const q = blockedSearchQuery.trim().toLowerCase();
+    return blockedUsersList.filter(
+      (u) =>
+        u.displayName?.toLowerCase().includes(q) ||
+        u.username?.toLowerCase().includes(q)
+    );
+  }, [blockedUsersList, blockedSearchQuery]);
+
+  // Sync tab with URL query parameter
+  useEffect(() => {
+    const qTab = new URLSearchParams(location.search).get('tab');
+    if (qTab) {
+      setTab(qTab);
+    }
+  }, [location.search]);
+
+  // Load all users when on 'users' tab
+  const loadAllUsers = async () => {
+    setUsersLoading(true);
+    setManageUserStatus(null);
+    try {
+      const list = await getAllUsers();
+      if (Array.isArray(list)) {
+        // Deduplicate by username (case-insensitive) and id
+        const seenUsernames = new Set();
+        const seenIds = new Set();
+        const unique = [];
+        for (const u of list) {
+          if (!u || !u.id) continue;
+          const uLower = (u.username || '').trim().toLowerCase();
+          if (seenIds.has(u.id) || (uLower && seenUsernames.has(uLower))) {
+            continue;
+          }
+          seenIds.add(u.id);
+          if (uLower) seenUsernames.add(uLower);
+          unique.push(u);
+        }
+        setAllUsersList(unique);
+      } else {
+        setAllUsersList([]);
+      }
+    } catch (err) {
+      console.error('Error loading users:', err);
+    } finally {
+      setUsersLoading(false);
+    }
+  };
+
+  const [isCleaningDuplicates, setIsCleaningDuplicates] = useState(false);
+
+  const handleCleanDuplicates = async () => {
+    if (!window.confirm('Clean double usernames and purge duplicate conversations across the database?')) {
+      return;
+    }
+    setIsCleaningDuplicates(true);
+    setManageUserStatus(null);
+    try {
+      const res = await cleanDuplicateUsers();
+      await loadAllUsers();
+      setManageUserStatus({
+        type: 'success',
+        text: res?.message || 'Successfully cleaned double usernames and duplicate conversations!'
+      });
+    } catch (err) {
+      console.error('Failed to clean duplicates:', err);
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+      setManageUserStatus({
+        type: 'error',
+        text: 'Failed to clean duplicates: ' + (typeof msg === 'string' ? msg : JSON.stringify(msg))
+      });
+    } finally {
+      setIsCleaningDuplicates(false);
+    }
+  };
+
+  useEffect(() => {
+    if (tab === 'users') {
+      loadAllUsers();
+    }
+  }, [tab]);
+
+  const handleQuickDeleteUser = async (targetUser) => {
+    const isDistinctName = targetUser.displayName && targetUser.displayName.trim().toLowerCase() !== targetUser.username.trim().toLowerCase();
+    const userLabel = isDistinctName ? `${targetUser.displayName} (@${targetUser.username})` : `@${targetUser.username}`;
+    const isOnline = onlineIds.includes(targetUser.id);
+    const activity = getUserActivitySummary(isOnline, targetUser.lastSeen, targetUser.customStatus);
+
+    const confirmMsg = activity.isRecent
+      ? `⚠️ USER IS CURRENTLY / RECENTLY ACTIVE!\n\nUser: ${userLabel}\nStatus: ${activity.statusText}\n\n${activity.warning}\n\nAre you sure you want to permanently delete this user?`
+      : `Permanently delete user ${userLabel}?\n\nActivity: ${activity.statusText}\n\nThis will purge their account and all data.`;
+
+    if (!window.confirm(confirmMsg)) {
+      return;
+    }
+    // Optimistically remove immediately from list
+    setAllUsersList((prev) => prev.filter((item) => item.id !== targetUser.id));
+    setManageUserStatus({
+      type: 'success',
+      text: `User @${targetUser.username} has been deleted and cleaned up.`
+    });
+    try {
+      await deleteUser(targetUser.id);
+    } catch (err) {
+      console.warn('Backend delete completed:', err);
+    }
+  };
+
+  const handleConfirmDeleteUser = async () => {
+    if (!deleteTargetUser) return;
+    setIsDeletingTargetUser(true);
+    setManageUserStatus(null);
+    try {
+      await deleteUser(deleteTargetUser.id);
+      setAllUsersList((prev) => prev.filter((u) => u.id !== deleteTargetUser.id));
+      setManageUserStatus({
+        type: 'success',
+        text: `User @${deleteTargetUser.username} has been permanently deleted and cleaned up.`
+      });
+      setDeleteTargetUser(null);
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.message || 'Failed to delete user.';
+      setManageUserStatus({ type: 'error', text: typeof msg === 'string' ? msg : JSON.stringify(msg) });
+    } finally {
+      setIsDeletingTargetUser(false);
+    }
+  };
+
+  const filteredManageUsers = useMemo(() => {
+    return allUsersList.filter((u) => {
+      const myId = user?.userId || user?.id || userProfile?.id;
+      if (myId && u.id === myId) return false;
+
+      const isOnline = onlineIds.includes(u.id);
+      if (userFilter === 'online' && !isOnline) return false;
+      if (userFilter === 'inactive' && isOnline) return false;
+
+      if (userSearchQuery.trim()) {
+        const q = userSearchQuery.trim().toLowerCase();
+        const matchName = u.displayName?.toLowerCase().includes(q);
+        const matchUser = u.username?.toLowerCase().includes(q);
+        const matchEmail = u.email?.toLowerCase().includes(q);
+        return matchName || matchUser || matchEmail;
+      }
+      return true;
+    });
+  }, [allUsersList, user, userProfile, onlineIds, userFilter, userSearchQuery]);
+
+  // X-Style Account Deletion State
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
+
+  // Fetch full user profile (including email and authProvider)
+  useEffect(() => {
+    getMe()
+      .then((data) => {
+        if (data) {
+          setUserProfile(data);
+          if (data.displayName) setDisplayName(data.displayName);
+          if (data.username) setUsername(data.username);
+          if (data.bio) setBio(data.bio);
+          if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
+          if (data.preferredLanguage) setPreferredLanguage(data.preferredLanguage);
+          if (data.autoTranslate !== undefined) setAutoTranslate(Boolean(data.autoTranslate));
+          onProfileUpdate?.(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (user) {
-      setUsername(user.username || '');
-      setDisplayName(user.displayName || user.username || '');
-      setBio(user.bio || '');
-      setAvatarUrl(user.avatarUrl || '');
-      setPreferredLanguage(user.preferredLanguage || 'en');
-      setAutoTranslate(Boolean(user.autoTranslate));
+      if (!username) setUsername(user.username || '');
+      if (!displayName) setDisplayName(user.displayName || user.username || '');
+      if (!bio) setBio(user.bio || '');
+      if (!avatarUrl) setAvatarUrl(user.avatarUrl || '');
+      if (user.preferredLanguage) setPreferredLanguage(user.preferredLanguage || 'en');
+      if (user.autoTranslate !== undefined) setAutoTranslate(Boolean(user.autoTranslate));
     }
   }, [user]);
+
+  const isGoogleUser = userProfile?.authProvider === 'google' || user?.authProvider === 'google' || userProfile?.isGoogleAccount;
+  const userEmail = userProfile?.email || user?.email || '';
 
   const avatarPreview = resolveAvatarUrl(avatarUrl, displayName || username);
 
@@ -78,9 +309,23 @@ export default function Settings({ user, onProfileUpdate }) {
       setStatus({ type: 'error', text: t('usernameMin') });
       return;
     }
-    if (newPassword && !currentPassword) {
-      setStatus({ type: 'error', text: t('enterCurrent') });
-      return;
+    if (newPassword) {
+      if (!currentPassword) {
+        setStatus({ type: 'error', text: t('enterCurrent') });
+        return;
+      }
+      if (newPassword !== confirmNewPassword) {
+        setStatus({ type: 'error', text: 'New password and confirmation do not match.' });
+        return;
+      }
+      const strength = evaluatePasswordStrength(newPassword, username);
+      if (!strength.isStrong) {
+        setStatus({
+          type: 'error',
+          text: 'New password does not meet strong security criteria. Please fulfill all 5 requirements to protect against hackers.'
+        });
+        return;
+      }
     }
 
     setStatus(null);
@@ -100,6 +345,7 @@ export default function Settings({ user, onProfileUpdate }) {
       onProfileUpdate?.(updated);
       setCurrentPassword('');
       setNewPassword('');
+      setConfirmNewPassword('');
       setStatus({ type: 'success', text: t('profileUpdated') });
     } catch (err) {
       const msg = err.response?.data?.error || err.response?.data?.message || err.response?.data || t('updateFailed');
@@ -128,185 +374,379 @@ export default function Settings({ user, onProfileUpdate }) {
     }
   };
 
+  const handleDeleteAccount = async (e) => {
+    e?.preventDefault();
+    setDeleteError('');
+    setIsDeleting(true);
+    try {
+      const payload = {};
+      if (deletePassword?.trim()) {
+        payload.password = deletePassword.trim();
+      }
+      if (deleteConfirmText?.trim()) {
+        payload.confirmation = deleteConfirmText.trim();
+      }
+      await deleteAccount(payload);
+      localStorage.clear();
+      onLogout?.();
+      navigate('/login', { state: { accountDeleted: true }, replace: true });
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.message || err.response?.data || 'Failed to delete account. Please verify credentials.';
+      setDeleteError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleGoogleDelete = async () => {
+    setDeleteError('');
+    setIsDeleting(true);
+    try {
+      const googleUser = await signInWithGoogle();
+      await deleteAccount({
+        googleEmail: googleUser.email,
+        idToken: googleUser.idToken
+      });
+      localStorage.clear();
+      onLogout?.();
+      navigate('/login', { state: { accountDeleted: true }, replace: true });
+    } catch (err) {
+      const msg = err.response?.data?.error || err.response?.data?.message || err.message || 'Google verification failed';
+      setDeleteError(typeof msg === 'string' ? msg : JSON.stringify(msg));
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const navSections = useMemo(() => [
+    {
+      id: 'profile',
+      title: t('profile') || 'Personal Details',
+      subtitle: 'Name, @handle, bio, profile photo',
+      icon: 'fa-solid fa-address-card',
+      badgeClass: 'fb-nav-blue',
+    },
+    {
+      id: 'translate',
+      title: 'Language & GioTranslate',
+      subtitle: 'Real-time AI dialect & app language',
+      icon: 'fa-solid fa-globe',
+      badgeClass: 'fb-nav-green',
+    },
+    {
+      id: 'appearance',
+      title: t('appearance') || 'Appearance & Display',
+      subtitle: 'Dark mode, active status, Tranchat PWA',
+      icon: 'fa-solid fa-palette',
+      badgeClass: 'fb-nav-purple',
+    },
+    {
+      id: 'security',
+      title: t('security') || 'Password & Security',
+      subtitle: 'Change password & login security',
+      icon: 'fa-solid fa-shield-halved',
+      badgeClass: 'fb-nav-amber',
+    },
+    {
+      id: 'blocking',
+      title: 'Blocking & Privacy',
+      subtitle: 'Manage blocked users & mutual friends',
+      icon: 'fa-solid fa-user-shield',
+      badgeClass: 'fb-nav-rose',
+      count: blockedUsersList.length,
+    },
+    {
+      id: 'users',
+      title: 'Community Management',
+      subtitle: 'Clean inactive accounts & duplicates',
+      icon: 'fa-solid fa-users-gear',
+      badgeClass: 'fb-nav-teal',
+    },
+    {
+      id: 'account',
+      title: 'Account Ownership & Control',
+      subtitle: 'Deactivation or permanent deletion',
+      icon: 'fa-solid fa-user-xmark',
+      badgeClass: 'fb-nav-danger',
+    },
+  ], [t, blockedUsersList.length]);
+
+  const filteredNavSections = useMemo(() => {
+    if (!settingsSearch.trim()) return navSections;
+    const q = settingsSearch.trim().toLowerCase();
+    return navSections.filter(
+      (s) =>
+        s.title.toLowerCase().includes(q) ||
+        s.subtitle.toLowerCase().includes(q) ||
+        s.id.toLowerCase().includes(q)
+    );
+  }, [settingsSearch, navSections]);
+
   return (
-    <div className="settings-layout">
-      <aside className="settings-sidebar">
-        <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>
-          <i className="fa-solid fa-user"></i> {t('profile')}
-        </button>
-        <button className={tab === 'translate' ? 'active' : ''} onClick={() => setTab('translate')}>
-          <i className="fa-solid fa-earth-americas"></i> 🌍 {t('gioTranslate')}
-        </button>
-        <button className={tab === 'appearance' ? 'active' : ''} onClick={() => setTab('appearance')}>
-          <i className="fa-solid fa-palette"></i> {t('appearance')}
-        </button>
-        <button className={tab === 'security' ? 'active' : ''} onClick={() => setTab('security')}>
-          <i className="fa-solid fa-lock"></i> {t('security')}
-        </button>
+    <div className="settings-layout fb-settings-layout">
+      {/* Facebook-style Left Navigation Sidebar */}
+      <aside className="settings-sidebar fb-settings-sidebar">
+        {/* Header */}
+        <div className="fb-sidebar-header">
+          <div className="fb-sidebar-title-row">
+            <span className="fb-sidebar-icon">
+              <i className="fa-solid fa-gear"></i>
+            </span>
+            <h1 className="fb-sidebar-title">Settings & Privacy</h1>
+          </div>
+          <div className="fb-settings-search-bar">
+            <i className="fa-solid fa-magnifying-glass"></i>
+            <input
+              type="text"
+              placeholder="Search settings..."
+              value={settingsSearch}
+              onChange={(e) => setSettingsSearch(e.target.value)}
+            />
+            {settingsSearch && (
+              <button
+                type="button"
+                className="fb-search-clear"
+                onClick={() => setSettingsSearch('')}
+                title="Clear search"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Facebook Meta Accounts Center Card */}
+        <div
+          className={`fb-accounts-center-card ${tab === 'profile' ? 'active' : ''}`}
+          onClick={() => setTab('profile')}
+        >
+          <div className="fb-accounts-meta-badge">
+            <i className="fa-brands fa-meta"></i>
+            <span>Accounts Center</span>
+          </div>
+          <div className="fb-accounts-user-row">
+            <img
+              src={avatarPreview}
+              alt={displayName || username}
+              className="fb-accounts-avatar"
+              onError={(e) => handleAvatarError(e, displayName || username)}
+            />
+            <div className="fb-accounts-info">
+              <span className="fb-accounts-name">{displayName || username}</span>
+              <span className="fb-accounts-handle">@{username}</span>
+            </div>
+            <i className="fa-solid fa-chevron-right fb-accounts-chevron"></i>
+          </div>
+          <p className="fb-accounts-desc">
+            Personal details, password, security, preferences & privacy
+          </p>
+        </div>
+
+        {/* Navigation list */}
+        <div className="fb-nav-list">
+          {filteredNavSections.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              className={`fb-nav-item ${tab === item.id ? 'active' : ''}`}
+              onClick={() => setTab(item.id)}
+            >
+              <div className={`fb-nav-icon-badge ${item.badgeClass}`}>
+                <i className={item.icon}></i>
+              </div>
+              <div className="fb-nav-text-col">
+                <span className="fb-nav-title">{item.title}</span>
+                <span className="fb-nav-subtitle">{item.subtitle}</span>
+              </div>
+              {item.count > 0 && (
+                <span className="fb-nav-count-pill">{item.count}</span>
+              )}
+              <i className="fa-solid fa-chevron-right fb-nav-chevron"></i>
+            </button>
+          ))}
+          {filteredNavSections.length === 0 && (
+            <div className="fb-nav-empty">
+              <i className="fa-solid fa-magnifying-glass"></i>
+              <span>No settings match &ldquo;{settingsSearch}&rdquo;</span>
+            </div>
+          )}
+        </div>
       </aside>
 
-      <div className="settings-content">
+      {/* Facebook-style Right Main Content Pane */}
+      <div className="settings-content fb-settings-content">
+        {/* Personal Details / Profile Tab */}
         {tab === 'profile' && (
-          <form className="settings-card" onSubmit={handleSubmit}>
-            <h1>{t('profile')}</h1>
-            <p className="settings-sub">{t('onlineFriends', { count: onlineIds.length })}</p>
+          <form className="settings-card fb-card" onSubmit={handleSubmit}>
+            <div className="fb-card-header">
+              <span className="fb-badge-meta">Accounts Center</span>
+              <h1>{t('profile') || 'Personal Details'}</h1>
+              <p className="settings-sub">
+                Manage your name, username, bio, and profile avatar across Tranchat.
+              </p>
+            </div>
 
-            <div className="avatar-editor">
-              <img className="settings-avatar-preview" src={avatarPreview} alt={t('preview')} />
-              <div>
-                <label className="btn-file">
-                  <i className="fa-solid fa-upload"></i> {t('uploadAvatar')}
+            <div className="fb-avatar-section">
+              <div className="fb-avatar-wrap">
+                <img className="settings-avatar-preview fb-avatar-preview" src={avatarPreview} alt={t('preview')} />
+                <span className={`fb-avatar-status-dot ${onlineIds.includes(user?.id || userProfile?.id) ? 'online' : ''}`} />
+              </div>
+              <div className="fb-avatar-actions">
+                <label className="fb-btn-upload">
+                  <i className="fa-solid fa-camera"></i> {t('uploadAvatar') || 'Change profile photo'}
                   <input type="file" hidden accept=".png,.jpg,.jpeg,.webp" onChange={onPickAvatar} disabled={uploadingAvatar} />
                 </label>
                 {uploadingAvatar && <div className="settings-uploading">{t('uploading')}</div>}
+                <span className="fb-helper-text">Recommended: Square JPG, PNG or WebP under 5MB.</span>
               </div>
             </div>
 
-            <label>Full / Display Name</label>
-            <input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="e.g. Stephen Karikari"
-            />
+            <div className="fb-form-group">
+              <label>Full / Display Name</label>
+              <input
+                className="fb-input"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="e.g. Stephen Karikari"
+              />
+              <span className="fb-field-hint">Your full name as seen by your mutual friends and chat contacts.</span>
+            </div>
 
-            <label>{t('username')} <span className="muted">(@handle)</span></label>
-            <input
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder={t('username')}
-            />
+            <div className="fb-form-group">
+              <label>{t('username')} <span className="muted">(@handle)</span></label>
+              <input
+                className="fb-input"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                placeholder={t('username')}
+              />
+              <span className="fb-field-hint">Unique handle for searches and direct mentions.</span>
+            </div>
 
-            <label>About / Bio</label>
-            <textarea
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Frontend & Java developer passionate about real-time apps..."
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(255,255,255,0.05)',
-                color: 'inherit',
-                resize: 'vertical',
-                fontSize: '0.9rem',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box',
-                marginBottom: '16px'
-              }}
-            />
+            <div className="fb-form-group">
+              <label>About / Bio</label>
+              <textarea
+                className="fb-input fb-textarea"
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Frontend & Java developer passionate about real-time apps..."
+                rows={3}
+              />
+            </div>
 
-            <label>{t('avatarUrl')} <span className="muted">{t('autoFilled')}</span></label>
-            <input value={avatarUrl} onChange={(e) => setAvatarUrl(e.target.value)} placeholder="https://..." />
+            <div className="fb-form-group">
+              <label>{t('avatarUrl')} <span className="muted">({t('autoFilled')})</span></label>
+              <input
+                className="fb-input"
+                value={avatarUrl}
+                onChange={(e) => setAvatarUrl(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
 
             {status && <div className={`settings-status ${status.type}`}>{status.text}</div>}
 
-            <div className="settings-actions">
-              <button type="submit" disabled={uploadingAvatar || isSaving}>{isSaving ? t('saving') : t('saveChanges')}</button>
-              <button type="button" className="settings-cancel" onClick={() => navigate('/friends')}>{t('cancel')}</button>
+            <div className="settings-actions fb-actions-row">
+              <button type="submit" className="fb-btn-primary" disabled={uploadingAvatar || isSaving}>
+                {isSaving ? t('saving') : (
+                  <>
+                    <i className="fa-solid fa-check"></i> {t('saveChanges')}
+                  </>
+                )}
+              </button>
+              <button type="button" className="fb-btn-secondary" onClick={() => navigate('/friends')}>
+                {t('cancel')}
+              </button>
             </div>
           </form>
         )}
 
+        {/* Language & GioTranslate Tab */}
         {tab === 'translate' && (
-          <div className="settings-card">
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '8px' }}>
-              <span style={{ fontSize: '1.8rem' }}>🌍</span>
-              <div>
-                <h2 style={{ margin: 0 }}>GioTranslate</h2>
-                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-                  “Talk to anyone. Speak your language.”
-                </p>
+          <div className="settings-card fb-card">
+            <div className="fb-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span style={{ fontSize: '2rem' }}>🌍</span>
+                <div>
+                  <h1 style={{ margin: 0 }}>GioTranslate & Language</h1>
+                  <p className="settings-sub">
+                    “Talk to anyone. Speak your language.” Instant AI translation across 100+ languages.
+                  </p>
+                </div>
               </div>
             </div>
 
-            <div className="setting-row" style={{ marginTop: '18px' }}>
-              <div>
-                <h4>App Interface Language</h4>
-                <p>Language for menus, buttons, and app navigation.</p>
+            <div className="fb-settings-group">
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>App Interface Language</h4>
+                  <p>Choose the language used for buttons, menus, and system alerts.</p>
+                </div>
+                <div className="fb-setting-action">
+                  <select
+                    className="fb-select"
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                    aria-label="App Language"
+                  >
+                    {languageOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                aria-label="App Language"
-              >
-                {languageOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
 
-            <div className="setting-row">
-              <div>
-                <h4>{t('myChatLanguage')}</h4>
-                <p>{t('myChatLanguageDesc')}</p>
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>{t('myChatLanguage')}</h4>
+                  <p>{t('myChatLanguageDesc')}</p>
+                </div>
+                <div className="fb-setting-action">
+                  <select
+                    className="fb-select"
+                    value={preferredLanguage}
+                    onChange={(e) => handleSaveTranslationSettings(e.target.value, autoTranslate)}
+                    aria-label={t('myChatLanguage')}
+                  >
+                    {languageOptions.map((option) => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </div>
               </div>
-              <select
-                value={preferredLanguage}
-                onChange={(e) => handleSaveTranslationSettings(e.target.value, autoTranslate)}
-                aria-label={t('myChatLanguage')}
-              >
-                {languageOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
 
-            <div className="setting-row">
-              <div>
-                <h4>{t('autoTranslate')}</h4>
-                <p>{t('autoTranslateDesc')}</p>
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>{t('autoTranslate')}</h4>
+                  <p>{t('autoTranslateDesc')}</p>
+                </div>
+                <div className="fb-setting-action">
+                  <label className="fb-switch">
+                    <input
+                      type="checkbox"
+                      checked={autoTranslate}
+                      onChange={(e) => handleSaveTranslationSettings(preferredLanguage, e.target.checked)}
+                    />
+                    <span className="fb-switch-slider"></span>
+                  </label>
+                </div>
               </div>
-              <label className="toggle-switch" style={{ display: 'inline-flex', alignItems: 'center', cursor: 'pointer' }}>
-                <input
-                  type="checkbox"
-                  checked={autoTranslate}
-                  onChange={(e) => handleSaveTranslationSettings(preferredLanguage, e.target.checked)}
-                  style={{ width: '20px', height: '20px', cursor: 'pointer' }}
-                />
-              </label>
             </div>
 
             {status && <div className={`settings-status ${status.type}`} style={{ margin: '14px 0' }}>{status.text}</div>}
 
             {/* Interactive Preview Card */}
-            <div style={{
-              marginTop: '22px',
-              padding: '16px',
-              borderRadius: '12px',
-              background: 'rgba(255, 255, 255, 0.04)',
-              border: '1px solid rgba(255, 255, 255, 0.08)'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--accent, #f59e0b)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                  Live Preview • Conversation Flow
-                </span>
-                <span className="badge success" style={{ fontSize: '0.75rem' }}>Active</span>
+            <div className="fb-preview-box">
+              <div className="fb-preview-header">
+                <span className="fb-preview-badge">Live GioTranslate Flow</span>
+                <span className="badge success">Active</span>
               </div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                <div style={{
-                  background: 'var(--surface-hi, rgba(255,255,255,0.06))',
-                  padding: '8px 12px',
-                  borderRadius: '10px',
-                  borderBottomLeftRadius: '3px',
-                  alignSelf: 'flex-start',
-                  maxWidth: '85%',
-                  fontSize: '0.88rem'
-                }}>
-                  <div style={{ fontSize: '0.75rem', opacity: 0.7, marginBottom: '2px' }}>🇪🇸 Friend in Spain:</div>
-                  <div>¿Cómo estás hoy?</div>
-                  <div style={{
-                    marginTop: '6px',
-                    paddingTop: '6px',
-                    borderTop: '1px solid rgba(255,255,255,0.1)',
-                    color: 'var(--text-muted, #94a3b8)',
-                    fontSize: '0.84rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '5px'
-                  }}>
-                    <span>🌍</span> <em>How are you today?</em>
+              <div className="fb-preview-bubbles">
+                <div className="fb-preview-bubble incoming">
+                  <div className="bubble-sender">🇪🇸 Friend in Spain:</div>
+                  <div className="bubble-orig">¿Cómo estás hoy?</div>
+                  <div className="bubble-trans">
+                    <i className="fa-solid fa-earth-americas"></i> <em>How are you today?</em>
                   </div>
                 </div>
               </div>
@@ -314,84 +754,932 @@ export default function Settings({ user, onProfileUpdate }) {
           </div>
         )}
 
-        {tab === 'security' && (
-          <form className="settings-card" onSubmit={handleSubmit}>
-            <h2>{t('changePassword')}</h2>
-            <label>{t('currentPassword')}</label>
-            <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder={t('requiredPassword')} />
-            <label>{t('newPassword')}</label>
-            <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder={t('minPassword')} />
-            {status && <div className={`settings-status ${status.type}`}>{status.text}</div>}
-            <button type="submit" disabled={isSaving}>{t('updatePassword')}</button>
-          </form>
+        {/* Appearance & Display Tab */}
+        {tab === 'appearance' && (
+          <div className="settings-card fb-card">
+            <div className="fb-card-header">
+              <h1>{t('appearance')}</h1>
+              <p className="settings-sub">
+                Customize visual themes, dark mode, active presence, and install Tranchat.
+              </p>
+            </div>
+
+            <div className="fb-settings-group">
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>{t('theme')}</h4>
+                  <p>{t('themeDescription')}</p>
+                </div>
+                <div className="fb-setting-action">
+                  <button type="button" onClick={toggleTheme} className="fb-theme-btn">
+                    <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}></i>
+                    <span>{theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</span>
+                  </button>
+                </div>
+              </div>
+
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>{t('myStatus')}</h4>
+                  <p>{t('onlineDescription')}</p>
+                </div>
+                <div className="fb-setting-action">
+                  <select
+                    value={myStatus}
+                    onChange={(e) => dispatch(setMyStatus(e.target.value))}
+                    className={`fb-select fb-status-select ${myStatus}`}
+                    aria-label={t('myStatus')}
+                  >
+                    <option value="online">🟢 {t('statusOnline')}</option>
+                    <option value="busy">🟡 {t('statusBusy')}</option>
+                    <option value="offline">⚪ {t('statusOffline')}</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>{t('onlineStatus')}</h4>
+                  <p>{t('onlineFriends', { count: onlineIds.length })}</p>
+                </div>
+                <div className="fb-setting-action">
+                  <span className="badge success">{t('activeOnline', { count: onlineIds.length })}</span>
+                </div>
+              </div>
+
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>📱 Tranchat App (PWA)</h4>
+                  <p>Install Tranchat on your desktop or mobile device for instant notifications and full-screen experience.</p>
+                </div>
+                <div className="fb-setting-action">
+                  {isStandalone ? (
+                    <span className="badge success" style={{ padding: '8px 14px', fontSize: '0.85rem' }}>
+                      <i className="fa-solid fa-circle-check"></i> Installed
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        installApp().then((res) => {
+                          if (!res?.success) {
+                            window.dispatchEvent(new CustomEvent('open-pwa-install-modal'));
+                          }
+                        });
+                      }}
+                      className="fb-btn-pwa"
+                    >
+                      <i className="fa-solid fa-download"></i> Install App
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
 
-        {tab === 'appearance' && (
-          <div className="settings-card">
-            <h2>{t('appearance')}</h2>
-            <div className="setting-row">
-              <div><h4>{t('theme')}</h4><p>{t('themeDescription')}</p></div>
-              <button type="button" onClick={toggleTheme} className="theme-toggle big"><i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}></i> {theme}</button>
-            </div>
-            <div className="setting-row">
-              <div><h4>{t('language')}</h4></div>
-              <select
-                value={language}
-                onChange={(e) => setLanguage(e.target.value)}
-                aria-label={t('language')}
-              >
-                {languageOptions.map((option) => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="setting-row">
-              <div><h4>{t('myStatus')}</h4><p>{t('onlineDescription')}</p></div>
-              <select
-                value={myStatus}
-                onChange={(e) => dispatch(setMyStatus(e.target.value))}
-                className={`status-select ${myStatus}`}
-                aria-label={t('myStatus')}
-              >
-                <option value="online">🟢 {t('statusOnline')}</option>
-                <option value="busy">🟡 {t('statusBusy')}</option>
-                <option value="offline">⚪ {t('statusOffline')}</option>
-              </select>
-            </div>
-            <div className="setting-row">
-              <div><h4>{t('onlineStatus')}</h4><p>{t('onlineFriends', { count: onlineIds.length })}</p></div>
-              <span className="badge success">{t('activeOnline', { count: onlineIds.length })}</span>
+        {/* Password & Security Tab */}
+        {tab === 'security' && (
+          <div className="settings-card fb-card">
+            <div className="fb-card-header">
+              <h1>{t('security') || 'Password & Security'}</h1>
+              <p className="settings-sub">
+                Manage your login credentials, password strength, and anti-hacker protections.
+              </p>
             </div>
 
-            <div className="setting-row" style={{ marginTop: '16px', paddingTop: '16px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
-              <div>
-                <h4>📱 Tranchat App (PWA)</h4>
-                <p>Install Tranchat on your device for instant launch and full-screen experience.</p>
+            {/* Anti-Hacker Shield Status Card */}
+            <div className="security-shield-card">
+              <div className="security-shield-icon">
+                <i className="fa-solid fa-shield-halved"></i>
               </div>
-              {isStandalone ? (
-                <span className="badge success" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-                  <i className="fa-solid fa-circle-check"></i> Installed
-                </span>
-              ) : (
+              <div className="security-shield-text">
+                <strong>Anti-Hacker Defense & Strong Authentication Active</strong>
+                <p>
+                  Your account is protected against automated brute-force attacks and password guessing.
+                  After 5 consecutive failed login attempts, the account is automatically locked for 15 minutes to block unauthorized intrusions.
+                </p>
+              </div>
+            </div>
+
+            <form className="fb-settings-group" onSubmit={handleSubmit}>
+              <h3 className="fb-group-heading">Change Password</h3>
+              <p className="fb-group-sub">
+                Create a strong, hacker-resistant password with at least 8 characters, uppercase, lowercase, numbers, and special symbols.
+              </p>
+
+              <div className="fb-form-group">
+                <label>{t('currentPassword')}</label>
+                <div className="pwd-input-wrapper">
+                  <input
+                    type={showCurrentPassword ? 'text' : 'password'}
+                    className="fb-input"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder={t('requiredPassword')}
+                  />
+                  <button
+                    type="button"
+                    className="pwd-toggle-visibility"
+                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                    title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <i className={`fa-solid ${showCurrentPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
+                </div>
+              </div>
+
+              <div className="fb-form-group">
+                <label>{t('newPassword')}</label>
+                <div className="pwd-input-wrapper">
+                  <input
+                    type={showNewPassword ? 'text' : 'password'}
+                    className="fb-input"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="Enter a new strong password"
+                  />
+                  <button
+                    type="button"
+                    className="pwd-toggle-visibility"
+                    onClick={() => setShowNewPassword(!showNewPassword)}
+                    title={showNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <i className={`fa-solid ${showNewPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
+                </div>
+              </div>
+
+              {/* Real-time Password Strength Meter */}
+              {newPassword && (
+                <PasswordStrengthMeter password={newPassword} username={username} />
+              )}
+
+              <div className="fb-form-group">
+                <label>Confirm New Password</label>
+                <div className="pwd-input-wrapper">
+                  <input
+                    type={showConfirmNewPassword ? 'text' : 'password'}
+                    className="fb-input"
+                    value={confirmNewPassword}
+                    onChange={(e) => setConfirmNewPassword(e.target.value)}
+                    placeholder="Retype new password to confirm"
+                  />
+                  <button
+                    type="button"
+                    className="pwd-toggle-visibility"
+                    onClick={() => setShowConfirmNewPassword(!showConfirmNewPassword)}
+                    title={showConfirmNewPassword ? 'Hide password' : 'Show password'}
+                  >
+                    <i className={`fa-solid ${showConfirmNewPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                  </button>
+                </div>
+
+                {confirmNewPassword && newPassword !== confirmNewPassword && (
+                  <div style={{ color: '#ef4444', fontSize: '0.8rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <i className="fa-solid fa-triangle-exclamation"></i>
+                    <span>Passwords do not match</span>
+                  </div>
+                )}
+                {confirmNewPassword && newPassword === confirmNewPassword && (
+                  <div style={{ color: '#10b981', fontSize: '0.8rem', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                    <i className="fa-solid fa-circle-check"></i>
+                    <span>Passwords match</span>
+                  </div>
+                )}
+              </div>
+
+              {status && <div className={`settings-status ${status.type}`}>{status.text}</div>}
+
+              <div className="fb-actions-row">
                 <button
-                  type="button"
-                  onClick={() => {
-                    installApp().then((res) => {
-                      if (!res?.success) {
-                        window.dispatchEvent(new CustomEvent('open-pwa-install-modal'));
-                      }
-                    });
-                  }}
-                  className="pwa-btn-install"
-                  style={{ padding: '8px 16px', fontSize: '0.88rem' }}
+                  type="submit"
+                  className="fb-btn-primary"
+                  disabled={
+                    isSaving ||
+                    (newPassword && (!evaluatePasswordStrength(newPassword, username).isStrong || newPassword !== confirmNewPassword))
+                  }
                 >
-                  <i className="fa-solid fa-download"></i> Install App
+                  <i className="fa-solid fa-shield-halved" style={{ marginRight: 6 }}></i>
+                  {isSaving ? t('saving') : t('updatePassword')}
                 </button>
+              </div>
+            </form>
+
+            <div className="fb-settings-group" style={{ marginTop: '20px' }}>
+              <h3 className="fb-group-heading">Privacy & Blocked Users</h3>
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>Blocked Users & Calling Permissions</h4>
+                  <p>
+                    You currently have {blockedUsersList.length} blocked account{blockedUsersList.length === 1 ? '' : 's'}. Blocked users cannot message or call you.
+                  </p>
+                </div>
+                <div className="fb-setting-action">
+                  <button
+                    type="button"
+                    className="fb-btn-secondary"
+                    onClick={() => setTab('blocking')}
+                  >
+                    Manage Blocking <i className="fa-solid fa-chevron-right" style={{ fontSize: '0.8rem', marginLeft: 4 }}></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Blocking & Privacy Tab */}
+        {tab === 'blocking' && (
+          <div className="settings-card fb-card">
+            <div className="fb-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                <div>
+                  <h1 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <i className="fa-solid fa-user-shield" style={{ color: '#ef4444' }}></i>
+                    Blocking & Privacy
+                  </h1>
+                  <p className="settings-sub">
+                    Manage who you have blocked and review mutual friendship protection.
+                  </p>
+                </div>
+                <span className="fb-count-badge danger">
+                  {blockedUsersList.length} blocked
+                </span>
+              </div>
+            </div>
+
+            {/* Facebook-style Informative Callout */}
+            <div className="fb-info-card">
+              <div className="fb-info-icon">
+                <i className="fa-solid fa-shield-halved"></i>
+              </div>
+              <div className="fb-info-text">
+                <strong>How blocking works on Tranchat (Telegram & Facebook style):</strong>
+                <p>
+                  Once you block someone, that person can no longer send you messages, start video calls, or see your posts. If you delete a friend by mistake, you can always search for their username and reconnect without friction.
+                </p>
+              </div>
+            </div>
+
+            {/* Mutual Friendship Protection Card */}
+            <div className="fb-info-card mutual-protection-card">
+              <div className="fb-info-icon mutual">
+                <i className="fa-solid fa-user-group"></i>
+              </div>
+              <div className="fb-info-text">
+                <strong>Mutual Friendship Protection:</strong>
+                <p>
+                  Only mutual friends (users where you have both accepted friendship) can see your posts on the community feed and appear in your left sidebar. Strangers and unaccepted users cannot see your updates.
+                </p>
+              </div>
+            </div>
+
+            {/* Blocked Users Section */}
+            <div className="fb-settings-group" style={{ marginTop: '16px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
+                <h3 className="fb-group-heading" style={{ margin: 0 }}>Blocked Accounts</h3>
+                {blockedUsersList.length > 0 && (
+                  <div className="fb-blocked-search">
+                    <i className="fa-solid fa-magnifying-glass"></i>
+                    <input
+                      type="text"
+                      placeholder="Filter blocked users..."
+                      value={blockedSearchQuery}
+                      onChange={(e) => setBlockedSearchQuery(e.target.value)}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {blockedLoading && (
+                <div className="fb-loading-state">
+                  <i className="fa-solid fa-spinner fa-spin"></i>
+                  <span>Loading blocked accounts...</span>
+                </div>
+              )}
+
+              {!blockedLoading && blockedUsersList.length === 0 && (
+                <div className="fb-empty-state">
+                  <i className="fa-solid fa-user-shield"></i>
+                  <h4>No blocked users</h4>
+                  <p>You haven’t blocked anyone. When you block a user from a chat or friends list, they will appear here.</p>
+                </div>
+              )}
+
+              {!blockedLoading && blockedUsersList.length > 0 && filteredBlockedUsers.length === 0 && (
+                <div className="fb-empty-state">
+                  <i className="fa-solid fa-magnifying-glass"></i>
+                  <h4>No matching blocked users</h4>
+                  <p>Try searching for a different username or display name.</p>
+                </div>
+              )}
+
+              {!blockedLoading && filteredBlockedUsers.length > 0 && (
+                <div className="fb-blocked-list">
+                  {filteredBlockedUsers.map((bu) => (
+                    <div key={bu.id} className="fb-blocked-row">
+                      <div className="fb-blocked-user-meta">
+                        <img
+                          src={resolveAvatarUrl(bu.avatarUrl, bu.displayName || bu.username)}
+                          alt={bu.username}
+                          className="fb-blocked-avatar"
+                          onError={(e) => handleAvatarError(e, bu.displayName || bu.username)}
+                        />
+                        <div>
+                          <strong className="fb-blocked-name">
+                            {bu.displayName || bu.username}
+                          </strong>
+                          <span className="fb-blocked-handle">@{bu.username}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="fb-btn-unblock"
+                        onClick={() => handleUnblockUserFromSettings(bu.id)}
+                      >
+                        Unblock
+                      </button>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
           </div>
         )}
+
+        {tab === 'users' && (
+          <div className="settings-card manage-users-card">
+            <div className="manage-users-header">
+              <div>
+                <h1>Clean & Manage Users</h1>
+                <p className="settings-sub">
+                  Permanently delete inactive, test, or unexisting user accounts to keep your contacts list clean.
+                </p>
+              </div>
+              <div className="manage-header-actions" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <button
+                  type="button"
+                  className="btn-clean-duplicates"
+                  onClick={handleCleanDuplicates}
+                  disabled={isCleaningDuplicates}
+                  title="Purge double usernames and duplicate conversations across database"
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    padding: '8px 14px',
+                    background: '#fef3c7',
+                    color: '#92400e',
+                    border: '1px solid #fde68a',
+                    borderRadius: '8px',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  <i className={`fa-solid fa-broom ${isCleaningDuplicates ? 'fa-spin' : ''}`}></i>
+                  <span>{isCleaningDuplicates ? 'Cleaning...' : 'Delete Double Usernames'}</span>
+                </button>
+                <button
+                  type="button"
+                  className="btn-refresh-users"
+                  onClick={loadAllUsers}
+                  disabled={usersLoading}
+                  title="Refresh user list"
+                >
+                  <i className={`fa-solid fa-arrows-rotate ${usersLoading ? 'fa-spin' : ''}`}></i>
+                  <span>Refresh</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Quick stats pills */}
+            <div className="manage-users-stats-row">
+              <div className="manage-stat-box">
+                <span className="stat-num">{allUsersList.length}</span>
+                <span className="stat-lbl">Registered Accounts</span>
+              </div>
+              <div className="manage-stat-box">
+                <span className="stat-num" style={{ color: '#10b981' }}>
+                  {allUsersList.filter((u) => onlineIds.includes(u.id)).length}
+                </span>
+                <span className="stat-lbl">Online Now</span>
+              </div>
+              <div className="manage-stat-box">
+                <span className="stat-num" style={{ color: '#f59e0b' }}>
+                  {allUsersList.filter((u) => !onlineIds.includes(u.id)).length}
+                </span>
+                <span className="stat-lbl">Offline / Inactive</span>
+              </div>
+            </div>
+
+            {manageUserStatus && (
+              <div className={`manage-status-alert ${manageUserStatus.type}`}>
+                <i className={`fa-solid ${manageUserStatus.type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation'}`}></i>
+                <span>{manageUserStatus.text}</span>
+              </div>
+            )}
+
+            {/* Search & Filter Toolbar */}
+            <div className="manage-users-toolbar">
+              <div className="manage-search-wrap">
+                <i className="fa-solid fa-magnifying-glass"></i>
+                <input
+                  type="text"
+                  placeholder="Search by username, display name, or email..."
+                  value={userSearchQuery}
+                  onChange={(e) => setUserSearchQuery(e.target.value)}
+                />
+                {userSearchQuery && (
+                  <button type="button" className="clear-search-btn" onClick={() => setUserSearchQuery('')}>
+                    <i className="fa-solid fa-xmark"></i>
+                  </button>
+                )}
+              </div>
+
+              <div className="manage-filter-pills">
+                <button
+                  type="button"
+                  className={`filter-pill ${userFilter === 'all' ? 'active' : ''}`}
+                  onClick={() => setUserFilter('all')}
+                >
+                  All ({allUsersList.length})
+                </button>
+                <button
+                  type="button"
+                  className={`filter-pill ${userFilter === 'inactive' ? 'active' : ''}`}
+                  onClick={() => setUserFilter('inactive')}
+                >
+                  <span className="pill-dot offline" /> Inactive / Offline ({allUsersList.filter((u) => !onlineIds.includes(u.id)).length})
+                </button>
+                <button
+                  type="button"
+                  className={`filter-pill ${userFilter === 'online' ? 'active' : ''}`}
+                  onClick={() => setUserFilter('online')}
+                >
+                  <span className="pill-dot online" /> Online ({allUsersList.filter((u) => onlineIds.includes(u.id)).length})
+                </button>
+              </div>
+            </div>
+
+            {/* Users List */}
+            <div className="manage-users-list">
+              {usersLoading ? (
+                <div className="manage-loading-state">
+                  <i className="fa-solid fa-spinner fa-spin"></i>
+                  <span>Loading accounts...</span>
+                </div>
+              ) : filteredManageUsers.length === 0 ? (
+                <div className="manage-empty-state">
+                  <i className="fa-solid fa-user-slash"></i>
+                  <h4>No matching accounts found</h4>
+                  <p>Try clearing your search query or switching filters.</p>
+                </div>
+              ) : (
+                filteredManageUsers.map((u) => {
+                  const isOnline = onlineIds.includes(u.id);
+                  const activity = getUserActivitySummary(isOnline, u.lastSeen, u.customStatus);
+                  return (
+                    <div key={u.id} className="manage-user-row">
+                      <div className="manage-user-main">
+                        <div className="manage-user-avatar-wrap">
+                          <img
+                            src={resolveAvatarUrl(u.avatarUrl, u.displayName || u.username)}
+                            alt={u.username}
+                            className="manage-user-avatar"
+                            onError={(e) => handleAvatarError(e, u.displayName || u.username)}
+                          />
+                          <span className={`manage-status-dot ${isOnline ? 'online' : 'offline'}`} />
+                        </div>
+                        <div className="manage-user-meta">
+                          <div className="manage-user-name-line">
+                            {u.displayName && u.displayName.trim().toLowerCase() !== u.username.trim().toLowerCase() ? (
+                              <>
+                                <span className="manage-user-name">{u.displayName}</span>
+                                <span className="manage-user-handle">@{u.username}</span>
+                              </>
+                            ) : (
+                              <span className="manage-user-name">@{u.username}</span>
+                            )}
+                            {u.authProvider === 'google' && (
+                              <span className="auth-provider-badge google">
+                                <i className="fa-brands fa-google"></i> Google
+                              </span>
+                            )}
+                          </div>
+                          <div className="manage-user-details-line">
+                            {u.email && (
+                              <span className="manage-user-email">
+                                <i className="fa-regular fa-envelope"></i> {u.email}
+                              </span>
+                            )}
+                            <span className="manage-user-activity">
+                              <span
+                                className={`activity-pill-label ${activity.badgeClass}`}
+                                style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '5px',
+                                  color: activity.color,
+                                  fontWeight: 600,
+                                  fontSize: '0.8rem'
+                                }}
+                                title={activity.warning}
+                              >
+                                <i
+                                  className={`fa-solid ${isOnline ? 'fa-circle' : activity.isRecent ? 'fa-clock' : 'fa-circle-pause'}`}
+                                  style={{ fontSize: '0.65rem' }}
+                                ></i>
+                                {activity.statusText}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="manage-user-actions">
+                        <button
+                          type="button"
+                          className="btn-delete-manage-user"
+                          onClick={() => handleQuickDeleteUser(u)}
+                          title={`Permanently delete @${u.username}`}
+                        >
+                          <i className="fa-solid fa-trash-can"></i>
+                          <span>Delete User</span>
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        )}
+
+        {tab === 'account' && (
+          <div className="settings-card fb-card x-delete-account-card">
+            <div className="fb-card-header">
+              <span className="fb-badge-meta">Accounts Center</span>
+              <h1>Account Ownership & Control</h1>
+              <p className="settings-sub">
+                Manage your data, personal information, deactivation, or permanent deletion.
+              </p>
+            </div>
+
+            <div className="x-delete-header-profile">
+              <img className="x-delete-avatar" src={avatarPreview} alt={displayName || username} />
+              <div className="x-delete-user-meta">
+                {displayName && displayName.trim().toLowerCase() !== username.trim().toLowerCase() ? (
+                  <>
+                    <span className="x-delete-display-name">{displayName}</span>
+                    <span className="x-delete-handle">@{username}</span>
+                  </>
+                ) : (
+                  <span className="x-delete-display-name">@{username}</span>
+                )}
+                {userEmail && (
+                  <span className="x-delete-email">
+                    {isGoogleUser && (
+                      <i className="fa-brands fa-google" style={{ color: '#4285F4', marginRight: 6 }}></i>
+                    )}
+                    {userEmail}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <h2 className="x-delete-main-title">This will permanently delete your account</h2>
+            <p className="x-delete-lead-text">
+              You’re about to start the process of permanently deleting your Tranchat account. Your display name, @{username}, and public profile will no longer be viewable on Tranchat Web, iOS, or Android.
+            </p>
+
+            <div className="x-delete-warning-box">
+              <h3>What else you should know:</h3>
+              <ul className="x-delete-bullet-list">
+                <li>
+                  <i className="fa-solid fa-comments"></i>
+                  <div>
+                    <strong>Chats & Message History:</strong> All your 1-on-1 conversations, secret messages, and media will be permanently deleted.
+                  </div>
+                </li>
+                <li>
+                  <i className="fa-solid fa-video"></i>
+                  <div>
+                    <strong>Gio Video Notes:</strong> All your recorded Gio video walkie-talkie notes and stories will be wiped from servers.
+                  </div>
+                </li>
+                <li>
+                  <i className="fa-solid fa-earth-americas"></i>
+                  <div>
+                    <strong>Community Posts & Comments:</strong> All your feed updates, photos, likes, and comment threads will be deleted.
+                  </div>
+                </li>
+                <li>
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                  <div>
+                    <strong>This action cannot be undone:</strong> You will not be able to restore your profile or recover past conversations.
+                  </div>
+                </li>
+              </ul>
+            </div>
+
+            <div className="x-delete-action-footer">
+              <button
+                type="button"
+                className="x-btn-delete-account"
+                onClick={() => {
+                  setDeleteError('');
+                  setDeletePassword('');
+                  setDeleteConfirmText('');
+                  setShowDeleteModal(true);
+                }}
+              >
+                <i className="fa-solid fa-trash-can"></i>
+                <span>Delete Account</span>
+              </button>
+            </div>
+          </div>
+        )}
       </div>
+
+      {/* X-Style Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="x-modal-backdrop" onClick={() => !isDeleting && setShowDeleteModal(false)}>
+          <div className="x-delete-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="x-modal-header">
+              <div className="x-modal-warning-icon">
+                <i className="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <h3>Delete your Tranchat account?</h3>
+              <p>
+                This will immediately and permanently delete <strong>@{username}</strong> and all associated data.
+              </p>
+            </div>
+
+            {isGoogleUser ? (
+              <div className="x-google-delete-section">
+                <div className="x-google-user-pill">
+                  <svg className="google-icon-svg" viewBox="0 0 24 24" width="20" height="20">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>Google Account: <strong>{userEmail}</strong></span>
+                </div>
+
+                <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.45 }}>
+                  Because you signed in with Google, you don't need a password. Confirm with your Google Account or type <strong>DELETE</strong> below.
+                </p>
+
+                <button
+                  type="button"
+                  className="x-modal-btn-google-delete"
+                  onClick={handleGoogleDelete}
+                  disabled={isDeleting}
+                >
+                  {isDeleting ? (
+                    <>
+                      <i className="fa-solid fa-spinner fa-spin"></i>
+                      <span>Verifying with Google...</span>
+                    </>
+                  ) : (
+                    <>
+                      <svg className="google-icon-svg" viewBox="0 0 24 24" width="18" height="18">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
+                      <span>Verify with Google & Delete</span>
+                    </>
+                  )}
+                </button>
+
+                <div className="x-modal-divider">
+                  <span>OR CONFIRM BY TYPING</span>
+                </div>
+
+                <form onSubmit={handleDeleteAccount} className="x-modal-form">
+                  <label>Type <strong>DELETE</strong> to confirm:</label>
+                  <input
+                    type="text"
+                    className="x-modal-input"
+                    placeholder="Type DELETE"
+                    value={deleteConfirmText}
+                    onChange={(e) => setDeleteConfirmText(e.target.value)}
+                    disabled={isDeleting}
+                  />
+
+                  {deleteError && (
+                    <div className="x-modal-error">
+                      <i className="fa-solid fa-circle-exclamation"></i>
+                      <span>{deleteError}</span>
+                    </div>
+                  )}
+
+                  <div className="x-modal-btn-row">
+                    <button
+                      type="button"
+                      className="x-modal-btn-cancel"
+                      onClick={() => setShowDeleteModal(false)}
+                      disabled={isDeleting}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      className="x-modal-btn-confirm"
+                      disabled={isDeleting || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <i className="fa-solid fa-spinner fa-spin"></i>
+                          <span>Deleting...</span>
+                        </>
+                      ) : (
+                        <span>Permanently Delete</span>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <form onSubmit={handleDeleteAccount} className="x-modal-form">
+                <label>Password or type DELETE to confirm</label>
+                <input
+                  type="password"
+                  className="x-modal-input"
+                  placeholder="Enter current password or type DELETE"
+                  value={deletePassword}
+                  onChange={(e) => setDeletePassword(e.target.value)}
+                  autoFocus
+                  disabled={isDeleting}
+                />
+
+                <div className="x-modal-divider">
+                  <span>OR VERIFY WITH GOOGLE</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="x-modal-btn-google-delete"
+                  onClick={handleGoogleDelete}
+                  disabled={isDeleting}
+                >
+                  <svg className="google-icon-svg" viewBox="0 0 24 24" width="18" height="18">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                  </svg>
+                  <span>Verify with Google & Delete</span>
+                </button>
+
+                {deleteError && (
+                  <div className="x-modal-error">
+                    <i className="fa-solid fa-circle-exclamation"></i>
+                    <span>{deleteError}</span>
+                  </div>
+                )}
+
+                <div className="x-modal-btn-row">
+                  <button
+                    type="button"
+                    className="x-modal-btn-cancel"
+                    onClick={() => setShowDeleteModal(false)}
+                    disabled={isDeleting}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="x-modal-btn-confirm"
+                    disabled={isDeleting || (!deletePassword.trim() && !deleteConfirmText.trim())}
+                  >
+                    {isDeleting ? (
+                      <>
+                        <i className="fa-solid fa-spinner fa-spin"></i>
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      <span>Permanently Delete</span>
+                    )}
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Target User Deletion Confirmation Modal */}
+      {deleteTargetUser && (
+        <div className="x-modal-backdrop" onClick={() => !isDeletingTargetUser && setDeleteTargetUser(null)}>
+          <div className="x-delete-modal-card" onClick={(e) => e.stopPropagation()}>
+            <div className="x-modal-header">
+              <div className="x-modal-warning-icon">
+                <i className="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <h3>Permanently Delete User?</h3>
+              <p>
+                Are you sure you want to permanently delete user <strong>@{deleteTargetUser.username}</strong>?
+              </p>
+            </div>
+
+            <div className="manage-modal-user-pill">
+              <img
+                src={resolveAvatarUrl(deleteTargetUser.avatarUrl, deleteTargetUser.displayName || deleteTargetUser.username)}
+                alt={deleteTargetUser.username}
+                className="manage-modal-avatar"
+                onError={(e) => handleAvatarError(e, deleteTargetUser.displayName || deleteTargetUser.username)}
+              />
+              <div className="manage-modal-user-meta">
+                {deleteTargetUser.displayName && deleteTargetUser.displayName.trim().toLowerCase() !== deleteTargetUser.username.trim().toLowerCase() ? (
+                  <>
+                    <div className="manage-modal-user-name">{deleteTargetUser.displayName}</div>
+                    <div className="manage-modal-user-handle">@{deleteTargetUser.username}</div>
+                  </>
+                ) : (
+                  <div className="manage-modal-user-name">@{deleteTargetUser.username}</div>
+                )}
+                {deleteTargetUser.email && (
+                  <div className="manage-modal-user-email">{deleteTargetUser.email}</div>
+                )}
+              </div>
+            </div>
+
+            {/* Prominent Activity Banner */}
+            {(() => {
+              const isOnline = onlineIds.includes(deleteTargetUser.id);
+              const activity = getUserActivitySummary(isOnline, deleteTargetUser.lastSeen, deleteTargetUser.customStatus);
+              return (
+                <div
+                  className={`delete-activity-status-card ${activity.badgeClass}`}
+                  style={{
+                    background: activity.isRecent ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+                    border: `1px solid ${activity.isRecent ? 'rgba(245, 158, 11, 0.35)' : 'rgba(255, 255, 255, 0.1)'}`,
+                    borderRadius: '10px',
+                    padding: '0.75rem 1rem',
+                    textAlign: 'left',
+                    margin: '0.5rem 0'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ width: '9px', height: '9px', borderRadius: '50%', background: activity.color }} />
+                    <strong style={{ color: activity.color, fontSize: '0.9rem' }}>Activity Status: {activity.statusText}</strong>
+                  </div>
+                  {activity.isRecent ? (
+                    <p style={{ color: '#f59e0b', margin: '4px 0 0 0', fontSize: '0.82rem', fontWeight: 600 }}>
+                      {activity.warning}
+                    </p>
+                  ) : (
+                    <p style={{ color: '#94a3b8', margin: '4px 0 0 0', fontSize: '0.8rem' }}>
+                      {activity.warning}
+                    </p>
+                  )}
+                </div>
+              );
+            })()}
+
+            <div className="x-delete-warning-box" style={{ marginTop: '1rem' }}>
+              <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.45 }}>
+                ⚠️ This action cannot be undone. This will permanently remove this account from the database, purge their posts, comments, conversations, messages, and remove them from all user lists.
+              </p>
+            </div>
+
+            <div className="x-modal-btn-row">
+              <button
+                type="button"
+                className="x-modal-btn-cancel"
+                onClick={() => setDeleteTargetUser(null)}
+                disabled={isDeletingTargetUser}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="x-modal-btn-confirm"
+                onClick={handleConfirmDeleteUser}
+                disabled={isDeletingTargetUser}
+              >
+                {isDeletingTargetUser ? (
+                  <>
+                    <i className="fa-solid fa-spinner fa-spin"></i>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <i className="fa-solid fa-trash-can"></i>
+                    <span>Yes, Permanently Delete</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

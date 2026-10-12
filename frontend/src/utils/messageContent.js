@@ -29,14 +29,14 @@ export function parseMessageContent(rawContent) {
         };
       }
 
-      if (parsed.type === 'video' || parsed.type === 'polo') {
+      if (parsed.type === 'video' || parsed.type === 'polo' || parsed.type === 'gio') {
         return {
           type: 'video',
           mediaUrl: parsed.mediaUrl || parsed.dataUrl || parsed.url,
           durationSec: parsed.durationSec ?? null,
           transcript: parsed.transcript || parsed.text || '',
           thumbnail: parsed.thumbnail || null,
-          fileName: parsed.fileName ?? 'video_note.webm',
+          fileName: parsed.fileName ?? 'gio_video_note.webm',
         };
       }
 
@@ -72,7 +72,7 @@ export function getMessagePreview(rawContent) {
   const parsed = parseMessageContent(rawContent);
   if (parsed.type === 'image') return '📷 [Photo]';
   if (parsed.type === 'audio') return '🎙️ [Voice message]';
-  if (parsed.type === 'video' || parsed.type === 'polo') return '📹 [Video note]';
+  if (parsed.type === 'video' || parsed.type === 'polo' || parsed.type === 'gio') return '📹 [Gio video note]';
   if (parsed.type === 'file') return `📄 ${parsed.fileName || 'Document'}`;
   if (parsed.type === 'call') return parsed.mediaType === 'video' ? '📹 [Video call]' : '📞 [Voice call]';
 

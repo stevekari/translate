@@ -14,4 +14,5 @@ public interface MessageReactionRepository extends JpaRepository<MessageReaction
     Optional<MessageReaction> findByMessageIdAndUserId(Long messageId, Long userId);
     void deleteByMessageIdAndUserId(Long messageId, Long userId);
     void deleteByMessageId(Long messageId);
+    void deleteByUserId(Long userId);
 }

@@ -1,18 +1,35 @@
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useMemo } from 'react';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import chatImg from '../assets/chat.jpeg';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { setMyStatus } from '../store/slices/presenceSlice';
+import { resolveAvatarUrl } from '../utils/avatarUrl';
 
 export default function Navbar({ user, onLogout, isChatOpen }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const dispatch = useDispatch();
   const { theme, toggleTheme } = useTheme();
   const { language, setLanguage, languageOptions, t } = useLanguage();
   const { isStandalone, installApp } = usePWAInstall();
   const myStatus = useSelector((state) => state.presence?.myStatus || 'online');
+  const conversations = useSelector((state) => state.chat?.conversations || {});
+
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const totalUnread = useMemo(() => {
+    return Object.values(conversations).reduce((sum, conv) => sum + (conv.unread || 0), 0);
+  }, [conversations]);
+
+  const isHome = location.pathname === '/home' || location.pathname === '/feed';
+  const isFriends = location.pathname === '/friends';
+  const isCalls = location.pathname === '/calls';
+  const isSettings = location.pathname === '/settings';
+
+  const avatarSrc = resolveAvatarUrl(user?.avatarUrl, user?.displayName || user?.username);
 
   const handleLogout = () => {
     onLogout();
@@ -23,77 +40,140 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
     dispatch(setMyStatus(e.target.value));
   };
 
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (searchQuery.trim()) {
+      navigate('/friends?search=' + encodeURIComponent(searchQuery.trim()));
+    }
+  };
+
   return (
-    <nav className={`navbar ${isChatOpen ? 'hide-on-mobile-chat' : ''}`}>
-      <Link to="/home" className="navbar-brand">
-        <img className="navbar-logo" src={chatImg} alt="Tranchat" />
-      </Link>
+    <nav className={`navbar fb-navbar ${isChatOpen ? 'hide-on-mobile-chat' : ''}`}>
+      {/* 1. Facebook Left: Logo & Search */}
+      <div className="fb-nav-left">
+        <Link to="/home" className="fb-brand" title="Tranchat Home">
+          <img className="fb-logo" src={chatImg} alt="Tranchat" />
+        </Link>
 
+        {user && (
+          <form className="fb-search-form nav-desktop-only" onSubmit={handleSearchSubmit}>
+            <i className="fa-solid fa-magnifying-glass fb-search-icon" />
+            <input
+              type="text"
+              className="fb-search-input"
+              placeholder={t('search') || 'Search Tranchat...'}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              aria-label="Search"
+            />
+          </form>
+        )}
+      </div>
+
+      {/* 2. Facebook Center: Iconic Centered Navigation Tabs */}
       {user && (
-        <div className="navbar-right">
-          <Link to="/home" className="nav-desktop-only">Home</Link>
-          <Link to="/friends" className="nav-desktop-only">{t('friends')}</Link>
-          <Link to="/calls" className="nav-desktop-only">{t('calls')}</Link>
-          <Link to="/settings" className="nav-desktop-only">{t('settings')}</Link>
+        <div className="fb-nav-center nav-desktop-only">
+          <Link
+            to="/home"
+            className={`fb-tab ${isHome ? 'active' : ''}`}
+            title="Home"
+            aria-label="Home"
+          >
+            <div className="fb-tab-icon-wrap">
+              <i className="fa-solid fa-house" />
+            </div>
+          </Link>
 
-          <div className="navbar-status-wrap">
-            <span className={`status-indicator ${myStatus}`} />
-            <select
-              className={`navbar-status-select ${myStatus}`}
-              value={myStatus}
-              onChange={handleStatusChange}
-              aria-label={t('myStatus')}
-              title={t('myStatus')}
-            >
-              <option value="online">🟢 {t('online')}</option>
-              <option value="busy">🟡 {t('busy')}</option>
-              <option value="offline">⚪ {t('offline')}</option>
-            </select>
-          </div>
+          <Link
+            to="/friends"
+            className={`fb-tab ${isFriends ? 'active' : ''}`}
+            title={t('friends') || 'Friends & Messages'}
+            aria-label={t('friends')}
+          >
+            <div className="fb-tab-icon-wrap">
+              <i className="fa-solid fa-user-group" />
+              {totalUnread > 0 && (
+                <span className="fb-tab-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+              )}
+            </div>
+          </Link>
 
-          <div className="navbar-lang-wrap nav-desktop-only">
-            <select
-              className="navbar-lang-select"
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              aria-label={t('language')}
-              title={t('language')}
-            >
-              {languageOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <Link
+            to="/calls"
+            className={`fb-tab ${isCalls ? 'active' : ''}`}
+            title={t('calls') || 'Calls & Video'}
+            aria-label={t('calls')}
+          >
+            <div className="fb-tab-icon-wrap">
+              <i className="fa-solid fa-video" />
+            </div>
+          </Link>
+        </div>
+      )}
 
-          <span className="navbar-username nav-desktop-only">{user.username}</span>
-
-          {!isStandalone && (
+      {/* 3. Facebook Right: Clean circular actions, Settings next to Toggle, Profile with Online status badge, Logout */}
+      {user && (
+        <div className="fb-nav-right">
+          {/* Settings & Toggle placed right next to each other */}
+          <div className="fb-nav-toggle-group">
+            {/* Theme Toggle */}
             <button
-              onClick={() => {
-                installApp().then((res) => {
-                  if (!res?.success) {
-                    window.dispatchEvent(new CustomEvent('open-pwa-install-modal'));
-                  }
-                });
-              }}
-              className="navbar-install-btn"
-              title="Install Tranchat App"
-              aria-label="Install Tranchat App"
+              onClick={toggleTheme}
+              className="fb-circle-btn theme-toggle"
+              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+              aria-label="Toggle theme"
             >
-              <i className="fa-solid fa-mobile-screen-button"></i>
-              <span className="nav-install-text">Install App</span>
+              <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} />
             </button>
-          )}
 
-          <button onClick={handleLogout} className="navbar-logout-btn" title={t('logout')} aria-label={t('logout')}>
-            <i className="fa-solid fa-arrow-right-from-bracket"></i>
-            <span className="nav-logout-text">{t('logout')}</span>
-          </button>
+            {/* Settings Button (right next to Toggle) */}
+            <Link
+              to="/settings"
+              className={`fb-circle-btn fb-settings-btn ${isSettings ? 'active' : ''}`}
+              title={t('settings')}
+              aria-label={t('settings')}
+            >
+              <i className="fa-solid fa-gear" />
+            </Link>
+          </div>
 
-          <button onClick={toggleTheme} className="theme-toggle nav-desktop-only" title={t('toggleTheme')}>
-            <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`}></i>
+          {/* User Profile Avatar with Facebook-style live online status indicator */}
+          <div className="fb-profile-wrap">
+            <Link
+              to="/settings"
+              className={`fb-profile-btn ${isSettings ? 'active' : ''}`}
+              title={`${user.displayName || user.username} (${myStatus})`}
+            >
+              <div className="fb-avatar-container">
+                <img src={avatarSrc} alt={user.username} className="fb-profile-avatar" />
+                <span className={`fb-status-badge ${myStatus}`} />
+                <select
+                  className="fb-status-badge-select"
+                  value={myStatus}
+                  onChange={handleStatusChange}
+                  onClick={(e) => e.stopPropagation()}
+                  title={`Your status: ${myStatus}. Click to change.`}
+                  aria-label="Change online status"
+                >
+                  <option value="online">🟢 Online</option>
+                  <option value="busy">🟡 Busy</option>
+                  <option value="offline">⚪ Offline</option>
+                </select>
+              </div>
+              <span className="fb-profile-name nav-desktop-only">
+                {user.displayName || user.username}
+              </span>
+            </Link>
+          </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={handleLogout}
+            className="fb-circle-btn fb-logout-btn"
+            title={t('logout')}
+            aria-label={t('logout')}
+          >
+            <i className="fa-solid fa-arrow-right-from-bracket" />
           </button>
         </div>
       )}

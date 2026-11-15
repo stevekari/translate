@@ -1,9 +1,9 @@
 {
   "id": "/",
-  "name": "Tranchat",
-  "short_name": "Tranchat",
+  "name": "Giochat",
+  "short_name": "Giochat",
   "description": "Live translated instant messaging, voice, and video calling.",
-  "start_url": "/friends",
+  "start_url": "/home",
   "scope": "/",
   "display": "standalone",
   "display_override": ["window-controls-overlay", "standalone", "minimal-ui"],

@@ -11,3 +11,7 @@ export function login(username, password) {
 export function loginWithGoogleApi(googleUserData) {
   return api.post('/auth/google', googleUserData).then((res) => res.data);
 }
+
+export function checkDeletedAccount(email, username) {
+  return api.get('/auth/check-deleted', { params: { email, username } }).then((res) => res.data);
+}

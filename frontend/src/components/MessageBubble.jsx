@@ -70,6 +70,7 @@ const EXTENDED_REACTIONS = [
 export default function MessageBubble({
   message,
   currentUser,
+  friend,
   isMine,
   onReply,
   onReact,
@@ -170,38 +171,50 @@ export default function MessageBubble({
   const detectClientLang = (text) => {
     if (!text) return 'en';
     const s = text.trim().toLowerCase();
-    if (s.includes('¿') || s.includes('¡') || s.includes('ñ') ||
-        /\b(hola|cómo|como|estás|estas|bueno|buena|buenos|buenas|bien|días|noches|gracias|amigo|amiga|adiós|hoy|estoy|qué|que|si|sí|por favor|genial|hasta luego)\b/.test(s)) {
-      return 'es';
-    }
-    if (s.includes('œ') || /\b(bonjour|merci|comment|ça va|salut|oui|non|au revoir|très)\b/.test(s)) {
-      return 'fr';
-    }
-    if (s.includes('ß') || s.includes('ä') || s.includes('ö') || s.includes('ü') || /\b(hallo|danke|wie geht|guten|morgen|bitte|tschüss)\b/.test(s)) {
-      return 'de';
-    }
-    if (s.includes('ɛ') || s.includes('ɔ') || /\b(wo ho te|ɛte sɛn|medaase|akwaaba|chale|mema wo|papa)\b/.test(s)) {
+
+    // Twi / Akan characters or distinct words
+    if (s.includes('ɛ') || s.includes('ɔ') || /\b(wo ho te|ɛte sɛn|ete sen|medaase|akwaaba|chale|mema wo|me pe|me pɛ|da yie|papa|aane|daabi|adamfo)\b/.test(s)) {
       return 'tw';
     }
-    if (/\b(hello|hi|hey|good|morning|night|thank|thanks|how are you|great|yes|no|please|friend|doing|welcome)\b/.test(s)) {
+
+    // Spanish punctuation and common words
+    if (s.includes('¿') || s.includes('¡') || s.includes('ñ') ||
+        /\b(hola|cómo|como|estás|estas|bueno|buena|buenos|buenas|bien|días|noches|gracias|amigo|amiga|adiós|hoy|estoy|qué|que|por favor|genial|hasta luego|te amo|quiero|hacer|donde|dónde)\b/.test(s)) {
+      return 'es';
+    }
+
+    // French
+    if (s.includes('œ') || /\b(bonjour|merci|comment|ça va|ca va|salut|oui|non|au revoir|très|tres|s'il vous plaît|sil vous plait|je t'aime|mon ami|pourquoi|avec)\b/.test(s)) {
+      return 'fr';
+    }
+
+    // German
+    if (s.includes('ß') || s.includes('ä') || s.includes('ö') || s.includes('ü') || /\b(hallo|danke|wie geht|guten|morgen|abend|bitte|tschüss|tschuess|nicht|schön|schoen|sehr|großartig|grossartig|ich liebe dich)\b/.test(s)) {
+      return 'de';
+    }
+
+    // Dutch
+    if (/\b(hoe gaat het|goedemorgen|bedankt|alsjeblieft|tot ziens|fijn|dag|welkom|geweldig|ik hou van jou|vriend)\b/.test(s)) {
+      return 'nl';
+    }
+
+    // Portuguese
+    if (s.includes('ã') || s.includes('õ') || /\b(olá|ola|como vai|obrigado|obrigada|bom dia|boa noite|tudo bem|você|voce|até logo|ate logo|te amo)\b/.test(s)) {
+      return 'pt';
+    }
+
+    // English keywords
+    if (/\b(hello|hi|hey|good|morning|night|thank|thanks|how are you|great|yes|no|please|friend|doing|welcome|see you|love you|what are you doing|where|when|why)\b/.test(s)) {
       return 'en';
     }
+
     return 'auto';
   };
 
-  const handleTranslate = useCallback(async (customTargetLang) => {
-    let langToUse = (typeof customTargetLang === 'string' && customTargetLang.trim().length > 0 && !customTargetLang.includes('object'))
+  const handleTranslate = useCallback(async (customTargetLang, isManual = false) => {
+    const langToUse = (typeof customTargetLang === 'string' && customTargetLang.trim().length > 0 && !customTargetLang.includes('object'))
       ? customTargetLang.trim()
       : userPreferredLang;
-
-    // Smart auto target: if text is already in the target language (e.g. English text and target is 'en'),
-    // flip to Spanish 'es' (or the active UI language if not English)
-    if (!customTargetLang) {
-      const detected = detectClientLang(rawTranslatableText);
-      if (detected !== 'auto' && detected === langToUse) {
-        langToUse = (detected === 'en') ? (activeAppLang !== 'en' ? activeAppLang : 'es') : 'en';
-      }
-    }
 
     if (!message?.id || isTranslating) return;
     setIsTranslating(true);
@@ -209,31 +222,68 @@ export default function MessageBubble({
     try {
       const res = await translateMessage(message.id, langToUse);
       if (res && res.translatedText) {
-        setTranslation(res);
-        setShowOriginal(false);
+        const isSameText = res.translatedText.trim().toLowerCase() === rawTranslatableText.trim().toLowerCase();
+        const isSameLang = res.sourceLanguage && res.targetLanguage && res.sourceLanguage.toLowerCase() === res.targetLanguage.toLowerCase();
+
+        // If it was an automatic attempt and the text is in the same language, do not show translation box
+        if (!isManual && (isSameText || isSameLang)) {
+          setTranslation(null);
+        } else {
+          setTranslation(res);
+          setShowOriginal(false);
+        }
       } else {
-        setTranslationError(t('translationFailed'));
+        if (isManual) {
+          setTranslationError(t('translationFailed'));
+        }
       }
     } catch (err) {
       console.error('Translation error:', err);
-      const errMsg = err.response?.data?.message || err.response?.data?.error || t('translationFailed');
-      setTranslationError(typeof errMsg === 'string' ? errMsg : t('translationFailed'));
+      if (isManual) {
+        const errMsg = err.response?.data?.message || err.response?.data?.error || t('translationFailed');
+        setTranslationError(typeof errMsg === 'string' ? errMsg : t('translationFailed'));
+      }
     } finally {
       setIsTranslating(false);
       setShowLangPicker(false);
     }
-  }, [message?.id, rawTranslatableText, isTranslating, userPreferredLang, activeAppLang, t]);
+  }, [message?.id, rawTranslatableText, isTranslating, userPreferredLang, t]);
 
-  // Auto-translate if user enabled autoTranslate in settings
+  // Auto-translate if user enabled auto-translation (default for everyone) and message is in a DIFFERENT language
   useEffect(() => {
     const isTranslatable = !isDeleted && ((parsed.type === 'text' && parsed.text?.trim()?.length > 0) || (parsed.type === 'audio' && parsed.transcript?.trim()?.length > 0));
     const isIncoming = !isMine;
-    const shouldAuto = currentUser?.autoTranslate && isIncoming && isTranslatable && !translation && !isTranslating;
+    const isAutoTranslateEnabled = currentUser?.autoTranslate !== false;
 
-    if (shouldAuto) {
-      handleTranslate();
+    if (!isAutoTranslateEnabled || !isIncoming || !isTranslatable || translation || isTranslating) {
+      return;
     }
-  }, [currentUser?.autoTranslate, isMine, isDeleted, parsed.type, parsed.text, parsed.transcript, translation, isTranslating, handleTranslate]);
+
+    const detectedLang = detectClientLang(rawTranslatableText);
+    const otherUserLang = friend?.preferredLanguage;
+
+    // If text is definitely in the user's preferred language, do not translate
+    if (detectedLang !== 'auto' && detectedLang === userPreferredLang) {
+      return;
+    }
+
+    // If language is ambiguous but both users have the exact same preferred language, do not translate
+    if (detectedLang === 'auto' && otherUserLang && otherUserLang === userPreferredLang) {
+      return;
+    }
+
+    // Different language detected! Automatically translate into receiver's preferred language
+    handleTranslate(userPreferredLang, false);
+  }, [currentUser?.autoTranslate, isMine, isDeleted, parsed.type, parsed.text, parsed.transcript, translation, isTranslating, rawTranslatableText, userPreferredLang, friend?.preferredLanguage, handleTranslate]);
+
+  const handleQuickTranslateClick = () => {
+    const detected = detectClientLang(rawTranslatableText);
+    if (detected !== 'auto' && detected === userPreferredLang) {
+      setShowLangPicker(true);
+    } else {
+      handleTranslate(userPreferredLang, true);
+    }
+  };
 
   const isCorruptedText = (txt) => {
     if (!txt || typeof txt !== 'string') return true;
@@ -367,7 +417,7 @@ export default function MessageBubble({
                     type="button"
                     onClick={() => {
                       setShowMenu(false);
-                      handleTranslate();
+                      handleQuickTranslateClick();
                     }}
                     disabled={isTranslating}
                   >
@@ -577,9 +627,9 @@ export default function MessageBubble({
               <button
                 type="button"
                 className="quick-translate-trigger"
-                onClick={() => handleTranslate()}
+                onClick={handleQuickTranslateClick}
                 disabled={isTranslating}
-                title="Translate with TranTranslate"
+                title="Translate with Giochat"
               >
                 <span>🌍</span>
                 <span>{isTranslating ? t('translating') : t('translate')}</span>
@@ -767,7 +817,7 @@ export default function MessageBubble({
                 <button
                   type="button"
                   className="quick-translate-trigger quick-voice-translate"
-                  onClick={() => handleTranslate()}
+                  onClick={handleQuickTranslateClick}
                   disabled={isTranslating}
                   title="Translate voice message into your language"
                 >

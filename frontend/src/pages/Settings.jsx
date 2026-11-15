@@ -35,7 +35,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
   const [preferredLanguage, setPreferredLanguage] = useState(user?.preferredLanguage || 'en');
-  const [autoTranslate, setAutoTranslate] = useState(Boolean(user?.autoTranslate));
+  const [autoTranslate, setAutoTranslate] = useState(user?.autoTranslate !== false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [status, setStatus] = useState(null);
@@ -236,6 +236,9 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
 
   // X-Style Account Deletion State
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteConfirmChoice, setDeleteConfirmChoice] = useState('prompt'); // 'prompt', 'yes', 'no'
+  const [deleteReason, setDeleteReason] = useState('no_longer_need');
+  const [deleteCustomReason, setDeleteCustomReason] = useState('');
   const [deletePassword, setDeletePassword] = useState('');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -252,7 +255,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
           if (data.bio) setBio(data.bio);
           if (data.avatarUrl) setAvatarUrl(data.avatarUrl);
           if (data.preferredLanguage) setPreferredLanguage(data.preferredLanguage);
-          if (data.autoTranslate !== undefined) setAutoTranslate(Boolean(data.autoTranslate));
+          if (data.autoTranslate !== undefined) setAutoTranslate(data.autoTranslate !== false);
           onProfileUpdate?.(data);
         }
       })
@@ -266,7 +269,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
       if (!bio) setBio(user.bio || '');
       if (!avatarUrl) setAvatarUrl(user.avatarUrl || '');
       if (user.preferredLanguage) setPreferredLanguage(user.preferredLanguage || 'en');
-      if (user.autoTranslate !== undefined) setAutoTranslate(Boolean(user.autoTranslate));
+      if (user.autoTranslate !== undefined) setAutoTranslate(user.autoTranslate !== false);
     }
   }, [user]);
 
@@ -380,14 +383,35 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
     setIsDeleting(true);
     try {
       const payload = {};
-      if (deletePassword?.trim()) {
-        payload.password = deletePassword.trim();
+      const trimmedPass = deletePassword?.trim() || '';
+      const trimmedConfirm = deleteConfirmText?.trim() || '';
+
+      if (trimmedConfirm.toUpperCase() === 'DELETE') {
+        payload.confirmation = 'DELETE';
+      } else if (trimmedPass.toUpperCase() === 'DELETE') {
+        payload.confirmation = 'DELETE';
+      } else if (trimmedPass) {
+        payload.password = trimmedPass;
+      } else if (trimmedConfirm) {
+        payload.confirmation = trimmedConfirm;
       }
-      if (deleteConfirmText?.trim()) {
-        payload.confirmation = deleteConfirmText.trim();
-      }
+
+      const reasonLabelMap = {
+        no_longer_need: "I no longer want to use or need Giochat",
+        privacy_concerns: "Privacy, data, or security concerns",
+        technical_issues: "Technical difficulties or call connection issues",
+        duplicate_account: "Created another or duplicate account",
+        too_distracting: "Too distracting or too many notifications",
+        other: "Other reason",
+      };
+      const formattedReason = reasonLabelMap[deleteReason] || deleteReason;
+      payload.reason = deleteCustomReason?.trim()
+        ? `${formattedReason} - Details: ${deleteCustomReason.trim()}`
+        : formattedReason;
+
       await deleteAccount(payload);
       localStorage.clear();
+      sessionStorage.clear();
       onLogout?.();
       navigate('/login', { state: { accountDeleted: true }, replace: true });
     } catch (err) {
@@ -403,11 +427,26 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
     setIsDeleting(true);
     try {
       const googleUser = await signInWithGoogle();
+      const reasonLabelMap = {
+        no_longer_need: "I no longer want to use or need Giochat",
+        privacy_concerns: "Privacy, data, or security concerns",
+        technical_issues: "Technical difficulties or call connection issues",
+        duplicate_account: "Created another or duplicate account",
+        too_distracting: "Too distracting or too many notifications",
+        other: "Other reason",
+      };
+      const formattedReason = reasonLabelMap[deleteReason] || deleteReason;
+      const combinedReason = deleteCustomReason?.trim()
+        ? `${formattedReason} - Details: ${deleteCustomReason.trim()}`
+        : formattedReason;
+
       await deleteAccount({
         googleEmail: googleUser.email,
-        idToken: googleUser.idToken
+        idToken: googleUser.idToken,
+        reason: combinedReason,
       });
       localStorage.clear();
+      sessionStorage.clear();
       onLogout?.();
       navigate('/login', { state: { accountDeleted: true }, replace: true });
     } catch (err) {
@@ -436,7 +475,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
     {
       id: 'appearance',
       title: t('appearance') || 'Appearance & Display',
-      subtitle: 'Dark mode, active status, Tranchat PWA',
+      subtitle: 'Dark mode, active status, Giochat PWA',
       icon: 'fa-solid fa-palette',
       badgeClass: 'fb-nav-purple',
     },
@@ -464,9 +503,9 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
     },
     {
       id: 'account',
-      title: 'Account Ownership & Control',
-      subtitle: 'Deactivation or permanent deletion',
-      icon: 'fa-solid fa-user-xmark',
+      title: 'Delete Account',
+      subtitle: 'Permanently remove your account & data',
+      icon: 'fa-solid fa-trash-can',
       badgeClass: 'fb-nav-danger',
     },
   ], [t, blockedUsersList.length]);
@@ -582,7 +621,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
               <span className="fb-badge-meta">Accounts Center</span>
               <h1>{t('profile') || 'Personal Details'}</h1>
               <p className="settings-sub">
-                Manage your name, username, bio, and profile avatar across Tranchat.
+                Manage your name, username, bio, and profile avatar across Giochat.
               </p>
             </div>
 
@@ -656,6 +695,29 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
               </button>
               <button type="button" className="fb-btn-secondary" onClick={() => navigate('/friends')}>
                 {t('cancel')}
+              </button>
+            </div>
+
+            {/* Danger Zone: Delete Account shortcut */}
+            <div className="fb-danger-zone-box" style={{ marginTop: '24px', padding: '16px 18px', borderRadius: '14px', background: 'rgba(239, 68, 68, 0.06)', border: '1px solid rgba(239, 68, 68, 0.22)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '14px', flexWrap: 'wrap' }}>
+              <div style={{ flex: '1 1 240px' }}>
+                <div style={{ color: '#ef4444', fontWeight: 700, fontSize: '0.96rem', display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
+                  <i className="fa-solid fa-triangle-exclamation"></i>
+                  <span>Delete Account</span>
+                </div>
+                <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.4 }}>
+                  No longer want to use the Giochat app? You can permanently delete your account and all associated data.
+                </p>
+              </div>
+              <button
+                type="button"
+                className="x-btn-delete-account"
+                style={{ padding: '0.55rem 1.15rem', fontSize: '0.86rem', whiteSpace: 'nowrap' }}
+                onClick={() => {
+                  setTab('account');
+                }}
+              >
+                <i className="fa-solid fa-trash-can"></i> Delete Account
               </button>
             </div>
           </form>
@@ -760,7 +822,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
             <div className="fb-card-header">
               <h1>{t('appearance')}</h1>
               <p className="settings-sub">
-                Customize visual themes, dark mode, active presence, and install Tranchat.
+                Customize visual themes, dark mode, active presence, and install Giochat.
               </p>
             </div>
 
@@ -809,8 +871,8 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
 
               <div className="fb-setting-row">
                 <div className="fb-setting-content">
-                  <h4>📱 Tranchat App (PWA)</h4>
-                  <p>Install Tranchat on your desktop or mobile device for instant notifications and full-screen experience.</p>
+                  <h4>📱 Giochat App (PWA)</h4>
+                  <p>Install Giochat on your desktop or mobile device for instant notifications and full-screen experience.</p>
                 </div>
                 <div className="fb-setting-action">
                   {isStandalone ? (
@@ -1015,7 +1077,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                 <i className="fa-solid fa-shield-halved"></i>
               </div>
               <div className="fb-info-text">
-                <strong>How blocking works on Tranchat (Telegram & Facebook style):</strong>
+                <strong>How blocking works on Giochat (Telegram & Facebook style):</strong>
                 <p>
                   Once you block someone, that person can no longer send you messages, start video calls, or see your posts. If you delete a friend by mistake, you can always search for their username and reconnect without friction.
                 </p>
@@ -1320,10 +1382,10 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
         {tab === 'account' && (
           <div className="settings-card fb-card x-delete-account-card">
             <div className="fb-card-header">
-              <span className="fb-badge-meta">Accounts Center</span>
-              <h1>Account Ownership & Control</h1>
+              <span className="fb-badge-meta" style={{ background: 'rgba(239, 68, 68, 0.15)', color: '#ef4444' }}>Danger Zone</span>
+              <h1>Delete Account</h1>
               <p className="settings-sub">
-                Manage your data, personal information, deactivation, or permanent deletion.
+                If you don't want to use Giochat anymore, you can permanently delete your account here.
               </p>
             </div>
 
@@ -1349,9 +1411,9 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
               </div>
             </div>
 
-            <h2 className="x-delete-main-title">This will permanently delete your account</h2>
+            <h2 className="x-delete-main-title">Do you want to delete your account?</h2>
             <p className="x-delete-lead-text">
-              You’re about to start the process of permanently deleting your Tranchat account. Your display name, @{username}, and public profile will no longer be viewable on Tranchat Web, iOS, or Android.
+              If you no longer want to use the Giochat app, you can delete your account permanently. Your display name, @{username}, profile, chat history, and messages will be completely erased from our servers.
             </p>
 
             <div className="x-delete-warning-box">
@@ -1392,6 +1454,9 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                   setDeleteError('');
                   setDeletePassword('');
                   setDeleteConfirmText('');
+                  setDeleteReason('no_longer_need');
+                  setDeleteCustomReason('');
+                  setDeleteConfirmChoice('prompt');
                   setShowDeleteModal(true);
                 }}
               >
@@ -1403,7 +1468,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
         )}
       </div>
 
-      {/* X-Style Confirmation Modal */}
+      {/* Account Deletion Confirmation Modal with YES / NO & Reason Selection */}
       {showDeleteModal && (
         <div className="x-modal-backdrop" onClick={() => !isDeleting && setShowDeleteModal(false)}>
           <div className="x-delete-modal-card" onClick={(e) => e.stopPropagation()}>
@@ -1411,41 +1476,212 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
               <div className="x-modal-warning-icon">
                 <i className="fa-solid fa-triangle-exclamation"></i>
               </div>
-              <h3>Delete your Tranchat account?</h3>
+              <h3>Do you want to delete your account?</h3>
               <p>
-                This will immediately and permanently delete <strong>@{username}</strong> and all associated data.
+                Maybe you clicked this by mistake. Please confirm whether you want to delete your account or keep using Giochat.
               </p>
             </div>
 
-            {isGoogleUser ? (
-              <div className="x-google-delete-section">
-                <div className="x-google-user-pill">
-                  <svg className="google-icon-svg" viewBox="0 0 24 24" width="20" height="20">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Google Account: <strong>{userEmail}</strong></span>
-                </div>
-
-                <p style={{ margin: 0, fontSize: '0.84rem', color: '#94a3b8', lineHeight: 1.45 }}>
-                  Because you signed in with Google, you don't need a password. Confirm with your Google Account or type <strong>DELETE</strong> below.
-                </p>
+            {/* Accidental click check: Clear Option of YES or NO */}
+            <div className="delete-mistake-box">
+              <div className="delete-mistake-header">
+                <i className="fa-solid fa-circle-question"></i>
+                <span>Did you click this by mistake?</span>
+              </div>
+              <p className="delete-mistake-text">
+                If this was a mistake, choose <strong>NO</strong> and your account will remain safe. If you really want to delete your account, choose <strong>YES</strong> below.
+              </p>
+              <div className="delete-yes-no-buttons">
+                <button
+                  type="button"
+                  className={`delete-choice-btn btn-choice-no ${deleteConfirmChoice === 'no' ? 'active' : ''}`}
+                  onClick={() => {
+                    setShowDeleteModal(false);
+                    setDeleteConfirmChoice('prompt');
+                    setStatus({ type: 'success', text: 'Account deletion cancelled. Your account is completely safe!' });
+                    setTimeout(() => setStatus(null), 4000);
+                  }}
+                >
+                  <i className="fa-solid fa-shield-heart"></i>
+                  <div>
+                    <strong>NO, Keep My Account</strong>
+                    <span>It was a mistake — cancel and keep chatting</span>
+                  </div>
+                </button>
 
                 <button
                   type="button"
-                  className="x-modal-btn-google-delete"
-                  onClick={handleGoogleDelete}
-                  disabled={isDeleting}
+                  className={`delete-choice-btn btn-choice-yes ${deleteConfirmChoice === 'yes' ? 'active' : ''}`}
+                  onClick={() => setDeleteConfirmChoice('yes')}
                 >
-                  {isDeleting ? (
-                    <>
-                      <i className="fa-solid fa-spinner fa-spin"></i>
-                      <span>Verifying with Google...</span>
-                    </>
-                  ) : (
-                    <>
+                  <i className="fa-solid fa-trash-can"></i>
+                  <div>
+                    <strong>YES, Delete My Account</strong>
+                    <span>I don't want to use Giochat anymore</span>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* When YES is selected: Ask WHY they want to delete their account */}
+            {deleteConfirmChoice === 'yes' && (
+              <div className="delete-reason-section">
+                <h4 className="delete-reason-title">
+                  <i className="fa-solid fa-clipboard-question"></i>
+                  <span>Please tell us why you want to delete your account:</span>
+                </h4>
+
+                <div className="delete-reasons-list">
+                  {[
+                    { id: 'no_longer_need', label: 'I no longer want to use or need Giochat', icon: 'fa-regular fa-circle-xmark' },
+                    { id: 'privacy_concerns', label: 'Privacy, data, or security concerns', icon: 'fa-solid fa-user-lock' },
+                    { id: 'technical_issues', label: 'Audio, video call, or connection issues', icon: 'fa-solid fa-triangle-exclamation' },
+                    { id: 'duplicate_account', label: 'Created another or duplicate account', icon: 'fa-solid fa-user-group' },
+                    { id: 'too_distracting', label: 'Too distracting or too many notifications', icon: 'fa-solid fa-bell-slash' },
+                    { id: 'other', label: 'Other reason (explain below)', icon: 'fa-solid fa-pen-to-square' },
+                  ].map((r) => (
+                    <label
+                      key={r.id}
+                      className={`delete-reason-option ${deleteReason === r.id ? 'selected' : ''}`}
+                    >
+                      <input
+                        type="radio"
+                        name="deleteReason"
+                        value={r.id}
+                        checked={deleteReason === r.id}
+                        onChange={() => setDeleteReason(r.id)}
+                      />
+                      <i className={r.icon}></i>
+                      <span>{r.label}</span>
+                    </label>
+                  ))}
+                </div>
+
+                <div className="fb-form-group" style={{ marginTop: 6, marginBottom: 4 }}>
+                  <label style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+                    Anything else you want to tell us? (Optional feedback):
+                  </label>
+                  <textarea
+                    className="fb-input fb-textarea delete-reason-textarea"
+                    placeholder="Tell us why you are deleting or what we could improve..."
+                    value={deleteCustomReason}
+                    onChange={(e) => setDeleteCustomReason(e.target.value)}
+                    rows={2}
+                    disabled={isDeleting}
+                  />
+                </div>
+
+                {isGoogleUser ? (
+                  <div className="x-google-delete-section">
+                    <div className="x-google-user-pill">
+                      <svg className="google-icon-svg" viewBox="0 0 24 24" width="20" height="20">
+                        <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                        <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                        <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                        <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                      </svg>
+                      <span>Google Account: <strong>{userEmail}</strong></span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="x-modal-btn-google-delete"
+                      onClick={handleGoogleDelete}
+                      disabled={isDeleting}
+                    >
+                      {isDeleting ? (
+                        <>
+                          <i className="fa-solid fa-spinner fa-spin"></i>
+                          <span>Verifying with Google & Deleting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <svg className="google-icon-svg" viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
+                            <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
+                            <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
+                            <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
+                          </svg>
+                          <span>Verify with Google & Delete</span>
+                        </>
+                      )}
+                    </button>
+
+                    <div className="x-modal-divider">
+                      <span>OR CONFIRM BY TYPING</span>
+                    </div>
+
+                    <form onSubmit={handleDeleteAccount} className="x-modal-form">
+                      <label>Type <strong>DELETE</strong> to confirm:</label>
+                      <input
+                        type="text"
+                        className="x-modal-input"
+                        placeholder="Type DELETE"
+                        value={deleteConfirmText}
+                        onChange={(e) => setDeleteConfirmText(e.target.value)}
+                        disabled={isDeleting}
+                      />
+
+                      {deleteError && (
+                        <div className="x-modal-error">
+                          <i className="fa-solid fa-circle-exclamation"></i>
+                          <span>{deleteError}</span>
+                        </div>
+                      )}
+
+                      <div className="x-modal-btn-row">
+                        <button
+                          type="button"
+                          className="x-modal-btn-cancel"
+                          onClick={() => {
+                            setShowDeleteModal(false);
+                            setStatus({ type: 'success', text: 'Account deletion cancelled. Your account is safe!' });
+                            setTimeout(() => setStatus(null), 4000);
+                          }}
+                          disabled={isDeleting}
+                        >
+                          NO, Cancel
+                        </button>
+                        <button
+                          type="submit"
+                          className="x-modal-btn-confirm"
+                          disabled={isDeleting || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
+                        >
+                          {isDeleting ? (
+                            <>
+                              <i className="fa-solid fa-spinner fa-spin"></i>
+                              <span>Deleting...</span>
+                            </>
+                          ) : (
+                            <span>YES, Permanently Delete</span>
+                          )}
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                ) : (
+                  <form onSubmit={handleDeleteAccount} className="x-modal-form">
+                    <label>To confirm, enter your password or type <strong>DELETE</strong>:</label>
+                    <input
+                      type="text"
+                      className="x-modal-input"
+                      placeholder="Enter password or type DELETE"
+                      value={deletePassword}
+                      onChange={(e) => setDeletePassword(e.target.value)}
+                      autoFocus
+                      disabled={isDeleting}
+                    />
+
+                    <div className="x-modal-divider">
+                      <span>OR VERIFY WITH GOOGLE</span>
+                    </div>
+
+                    <button
+                      type="button"
+                      className="x-modal-btn-google-delete"
+                      onClick={handleGoogleDelete}
+                      disabled={isDeleting}
+                    >
                       <svg className="google-icon-svg" viewBox="0 0 24 24" width="18" height="18">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
                         <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
@@ -1453,122 +1689,46 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                         <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
                       </svg>
                       <span>Verify with Google & Delete</span>
-                    </>
-                  )}
-                </button>
-
-                <div className="x-modal-divider">
-                  <span>OR CONFIRM BY TYPING</span>
-                </div>
-
-                <form onSubmit={handleDeleteAccount} className="x-modal-form">
-                  <label>Type <strong>DELETE</strong> to confirm:</label>
-                  <input
-                    type="text"
-                    className="x-modal-input"
-                    placeholder="Type DELETE"
-                    value={deleteConfirmText}
-                    onChange={(e) => setDeleteConfirmText(e.target.value)}
-                    disabled={isDeleting}
-                  />
-
-                  {deleteError && (
-                    <div className="x-modal-error">
-                      <i className="fa-solid fa-circle-exclamation"></i>
-                      <span>{deleteError}</span>
-                    </div>
-                  )}
-
-                  <div className="x-modal-btn-row">
-                    <button
-                      type="button"
-                      className="x-modal-btn-cancel"
-                      onClick={() => setShowDeleteModal(false)}
-                      disabled={isDeleting}
-                    >
-                      Cancel
                     </button>
-                    <button
-                      type="submit"
-                      className="x-modal-btn-confirm"
-                      disabled={isDeleting || deleteConfirmText.trim().toUpperCase() !== 'DELETE'}
-                    >
-                      {isDeleting ? (
-                        <>
-                          <i className="fa-solid fa-spinner fa-spin"></i>
-                          <span>Deleting...</span>
-                        </>
-                      ) : (
-                        <span>Permanently Delete</span>
-                      )}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            ) : (
-              <form onSubmit={handleDeleteAccount} className="x-modal-form">
-                <label>Password or type DELETE to confirm</label>
-                <input
-                  type="password"
-                  className="x-modal-input"
-                  placeholder="Enter current password or type DELETE"
-                  value={deletePassword}
-                  onChange={(e) => setDeletePassword(e.target.value)}
-                  autoFocus
-                  disabled={isDeleting}
-                />
 
-                <div className="x-modal-divider">
-                  <span>OR VERIFY WITH GOOGLE</span>
-                </div>
-
-                <button
-                  type="button"
-                  className="x-modal-btn-google-delete"
-                  onClick={handleGoogleDelete}
-                  disabled={isDeleting}
-                >
-                  <svg className="google-icon-svg" viewBox="0 0 24 24" width="18" height="18">
-                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" />
-                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" />
-                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" />
-                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" />
-                  </svg>
-                  <span>Verify with Google & Delete</span>
-                </button>
-
-                {deleteError && (
-                  <div className="x-modal-error">
-                    <i className="fa-solid fa-circle-exclamation"></i>
-                    <span>{deleteError}</span>
-                  </div>
-                )}
-
-                <div className="x-modal-btn-row">
-                  <button
-                    type="button"
-                    className="x-modal-btn-cancel"
-                    onClick={() => setShowDeleteModal(false)}
-                    disabled={isDeleting}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    className="x-modal-btn-confirm"
-                    disabled={isDeleting || (!deletePassword.trim() && !deleteConfirmText.trim())}
-                  >
-                    {isDeleting ? (
-                      <>
-                        <i className="fa-solid fa-spinner fa-spin"></i>
-                        <span>Deleting...</span>
-                      </>
-                    ) : (
-                      <span>Permanently Delete</span>
+                    {deleteError && (
+                      <div className="x-modal-error">
+                        <i className="fa-solid fa-circle-exclamation"></i>
+                        <span>{deleteError}</span>
+                      </div>
                     )}
-                  </button>
-                </div>
-              </form>
+
+                    <div className="x-modal-btn-row">
+                      <button
+                        type="button"
+                        className="x-modal-btn-cancel"
+                        onClick={() => {
+                          setShowDeleteModal(false);
+                          setStatus({ type: 'success', text: 'Account deletion cancelled. Your account is safe!' });
+                          setTimeout(() => setStatus(null), 4000);
+                        }}
+                        disabled={isDeleting}
+                      >
+                        NO, Cancel
+                      </button>
+                      <button
+                        type="submit"
+                        className="x-modal-btn-confirm"
+                        disabled={isDeleting || (!deletePassword.trim() && !deleteConfirmText.trim())}
+                      >
+                        {isDeleting ? (
+                          <>
+                            <i className="fa-solid fa-spinner fa-spin"></i>
+                            <span>Deleting...</span>
+                          </>
+                        ) : (
+                          <span>YES, Permanently Delete</span>
+                        )}
+                      </button>
+                    </div>
+                  </form>
+                )}
+              </div>
             )}
           </div>
         </div>

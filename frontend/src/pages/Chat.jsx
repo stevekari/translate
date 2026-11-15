@@ -63,7 +63,7 @@ export default function Chat({ currentUserId, currentUser }) {
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
   const [showChatLangModal, setShowChatLangModal] = useState(false);
   const [chatLanguage, setChatLanguage] = useState(currentUser?.preferredLanguage || language || 'en');
-  const [autoTranslate, setAutoTranslate] = useState(Boolean(currentUser?.autoTranslate));
+  const [autoTranslate, setAutoTranslate] = useState(currentUser?.autoTranslate !== false);
   const [contextMenu, setContextMenu] = useState({ visible: false, x: 0, y: 0, friend: null, conversationId: null });
   const [deleteModalTarget, setDeleteModalTarget] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -165,7 +165,7 @@ export default function Chat({ currentUserId, currentUser }) {
       setChatLanguage(language);
     }
     if (currentUser?.autoTranslate !== undefined) {
-      setAutoTranslate(Boolean(currentUser.autoTranslate));
+      setAutoTranslate(currentUser.autoTranslate !== false);
     }
   }, [currentUser, language]);
 
@@ -993,6 +993,7 @@ export default function Chat({ currentUserId, currentUser }) {
               key={m.id ?? `${m.senderId}-${m.timestamp}`}
               message={m}
               currentUser={{ ...currentUser, preferredLanguage: chatLanguage, autoTranslate }}
+              friend={friend}
               isMine={m.senderId === currentUserId}
               onReply={handleReply}
               onReact={sendReaction}

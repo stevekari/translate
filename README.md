@@ -1,4 +1,4 @@
-# Steve Chat
+# Giochat
 
 Full-stack real-time chat app: Spring Boot + H2 backend, React (Vite) frontend, JWT auth, WebSocket messaging.
 

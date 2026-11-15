@@ -14,7 +14,7 @@ export default function PWAInstallPrompt() {
       return;
     }
 
-    const dismissed = sessionStorage.getItem('tranchat_pwa_dismissed');
+    const dismissed = sessionStorage.getItem('giochat_pwa_dismissed') || sessionStorage.getItem('tranchat_pwa_dismissed');
     if (!dismissed) {
       const timer = setTimeout(() => {
         setShowPrompt(true);
@@ -38,7 +38,7 @@ export default function PWAInstallPrompt() {
     if (res?.success) {
       setShowPrompt(false);
       setShowGuideModal(false);
-      sessionStorage.setItem('tranchat_pwa_dismissed', '1');
+      sessionStorage.setItem('giochat_pwa_dismissed', '1');
     } else {
       // If browser doesn't support automatic prompt, show easy visual steps modal
       setShowGuideModal(true);
@@ -47,7 +47,7 @@ export default function PWAInstallPrompt() {
 
   const handleDismiss = () => {
     setShowPrompt(false);
-    sessionStorage.setItem('tranchat_pwa_dismissed', '1');
+    sessionStorage.setItem('giochat_pwa_dismissed', '1');
   };
 
   return (
@@ -55,9 +55,9 @@ export default function PWAInstallPrompt() {
       {showPrompt && !showGuideModal && (
         <div className="pwa-floating-bar" role="banner">
           <div className="pwa-floating-left">
-            <img src={gcLogo} alt="Tranchat" className="pwa-floating-icon" />
+            <img src={gcLogo} alt="Giochat" className="pwa-floating-icon" />
             <div className="pwa-floating-info">
-              <span className="pwa-floating-title">Install Tranchat App</span>
+              <span className="pwa-floating-title">Install Giochat App</span>
               <span className="pwa-floating-subtitle">Fast, full-screen chat & calls</span>
             </div>
           </div>
@@ -90,16 +90,16 @@ export default function PWAInstallPrompt() {
             </button>
 
             <div className="pwa-modal-header">
-              <img src={gcLogo} alt="Tranchat" className="pwa-modal-logo" />
-              <h3>Install Tranchat on Your Device</h3>
-              <p>Add Tranchat directly to your home screen or desktop for the best experience.</p>
+              <img src={gcLogo} alt="Giochat" className="pwa-modal-logo" />
+              <h3>Install Giochat on Your Device</h3>
+              <p>Add Giochat directly to your home screen or desktop for the best experience.</p>
             </div>
 
             {hasPrompt ? (
               <div className="pwa-modal-direct">
                 <p>Click below to install instantly:</p>
                 <button type="button" className="pwa-modal-btn-install" onClick={handleInstallClick}>
-                  <i className="fa-solid fa-download"></i> Install Tranchat Now
+                  <i className="fa-solid fa-download"></i> Install Giochat Now
                 </button>
               </div>
             ) : isIOS ? (

@@ -35,10 +35,13 @@ public class User {
     @Column(length = 20)
     private String preferredLanguage = "en";
 
-    private Boolean autoTranslate = false;
+    @Column(name = "auto_translate")
+    private Boolean autoTranslate = true;
 
     @Column(length = 30)
     private String authProvider = "local";
+
+    private Boolean previouslyDeleted = false;
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
@@ -83,11 +86,14 @@ public class User {
     public String getPreferredLanguage() { return preferredLanguage != null ? preferredLanguage : "en"; }
     public void setPreferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; }
 
-    public Boolean getAutoTranslate() { return autoTranslate != null && autoTranslate; }
+    public Boolean getAutoTranslate() { return autoTranslate == null || autoTranslate; }
     public void setAutoTranslate(Boolean autoTranslate) { this.autoTranslate = autoTranslate; }
 
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Boolean getPreviouslyDeleted() { return previouslyDeleted != null ? previouslyDeleted : false; }
+    public void setPreviouslyDeleted(Boolean previouslyDeleted) { this.previouslyDeleted = previouslyDeleted; }
 
     public String getAuthProvider() { return authProvider != null ? authProvider : "local"; }
     public void setAuthProvider(String authProvider) { this.authProvider = authProvider; }

@@ -21,7 +21,7 @@ export default function Login({ onLogin }) {
     try {
       const response = await login(username, password);
       onLogin(response);
-      navigate('/friends');
+      navigate('/home');
     } catch (err) {
       setError(err.response?.data || t('loginFailed'));
     }
@@ -29,16 +29,16 @@ export default function Login({ onLogin }) {
 
   const handleGoogleSuccess = (response) => {
     onLogin(response);
-    navigate('/friends');
+    navigate('/home');
   };
 
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
         <div className="auth-header">
-          <img src={gcLogo} alt="Tranchat" className="auth-logo" />
+          <img src={gcLogo} alt="Giochat" className="auth-logo" />
           <h1>{t('welcomeBack')}</h1>
-          <p className="auth-sub">Tranchat • Connect & Chat</p>
+          <p className="auth-sub">Giochat • Connect & Chat</p>
         </div>
 
         {accountDeleted && (

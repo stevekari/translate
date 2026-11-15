@@ -6,7 +6,7 @@ export default function LanguagePickerModal({
   onClose,
   currentLanguage = 'en',
   onSelectLanguage,
-  autoTranslate = false,
+  autoTranslate = true,
   onToggleAutoTranslate,
   title = 'Select Translation Language',
   subtitle = 'Choose the language you want messages translated into',

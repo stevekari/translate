@@ -176,15 +176,9 @@ public class DefaultTranslationService implements TranslationService {
         String trimmed = text.trim();
         String detectedLang = "auto".equals(sourceCode) ? detectLanguage(trimmed) : sourceCode;
 
-        // If detected source language is the same as the target language, flip target to the counterpart (e.g. en -> es or es -> en)
-        if (detectedLang.equalsIgnoreCase(targetCode) || "ak".equalsIgnoreCase(detectedLang) && "ak".equalsIgnoreCase(targetCode)) {
-            if ("en".equalsIgnoreCase(targetCode)) {
-                targetCode = "es";
-            } else if ("es".equalsIgnoreCase(targetCode)) {
-                targetCode = "en";
-            } else {
-                targetCode = "en";
-            }
+        // If detected source language is already the same as the target language, no translation needed!
+        if (detectedLang.equalsIgnoreCase(targetCode) || ("ak".equalsIgnoreCase(detectedLang) && "ak".equalsIgnoreCase(targetCode))) {
+            return new TranslationResult(text, text, denormalizeLanguageCode(detectedLang), denormalizeLanguageCode(targetCode));
         }
 
         // 1. Fast Dictionary Lookup

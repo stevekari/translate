@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>ChatApp</string>
+        <string>Giochat</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -67,8 +67,8 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
 	<key>NSCameraUsageDescription</key>
-	<string>GioChat requires camera access for video calling.</string>
+	<string>Giochat requires camera access for video calling.</string>
 	<key>NSMicrophoneUsageDescription</key>
-	<string>GioChat requires microphone access for voice and video calling.</string>
+	<string>Giochat requires microphone access for voice and video calling.</string>
 </dict>
 </plist>

@@ -2,7 +2,7 @@ import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
   appId: 'com.chatapp.app',
-  appName: 'ChatApp',
+  appName: 'Giochat',
   webDir: 'dist',
   server: {
     // for dev: android emulator can't use localhost, use 10.0.2.2

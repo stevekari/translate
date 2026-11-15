@@ -51,8 +51,8 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
     <nav className={`navbar fb-navbar ${isChatOpen ? 'hide-on-mobile-chat' : ''}`}>
       {/* 1. Facebook Left: Logo & Search */}
       <div className="fb-nav-left">
-        <Link to="/home" className="fb-brand" title="Tranchat Home">
-          <img className="fb-logo" src={chatImg} alt="Tranchat" />
+        <Link to="/home" className="fb-brand" title="Giochat Home">
+          <img className="fb-logo" src={chatImg} alt="Giochat" />
         </Link>
 
         {user && (
@@ -61,7 +61,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
             <input
               type="text"
               className="fb-search-input"
-              placeholder={t('search') || 'Search Tranchat...'}
+              placeholder={t('search') || 'Search Giochat...'}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               aria-label="Search"

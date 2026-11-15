@@ -16,6 +16,7 @@ public class UserDto {
     private LocalDateTime lastSeen;
     private LocalDateTime createdAt;
     private String authProvider;
+    private Boolean previouslyDeleted;
 
     public UserDto() {}
 
@@ -29,10 +30,11 @@ public class UserDto {
             this.bio = user.getBio();
             this.customStatus = user.getCustomStatus();
             this.preferredLanguage = user.getPreferredLanguage();
-            this.autoTranslate = user.getAutoTranslate();
+            this.autoTranslate = user.getAutoTranslate() != null ? user.getAutoTranslate() : true;
             this.lastSeen = user.getLastSeen();
             this.createdAt = user.getCreatedAt();
             this.authProvider = user.getAuthProvider();
+            this.previouslyDeleted = user.getPreviouslyDeleted();
         }
     }
 
@@ -60,7 +62,7 @@ public class UserDto {
     public String getPreferredLanguage() { return preferredLanguage; }
     public void setPreferredLanguage(String preferredLanguage) { this.preferredLanguage = preferredLanguage; }
 
-    public Boolean getAutoTranslate() { return autoTranslate; }
+    public Boolean getAutoTranslate() { return autoTranslate == null || autoTranslate; }
     public void setAutoTranslate(Boolean autoTranslate) { this.autoTranslate = autoTranslate; }
 
     public LocalDateTime getLastSeen() { return lastSeen; }
@@ -72,4 +74,7 @@ public class UserDto {
     public String getAuthProvider() { return authProvider != null ? authProvider : "local"; }
     public void setAuthProvider(String authProvider) { this.authProvider = authProvider; }
     public Boolean getIsGoogleAccount() { return "google".equalsIgnoreCase(authProvider); }
+
+    public Boolean getPreviouslyDeleted() { return previouslyDeleted != null ? previouslyDeleted : false; }
+    public void setPreviouslyDeleted(Boolean previouslyDeleted) { this.previouslyDeleted = previouslyDeleted; }
 }

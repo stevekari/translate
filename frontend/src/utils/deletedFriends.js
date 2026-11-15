@@ -1,8 +1,9 @@
-const STORAGE_KEY = 'tranchat_deleted_friends';
+const STORAGE_KEY = 'giochat_deleted_friends';
+const LEGACY_STORAGE_KEY = 'tranchat_deleted_friends';
 
 export function getDeletedFriendIds() {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
     if (!raw) return new Set();
     const arr = JSON.parse(raw);
     return new Set(Array.isArray(arr) ? arr.map(String) : []);

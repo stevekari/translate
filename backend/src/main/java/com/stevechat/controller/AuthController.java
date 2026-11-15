@@ -4,7 +4,9 @@ import com.stevechat.dto.AuthRequest;
 import com.stevechat.dto.AuthResponse;
 import com.stevechat.dto.GoogleAuthRequest;
 import com.stevechat.dto.RegisterRequest;
+import com.stevechat.entity.DeletedAccount;
 import com.stevechat.entity.User;
+import com.stevechat.repository.DeletedAccountRepository;
 import com.stevechat.repository.UserRepository;
 import com.stevechat.security.JwtUtil;
 import org.springframework.http.ResponseEntity;
@@ -26,17 +28,20 @@ public class AuthController {
     private final JwtUtil jwtUtil;
     private final com.stevechat.security.PasswordValidator passwordValidator;
     private final com.stevechat.security.LoginAttemptService loginAttemptService;
+    private final DeletedAccountRepository deletedAccountRepository;
 
     public AuthController(UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
                           JwtUtil jwtUtil,
                           com.stevechat.security.PasswordValidator passwordValidator,
-                          com.stevechat.security.LoginAttemptService loginAttemptService) {
+                          com.stevechat.security.LoginAttemptService loginAttemptService,
+                          DeletedAccountRepository deletedAccountRepository) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtUtil = jwtUtil;
         this.passwordValidator = passwordValidator;
         this.loginAttemptService = loginAttemptService;
+        this.deletedAccountRepository = deletedAccountRepository;
     }
 
     @GetMapping({"/health", "/status"})
@@ -45,6 +50,36 @@ public class AuthController {
         status.put("status", "UP");
         status.put("timestamp", System.currentTimeMillis());
         return ResponseEntity.ok(status);
+    }
+
+    @GetMapping({"/check-deleted", "/status/check-deleted"})
+    public ResponseEntity<?> checkDeleted(@RequestParam(required = false) String email,
+                                          @RequestParam(required = false) String username) {
+        String cleanEmail = email != null ? email.trim().toLowerCase() : null;
+        String cleanUsername = username != null ? username.trim() : null;
+
+        java.util.Optional<DeletedAccount> match = java.util.Optional.empty();
+        if (cleanEmail != null && !cleanEmail.isBlank()) {
+            match = deletedAccountRepository.findTopByEmailOrderByDeletedAtDesc(cleanEmail);
+        }
+        if (match.isEmpty() && cleanUsername != null && !cleanUsername.isBlank()) {
+            match = deletedAccountRepository.findTopByUsernameOrderByDeletedAtDesc(cleanUsername);
+        }
+
+        if (match.isPresent()) {
+            DeletedAccount da = match.get();
+            Map<String, Object> resp = new HashMap<>();
+            resp.put("previouslyDeleted", true);
+            resp.put("email", da.getEmail());
+            resp.put("username", da.getUsername());
+            resp.put("deletedAt", da.getDeletedAt() != null ? da.getDeletedAt().toString() : null);
+            resp.put("message", "Welcome back! An account with this email/username was previously deleted on "
+                    + (da.getDeletedAt() != null ? da.getDeletedAt().toLocalDate().toString() : "a previous date")
+                    + ". You can re-register anytime with a fresh account.");
+            return ResponseEntity.ok(resp);
+        }
+
+        return ResponseEntity.ok(Map.of("previouslyDeleted", false));
     }
 
     @PostMapping({"/register", "/auth/register"})
@@ -68,15 +103,45 @@ public class AuthController {
             return ResponseEntity.badRequest().body(ex.getMessage());
         }
 
+        String email = request.getEmail().trim().toLowerCase();
+        String username = request.getUsername().trim();
+
+        // Detect if person previously had an account that was deleted
+        java.util.Optional<DeletedAccount> previouslyDeletedOpt = deletedAccountRepository.findTopByEmailOrderByDeletedAtDesc(email);
+        if (previouslyDeletedOpt.isEmpty()) {
+            previouslyDeletedOpt = deletedAccountRepository.findTopByUsernameOrderByDeletedAtDesc(username);
+        }
+
+        boolean wasDeleted = previouslyDeletedOpt.isPresent();
+        String welcomeBackMsg = null;
+        String deletedAtStr = null;
+
+        if (wasDeleted) {
+            DeletedAccount da = previouslyDeletedOpt.get();
+            da.setLastReRegisteredAt(LocalDateTime.now());
+            da.setReRegistrationCount(da.getReRegistrationCount() != null ? da.getReRegistrationCount() + 1 : 1);
+            deletedAccountRepository.save(da);
+            deletedAtStr = da.getDeletedAt() != null ? da.getDeletedAt().toString() : null;
+            welcomeBackMsg = "Welcome back to Giochat! We detected you previously had an account with us that was deleted. We are glad to have you back!";
+            System.out.println("[RE-REGISTER DETECTED] Person with email " + email + " (username @" + username
+                    + ") previously deleted account on " + deletedAtStr + " and has now re-registered!");
+        }
+
         User user = new User(
-                request.getUsername().trim(),
-                request.getEmail().trim().toLowerCase(),
+                username,
+                email,
                 passwordEncoder.encode(request.getPassword())
         );
+        user.setAutoTranslate(true);
+        user.setPreviouslyDeleted(wasDeleted);
         userRepository.save(user);
 
         String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), user.getAuthProvider()));
+        AuthResponse authResponse = new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), user.getAuthProvider());
+        authResponse.setPreviouslyDeleted(wasDeleted);
+        authResponse.setWelcomeBackMessage(welcomeBackMsg);
+        authResponse.setPreviousDeletedAt(deletedAtStr);
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping({"/login", "/auth/login"})
@@ -128,7 +193,25 @@ public class AuthController {
         String email = request.getEmail().trim().toLowerCase();
         User user = userRepository.findByEmail(email).orElse(null);
 
+        boolean wasDeleted = false;
+        String welcomeBackMsg = null;
+        String deletedAtStr = null;
+
         if (user == null) {
+            // Check if this Google user previously had an account and deleted it
+            java.util.Optional<DeletedAccount> previouslyDeletedOpt = deletedAccountRepository.findTopByEmailOrderByDeletedAtDesc(email);
+            if (previouslyDeletedOpt.isPresent()) {
+                wasDeleted = true;
+                DeletedAccount da = previouslyDeletedOpt.get();
+                da.setLastReRegisteredAt(LocalDateTime.now());
+                da.setReRegistrationCount(da.getReRegistrationCount() != null ? da.getReRegistrationCount() + 1 : 1);
+                deletedAccountRepository.save(da);
+                deletedAtStr = da.getDeletedAt() != null ? da.getDeletedAt().toString() : null;
+                welcomeBackMsg = "Welcome back to Giochat! We detected you previously had an account with us that was deleted. We are glad to have you back!";
+                System.out.println("[RE-REGISTER DETECTED Google] Person with email " + email
+                        + " previously deleted account on " + deletedAtStr + " and has now re-registered!");
+            }
+
             // Generate clean unique username based on display name or email prefix
             String baseUsername = (request.getDisplayName() != null && !request.getDisplayName().trim().isBlank())
                     ? request.getDisplayName().trim().replaceAll("[^a-zA-Z0-9_]", "").toLowerCase()
@@ -163,6 +246,8 @@ public class AuthController {
                 user.setAvatarUrl(photoUrl);
             }
 
+            user.setAutoTranslate(true);
+            user.setPreviouslyDeleted(wasDeleted);
             user.setAuthProvider("google");
             user = userRepository.save(user);
         } else {
@@ -189,6 +274,10 @@ public class AuthController {
         }
 
         String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), "google"));
+        AuthResponse authResponse = new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), "google");
+        authResponse.setPreviouslyDeleted(wasDeleted);
+        authResponse.setWelcomeBackMessage(welcomeBackMsg);
+        authResponse.setPreviousDeletedAt(deletedAtStr);
+        return ResponseEntity.ok(authResponse);
     }
 }

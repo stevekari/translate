@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { register } from '../api/authApi';
+import { register, checkDeletedAccount } from '../api/authApi';
 import { useLanguage } from '../contexts/LanguageContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import PasswordStrengthMeter, { evaluatePasswordStrength } from '../components/PasswordStrengthMeter';
@@ -14,10 +14,33 @@ export default function Register({ onLogin }) {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [error, setError] = useState('');
+  const [deletedAccountNotice, setDeletedAccountNotice] = useState(null);
   const navigate = useNavigate();
   const { language, setLanguage, languageOptions, t } = useLanguage();
 
   const strength = evaluatePasswordStrength(password, username);
+
+  // Detect in real-time if this person's email previously belonged to a deleted account
+  useEffect(() => {
+    if (!email || !email.includes('@') || email.trim().length < 5) {
+      setDeletedAccountNotice(null);
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      checkDeletedAccount(email.trim())
+        .then((res) => {
+          if (res?.previouslyDeleted) {
+            setDeletedAccountNotice(res);
+          } else {
+            setDeletedAccountNotice(null);
+          }
+        })
+        .catch(() => setDeletedAccountNotice(null));
+    }, 400);
+
+    return () => clearTimeout(timer);
+  }, [email]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -36,7 +59,25 @@ export default function Register({ onLogin }) {
     try {
       const response = await register(username.trim(), email.trim(), password);
       onLogin(response);
-      navigate('/friends');
+
+      if (response?.previouslyDeleted) {
+        window.dispatchEvent(
+          new CustomEvent('giochat-notification', {
+            detail: {
+              title: 'Welcome Back to Giochat! 🎉',
+              content: response.welcomeBackMessage || 'We detected you previously had an account with us that was deleted. We are thrilled to welcome you back!',
+              type: 'welcome',
+            },
+          })
+        );
+      }
+
+      navigate('/home', {
+        state: {
+          returningUser: Boolean(response?.previouslyDeleted),
+          welcomeMessage: response?.welcomeBackMessage,
+        },
+      });
     } catch (err) {
       const msg = err.response?.data || t('registrationFailed');
       setError(typeof msg === 'string' ? msg : JSON.stringify(msg));
@@ -45,16 +86,34 @@ export default function Register({ onLogin }) {
 
   const handleGoogleSuccess = (response) => {
     onLogin(response);
-    navigate('/friends');
+
+    if (response?.previouslyDeleted) {
+      window.dispatchEvent(
+        new CustomEvent('giochat-notification', {
+          detail: {
+            title: 'Welcome Back to Giochat! 🎉',
+            content: response.welcomeBackMessage || 'We detected you previously had an account with us that was deleted. We are thrilled to welcome you back!',
+            type: 'welcome',
+          },
+        })
+      );
+    }
+
+    navigate('/home', {
+      state: {
+        returningUser: Boolean(response?.previouslyDeleted),
+        welcomeMessage: response?.welcomeBackMessage,
+      },
+    });
   };
 
   return (
     <div className="auth-page">
       <form className="auth-card" onSubmit={handleSubmit}>
         <div className="auth-header">
-          <img src={gcLogo} alt="Tranchat" className="auth-logo" />
+          <img src={gcLogo} alt="Giochat" className="auth-logo" />
           <h1>{t('createAccount')}</h1>
-          <p className="auth-sub">Tranchat • Secure & Encrypted</p>
+          <p className="auth-sub">Giochat • Secure & Encrypted</p>
         </div>
 
         <GoogleSignInButton
@@ -97,6 +156,23 @@ export default function Register({ onLogin }) {
           placeholder="your.email@example.com"
           required
         />
+
+        {deletedAccountNotice && (
+          <div className="auth-returning-banner">
+            <div className="auth-returning-icon">
+              <i className="fa-solid fa-rotate-left"></i>
+            </div>
+            <div className="auth-returning-content">
+              <strong>Welcome back! We detected you previously had an account with this email.</strong>
+              <p>
+                {deletedAccountNotice.deletedAt
+                  ? `An account with this email was deleted on ${new Date(deletedAccountNotice.deletedAt).toLocaleDateString()}. `
+                  : ''}
+                You can re-register anytime and start completely fresh!
+              </p>
+            </div>
+          </div>
+        )}
 
         <label>{t('password')}</label>
         <div className="pwd-input-wrapper">

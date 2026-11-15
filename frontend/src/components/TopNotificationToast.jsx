@@ -61,8 +61,10 @@ export default function TopNotificationToast() {
       }, 5500);
     };
 
+    window.addEventListener('giochat-notification', handleNotification);
     window.addEventListener('tranchat-notification', handleNotification);
     return () => {
+      window.removeEventListener('giochat-notification', handleNotification);
       window.removeEventListener('tranchat-notification', handleNotification);
       if (timerRef.current) clearTimeout(timerRef.current);
     };

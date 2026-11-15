@@ -14,8 +14,8 @@
     <groupId>com.stevechat</groupId>
     <artifactId>steve-chat</artifactId>
     <version>0.0.1</version>
-    <name>steve-chat</name>
-    <description>Steve Chat - realtime chat app backend</description>
+    <name>giochat</name>
+    <description>Giochat - realtime chat app backend</description>
 
     <properties>
         <java.version>17</java.version>

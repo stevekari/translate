@@ -5,12 +5,14 @@ import com.stevechat.dto.UpdateProfileRequest;
 import com.stevechat.dto.UserDto;
 import com.stevechat.entity.BlockedUser;
 import com.stevechat.entity.Conversation;
+import com.stevechat.entity.DeletedAccount;
 import com.stevechat.entity.Message;
 import com.stevechat.entity.Post;
 import com.stevechat.entity.PostComment;
 import com.stevechat.entity.User;
 import com.stevechat.repository.BlockedUserRepository;
 import com.stevechat.repository.ConversationRepository;
+import com.stevechat.repository.DeletedAccountRepository;
 import com.stevechat.repository.MessageReactionRepository;
 import com.stevechat.repository.MessageRepository;
 import com.stevechat.repository.MessageTranslationRepository;
@@ -41,6 +43,7 @@ public class UserController {
     private final MessageReactionRepository messageReactionRepository;
     private final MessageTranslationRepository messageTranslationRepository;
     private final BlockedUserRepository blockedUserRepository;
+    private final DeletedAccountRepository deletedAccountRepository;
     private final com.stevechat.security.PasswordValidator passwordValidator;
 
     public UserController(UserRepository userRepository,
@@ -52,6 +55,7 @@ public class UserController {
                           MessageReactionRepository messageReactionRepository,
                           MessageTranslationRepository messageTranslationRepository,
                           BlockedUserRepository blockedUserRepository,
+                          DeletedAccountRepository deletedAccountRepository,
                           com.stevechat.security.PasswordValidator passwordValidator) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
@@ -62,6 +66,7 @@ public class UserController {
         this.messageReactionRepository = messageReactionRepository;
         this.messageTranslationRepository = messageTranslationRepository;
         this.blockedUserRepository = blockedUserRepository;
+        this.deletedAccountRepository = deletedAccountRepository;
         this.passwordValidator = passwordValidator;
     }
 
@@ -240,6 +245,11 @@ public class UserController {
     public ResponseEntity<?> deleteAccount(@RequestBody(required = false) Map<String, String> body, Authentication auth) {
         User me = currentUser(auth);
 
+        String reason = body != null ? body.get("reason") : null;
+        if (reason != null && !reason.isBlank()) {
+            System.out.println("[ACCOUNT DELETED] User @" + me.getUsername() + " (" + me.getEmail() + ") deleted account. Reason: " + reason.trim());
+        }
+
         boolean isGoogleUser = "google".equalsIgnoreCase(me.getAuthProvider());
         String googleEmail = body != null ? body.get("googleEmail") : null;
         String confirmation = body != null ? body.get("confirmation") : null;
@@ -263,9 +273,11 @@ public class UserController {
             }
         }
 
-        // 3. Password verification (for standard password users)
+        // 3. Password verification (for standard password users, or "DELETE" confirmation)
         if (!verified && enteredPassword != null && !enteredPassword.isBlank()) {
-            if (me.getPassword() != null && passwordEncoder.matches(enteredPassword, me.getPassword())) {
+            if (enteredPassword.trim().equalsIgnoreCase("DELETE")) {
+                verified = true;
+            } else if (me.getPassword() != null && passwordEncoder.matches(enteredPassword, me.getPassword())) {
                 verified = true;
             } else {
                 return ResponseEntity.status(401).body(Map.of("error", "Incorrect password"));
@@ -280,6 +292,7 @@ public class UserController {
             }
         }
 
+        recordDeletedAccount(me, reason);
         performUserDeletion(me);
 
         return ResponseEntity.ok(Map.of("message", "Your account has been deleted permanently."));
@@ -391,7 +404,27 @@ public class UserController {
         ));
     }
 
+    private void recordDeletedAccount(User user, String reason) {
+        if (user == null || user.getEmail() == null) return;
+        try {
+            String email = user.getEmail().trim().toLowerCase();
+            DeletedAccount da = deletedAccountRepository.findTopByEmailOrderByDeletedAtDesc(email)
+                    .orElse(new DeletedAccount(email, user.getUsername(), user.getDisplayName(), reason));
+            if (da.getId() != null) {
+                da.setUsername(user.getUsername());
+                da.setDisplayName(user.getDisplayName());
+                da.setReason(reason != null && !reason.isBlank() ? reason : da.getReason());
+                da.setDeletedAt(java.time.LocalDateTime.now());
+                da.setDeletionCount(da.getDeletionCount() != null ? da.getDeletionCount() + 1 : 1);
+            }
+            deletedAccountRepository.save(da);
+        } catch (Exception e) {
+            System.err.println("Could not record deleted account: " + e.getMessage());
+        }
+    }
+
     private void performUserDeletion(User targetUser) {
+        recordDeletedAccount(targetUser, "Account deleted");
         Long targetId = targetUser.getId();
 
         // 1. Clean up user's post comments

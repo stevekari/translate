@@ -583,7 +583,7 @@ export default function CommunityHome({ user }) {
 
   // Share App / Post Invite
   const shareLink = `${window.location.origin}/register?ref=${user?.username || ''}`;
-  const inviteMessage = `Hey! Join me on Tranchat - the real-time AI translation and walkie-talkie community app: ${shareLink}`;
+  const inviteMessage = `Hey! Join me on Giochat - the real-time AI translation and walkie-talkie community app: ${shareLink}`;
 
   const handleCopyInviteLink = () => {
     navigator.clipboard.writeText(shareLink).then(() => {
@@ -595,7 +595,7 @@ export default function CommunityHome({ user }) {
   const handleNativeShare = () => {
     if (navigator.share) {
       navigator.share({
-        title: 'Join me on Tranchat!',
+        title: 'Join me on Giochat!',
         text: inviteMessage,
         url: shareLink,
       }).catch(() => {});
@@ -840,7 +840,7 @@ export default function CommunityHome({ user }) {
         <div className="community-invite-box">
           <div className="invite-box-header">
             <i className="fa-solid fa-user-plus invite-icon"></i>
-            <span><strong>Invite your friends to join Tranchat:</strong></span>
+            <span><strong>Invite your friends to join Giochat:</strong></span>
           </div>
 
           <div className="invite-actions-row">
@@ -866,7 +866,7 @@ export default function CommunityHome({ user }) {
             </a>
 
             <a
-              href={`https://t.me/share/url?url=${encodeURIComponent(shareLink)}&text=${encodeURIComponent('Join me on Tranchat!')}`}
+              href={`https://t.me/share/url?url=${encodeURIComponent(shareLink)}&text=${encodeURIComponent('Join me on Giochat!')}`}
               target="_blank"
               rel="noopener noreferrer"
               className="invite-btn telegram-btn"
@@ -1160,7 +1160,7 @@ export default function CommunityHome({ user }) {
                       <i className="fa-solid fa-wand-magic-sparkles"></i>
                       <span>
                         Translated from <strong>{translation.sourceLang.toUpperCase()}</strong> to{' '}
-                        <strong>{translation.targetLang.toUpperCase()}</strong> via Tranchat AI
+                        <strong>{translation.targetLang.toUpperCase()}</strong> via Giochat AI
                       </span>
                     </div>
                   )}
@@ -1271,7 +1271,7 @@ export default function CommunityHome({ user }) {
                     onClick={() => {
                       if (navigator.share) {
                         navigator.share({
-                          title: `Post by @${post.username} on Tranchat`,
+                          title: `Post by @${post.username} on Giochat`,
                           text: post.content,
                           url: window.location.href,
                         }).catch(() => {});
@@ -1621,7 +1621,7 @@ export default function CommunityHome({ user }) {
 
         {/* Footer */}
         <div className="sidebar-footer">
-          <p>© 2026 Tranchat • Privacy • Terms • Ad Choices • Cookies</p>
+          <p>© 2026 Giochat • Privacy • Terms • Ad Choices • Cookies</p>
         </div>
       </aside>
 

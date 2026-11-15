@@ -211,6 +211,7 @@ export function useIncomingCallNotifications(userId, onMessage) {
           try {
             const notif = JSON.parse(frame.body);
             if (notif) {
+              window.dispatchEvent(new CustomEvent('giochat-notification', { detail: notif }));
               window.dispatchEvent(new CustomEvent('tranchat-notification', { detail: notif }));
             }
           } catch (e) {

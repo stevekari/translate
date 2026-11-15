@@ -7,6 +7,9 @@ public class AuthResponse {
     private String avatarUrl;
     private String email;
     private String authProvider;
+    private Boolean previouslyDeleted = false;
+    private String welcomeBackMessage;
+    private String previousDeletedAt;
 
     public AuthResponse(String token, Long userId, String username, String avatarUrl) {
         this.token = token;
@@ -41,4 +44,13 @@ public class AuthResponse {
 
     public String getAuthProvider() { return authProvider; }
     public void setAuthProvider(String authProvider) { this.authProvider = authProvider; }
+
+    public Boolean getPreviouslyDeleted() { return previouslyDeleted != null ? previouslyDeleted : false; }
+    public void setPreviouslyDeleted(Boolean previouslyDeleted) { this.previouslyDeleted = previouslyDeleted; }
+
+    public String getWelcomeBackMessage() { return welcomeBackMessage; }
+    public void setWelcomeBackMessage(String welcomeBackMessage) { this.welcomeBackMessage = welcomeBackMessage; }
+
+    public String getPreviousDeletedAt() { return previousDeletedAt; }
+    public void setPreviousDeletedAt(String previousDeletedAt) { this.previousDeletedAt = previousDeletedAt; }
 }

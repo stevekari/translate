@@ -18,6 +18,10 @@
     padding-bottom: 0 !important;
   }
 
+  body.is-chat-active .mobile-bottom-nav {
+    display: none !important;
+  }
+
   /* Bottom Navigation Container */
   .mobile-bottom-nav {
     display: flex;

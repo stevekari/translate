@@ -67,6 +67,33 @@
     gap: 16px;
 }
 
+@media (max-width: 900px) {
+    .friends-page-layout {
+        display: flex;
+        flex-direction: column;
+        grid-template-columns: none;
+        width: 100%;
+        max-width: 100vw;
+        padding: 10px 10px calc(75px + env(safe-area-inset-bottom, 0px)) 10px;
+        gap: 10px;
+        box-sizing: border-box;
+        overflow-x: hidden;
+    }
+
+    .friends-placeholder {
+        display: none !important;
+    }
+
+    .friends-sidebar {
+        width: 100%;
+        max-width: 100%;
+        min-height: auto;
+        height: auto;
+        max-height: none;
+        border-radius: 14px;
+    }
+}
+
 .friends-sidebar {
     min-height: calc(100vh - 105px);
 }

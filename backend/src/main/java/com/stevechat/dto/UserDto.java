@@ -17,6 +17,7 @@ public class UserDto {
     private LocalDateTime createdAt;
     private String authProvider;
     private Boolean previouslyDeleted;
+    private String token;
 
     public UserDto() {}
 
@@ -77,4 +78,7 @@ public class UserDto {
 
     public Boolean getPreviouslyDeleted() { return previouslyDeleted != null ? previouslyDeleted : false; }
     public void setPreviouslyDeleted(Boolean previouslyDeleted) { this.previouslyDeleted = previouslyDeleted; }
+
+    public String getToken() { return token; }
+    public void setToken(String token) { this.token = token; }
 }

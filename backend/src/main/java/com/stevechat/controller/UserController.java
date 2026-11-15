@@ -19,6 +19,7 @@ import com.stevechat.repository.MessageTranslationRepository;
 import com.stevechat.repository.PostCommentRepository;
 import com.stevechat.repository.PostRepository;
 import com.stevechat.repository.UserRepository;
+import com.stevechat.security.JwtUtil;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -45,6 +46,7 @@ public class UserController {
     private final BlockedUserRepository blockedUserRepository;
     private final DeletedAccountRepository deletedAccountRepository;
     private final com.stevechat.security.PasswordValidator passwordValidator;
+    private final JwtUtil jwtUtil;
 
     public UserController(UserRepository userRepository,
                           PasswordEncoder passwordEncoder,
@@ -56,7 +58,8 @@ public class UserController {
                           MessageTranslationRepository messageTranslationRepository,
                           BlockedUserRepository blockedUserRepository,
                           DeletedAccountRepository deletedAccountRepository,
-                          com.stevechat.security.PasswordValidator passwordValidator) {
+                          com.stevechat.security.PasswordValidator passwordValidator,
+                          JwtUtil jwtUtil) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.postRepository = postRepository;
@@ -68,6 +71,7 @@ public class UserController {
         this.blockedUserRepository = blockedUserRepository;
         this.deletedAccountRepository = deletedAccountRepository;
         this.passwordValidator = passwordValidator;
+        this.jwtUtil = jwtUtil;
     }
 
     private User currentUser(Authentication auth) {
@@ -187,21 +191,24 @@ public class UserController {
     @PutMapping("/me")
     public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, Authentication auth) {
         User me = currentUser(auth);
+        boolean usernameChanged = false;
 
         if (request.getUsername() != null && !request.getUsername().isBlank()
-                && !request.getUsername().equals(me.getUsername())) {
-            if (userRepository.existsByUsername(request.getUsername())) {
+                && !request.getUsername().trim().equalsIgnoreCase(me.getUsername())) {
+            String newUsername = request.getUsername().trim();
+            if (userRepository.existsByUsername(newUsername)) {
                 return ResponseEntity.badRequest().body("Username is already taken");
             }
-            me.setUsername(request.getUsername());
+            me.setUsername(newUsername);
+            usernameChanged = true;
         }
 
         if (request.getDisplayName() != null) {
-            me.setDisplayName(request.getDisplayName());
+            me.setDisplayName(request.getDisplayName().trim());
         }
 
         if (request.getAvatarUrl() != null) {
-            me.setAvatarUrl(request.getAvatarUrl());
+            me.setAvatarUrl(request.getAvatarUrl().trim());
         }
 
         if (request.getBio() != null) {
@@ -222,9 +229,12 @@ public class UserController {
         }
 
         if (request.getNewPassword() != null && !request.getNewPassword().isBlank()) {
-            if (request.getCurrentPassword() == null
-                    || !passwordEncoder.matches(request.getCurrentPassword(), me.getPassword())) {
-                return ResponseEntity.status(401).body("Current password is incorrect");
+            boolean isGoogleUser = me.getAuthProvider() != null && "google".equalsIgnoreCase(me.getAuthProvider());
+            if (!isGoogleUser) {
+                if (request.getCurrentPassword() == null
+                        || !passwordEncoder.matches(request.getCurrentPassword(), me.getPassword())) {
+                    return ResponseEntity.status(401).body("Current password is incorrect");
+                }
             }
 
             try {
@@ -237,7 +247,12 @@ public class UserController {
         }
 
         userRepository.save(me);
-        return ResponseEntity.ok(new UserDto(me));
+        UserDto dto = new UserDto(me);
+        if (usernameChanged) {
+            String newToken = jwtUtil.generateToken(me.getUsername());
+            dto.setToken(newToken);
+        }
+        return ResponseEntity.ok(dto);
     }
 
     @DeleteMapping("/me")

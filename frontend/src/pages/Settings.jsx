@@ -298,7 +298,18 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
       setStatus(null);
       const uploaded = await uploadMedia(file, 'image');
       setAvatarUrl(uploaded.url);
-      setStatus({ type: 'success', text: t('avatarUploaded') });
+
+      // Instantly persist avatar update to user profile in backend
+      const updated = await updateProfile({
+        avatarUrl: uploaded.url,
+        username: username.trim() || undefined,
+        displayName: displayName.trim() || undefined,
+      });
+      if (updated?.token) {
+        localStorage.setItem('token', updated.token);
+      }
+      onProfileUpdate?.(updated);
+      setStatus({ type: 'success', text: t('avatarUploaded') || 'Profile photo updated successfully!' });
     } catch (err) {
       setStatus({ type: 'error', text: err.response?.data?.error || err.response?.data?.message || t('avatarUploadFailed') });
     } finally {
@@ -313,7 +324,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
       return;
     }
     if (newPassword) {
-      if (!currentPassword) {
+      if (!currentPassword && !isGoogleUser) {
         setStatus({ type: 'error', text: t('enterCurrent') });
         return;
       }
@@ -345,6 +356,9 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
         currentPassword: currentPassword || undefined,
         newPassword: newPassword || undefined,
       });
+      if (updated?.token) {
+        localStorage.setItem('token', updated.token);
+      }
       onProfileUpdate?.(updated);
       setCurrentPassword('');
       setNewPassword('');
@@ -624,6 +638,16 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                 Manage your name, username, bio, and profile avatar across Giochat.
               </p>
             </div>
+
+            {isGoogleUser && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 14px', background: 'rgba(66, 133, 244, 0.08)', border: '1px solid rgba(66, 133, 244, 0.22)', borderRadius: '12px', marginBottom: '18px', fontSize: '0.86rem', color: '#93c5fd' }}>
+                <i className="fa-brands fa-google" style={{ color: '#4285F4', fontSize: '1.25rem' }}></i>
+                <div>
+                  <strong style={{ color: '#fff', display: 'block', marginBottom: '2px' }}>Signed in with Google ({userEmail})</strong>
+                  <span>You can freely customize your profile photo, display name, handle, and bio below.</span>
+                </div>
+              </div>
+            )}
 
             <div className="fb-avatar-section">
               <div className="fb-avatar-wrap">
@@ -930,26 +954,35 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                 Create a strong, hacker-resistant password with at least 8 characters, uppercase, lowercase, numbers, and special symbols.
               </p>
 
-              <div className="fb-form-group">
-                <label>{t('currentPassword')}</label>
-                <div className="pwd-input-wrapper">
-                  <input
-                    type={showCurrentPassword ? 'text' : 'password'}
-                    className="fb-input"
-                    value={currentPassword}
-                    onChange={(e) => setCurrentPassword(e.target.value)}
-                    placeholder={t('requiredPassword')}
-                  />
-                  <button
-                    type="button"
-                    className="pwd-toggle-visibility"
-                    onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                    title={showCurrentPassword ? 'Hide password' : 'Show password'}
-                  >
-                    <i className={`fa-solid ${showCurrentPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
-                  </button>
+              {!isGoogleUser ? (
+                <div className="fb-form-group">
+                  <label>{t('currentPassword')}</label>
+                  <div className="pwd-input-wrapper">
+                    <input
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      className="fb-input"
+                      value={currentPassword}
+                      onChange={(e) => setCurrentPassword(e.target.value)}
+                      placeholder={t('requiredPassword')}
+                    />
+                    <button
+                      type="button"
+                      className="pwd-toggle-visibility"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      title={showCurrentPassword ? 'Hide password' : 'Show password'}
+                    >
+                      <i className={`fa-solid ${showCurrentPassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                    </button>
+                  </div>
                 </div>
-              </div>
+              ) : (
+                <div className="fb-form-group" style={{ marginBottom: '14px' }}>
+                  <div style={{ padding: '10px 14px', borderRadius: '10px', background: 'rgba(66, 133, 244, 0.08)', border: '1px solid rgba(66, 133, 244, 0.22)', display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.86rem', color: '#93c5fd' }}>
+                    <i className="fa-brands fa-google" style={{ color: '#4285F4', fontSize: '1.25rem' }}></i>
+                    <span>Signed in with Google. You can set an account password below if you wish to also log in with username & password.</span>
+                  </div>
+                </div>
+              )}
 
               <div className="fb-form-group">
                 <label>{t('newPassword')}</label>

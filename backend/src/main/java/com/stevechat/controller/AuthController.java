@@ -138,6 +138,7 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(user.getUsername());
         AuthResponse authResponse = new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), user.getAuthProvider());
+        authResponse.setDisplayName(user.getDisplayName());
         authResponse.setPreviouslyDeleted(wasDeleted);
         authResponse.setWelcomeBackMessage(welcomeBackMsg);
         authResponse.setPreviousDeletedAt(deletedAtStr);
@@ -181,7 +182,9 @@ public class AuthController {
         userRepository.save(user);
 
         String token = jwtUtil.generateToken(user.getUsername());
-        return ResponseEntity.ok(new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), user.getAuthProvider()));
+        AuthResponse authResponse = new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), user.getAuthProvider());
+        authResponse.setDisplayName(user.getDisplayName());
+        return ResponseEntity.ok(authResponse);
     }
 
     @PostMapping({"/google", "/auth/google", "/login/google"})
@@ -275,6 +278,7 @@ public class AuthController {
 
         String token = jwtUtil.generateToken(user.getUsername());
         AuthResponse authResponse = new AuthResponse(token, user.getId(), user.getUsername(), user.getAvatarUrl(), user.getEmail(), "google");
+        authResponse.setDisplayName(user.getDisplayName());
         authResponse.setPreviouslyDeleted(wasDeleted);
         authResponse.setWelcomeBackMessage(welcomeBackMsg);
         authResponse.setPreviousDeletedAt(deletedAtStr);

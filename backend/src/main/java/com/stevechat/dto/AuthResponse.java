@@ -7,6 +7,7 @@ public class AuthResponse {
     private String avatarUrl;
     private String email;
     private String authProvider;
+    private String displayName;
     private Boolean previouslyDeleted = false;
     private String welcomeBackMessage;
     private String previousDeletedAt;
@@ -38,6 +39,9 @@ public class AuthResponse {
 
     public String getAvatarUrl() { return avatarUrl; }
     public void setAvatarUrl(String avatarUrl) { this.avatarUrl = avatarUrl; }
+
+    public String getDisplayName() { return displayName; }
+    public void setDisplayName(String displayName) { this.displayName = displayName; }
 
     public String getEmail() { return email; }
     public void setEmail(String email) { this.email = email; }

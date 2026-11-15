@@ -23,6 +23,10 @@ export function useAuth() {
   const updateStoredUser = useCallback((partialUser) => {
     setUser((prev) => {
       const next = { ...prev, ...partialUser };
+      if (partialUser?.token) {
+        next.token = partialUser.token;
+        localStorage.setItem('token', partialUser.token);
+      }
       localStorage.setItem('user', JSON.stringify(next));
       return next;
     });

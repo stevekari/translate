@@ -1,5 +1,6 @@
 import { useDispatch, useSelector } from 'react-redux';
 import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
+import { getFriendFamilyProfile } from '../utils/familyProfiles';
 import { parseMessageContent } from '../utils/messageContent';
 import { formatTimeAgo } from '../utils/timeAgo';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -53,6 +54,7 @@ export default function FriendCard({
   const typingMap = useSelector((s) => s.presence?.typing || {});
   const lastSeenMap = useSelector((s) => s.presence?.lastSeen || {});
   const storedConversation = useSelector((state) => conversationId ? state.chat?.conversations?.[String(conversationId)] : null);
+  const familyProfile = getFriendFamilyProfile(friendId);
   const { t } = useLanguage();
 
   const presenceObj = userStatuses[String(friendId)] || {};
@@ -126,6 +128,12 @@ export default function FriendCard({
         <div className="friend-top">
           <div className="friend-name-wrap">
             <span className="friend-name">{displayName}</span>
+            {familyProfile?.roleLabel && (
+              <span className="family-role-badge-tag" title={`Family Role: ${familyProfile.roleLabel}`}>
+                <i className={familyProfile.roleIcon || 'fa-solid fa-people-roof'} />
+                <span>{familyProfile.roleLabel}</span>
+              </span>
+            )}
             {friend?.username && friend.username !== displayName && (
               <span className="friend-username-sub">@{friend.username}</span>
             )}

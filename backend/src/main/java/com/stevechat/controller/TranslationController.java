@@ -231,7 +231,14 @@ public class TranslationController {
                 targetLanguage = me.getPreferredLanguage() != null ? me.getPreferredLanguage() : "en";
             }
 
-            TranslationResult result = translationService.translate(text, targetLanguage);
+            String sourceLanguage = body != null ? body.get("sourceLanguage") : null;
+
+            TranslationResult result;
+            if (sourceLanguage != null && !sourceLanguage.isBlank() && !"auto".equalsIgnoreCase(sourceLanguage)) {
+                result = translationService.translate(text, targetLanguage, sourceLanguage);
+            } else {
+                result = translationService.translate(text, targetLanguage);
+            }
             return ResponseEntity.ok(Map.of(
                     "originalText", text,
                     "translatedText", result.getTranslatedText(),

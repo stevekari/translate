@@ -120,9 +120,13 @@ export async function getMessageTranslations(messageId) {
   return Array.isArray(res.data) ? res.data : [];
 }
 
-export async function quickTranslate(text, targetLanguage) {
+export async function quickTranslate(text, targetLanguage, sourceLanguage) {
   if (!text) return null;
-  const res = await api.post('/translate/quick', { text, targetLanguage });
+  const payload = { text, targetLanguage };
+  if (sourceLanguage && sourceLanguage !== 'auto') {
+    payload.sourceLanguage = sourceLanguage;
+  }
+  const res = await api.post('/translate/quick', payload);
   return res.data;
 }
 

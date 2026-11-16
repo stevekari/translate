@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
 import { callSounds } from '../utils/callSounds';
-import { resolveAvatarUrl } from '../utils/avatarUrl';
+import { resolveAvatarUrl, handleAvatarError, getInitials } from '../utils/avatarUrl';
 
 export default function IncomingCallPopup({ call, onAccept, onDecline }) {
   const { t } = useLanguage();
@@ -67,10 +67,11 @@ export default function IncomingCallPopup({ call, onAccept, onDecline }) {
               src={avatarSrc}
               alt={friendName}
               className="incoming-call-avatar-img"
+              onError={(e) => handleAvatarError(e, friendName)}
             />
           ) : (
             <div className="incoming-call-avatar">
-              {friendName.charAt(0)?.toUpperCase() || '?'}
+              {getInitials(friendName)}
             </div>
           )}
           <span className="ringing-waves"></span>

@@ -13,6 +13,7 @@ import GioCameraModal from '../components/GioCameraModal';
 import MediaLightbox from '../components/MediaLightbox';
 import FriendContextMenu from '../components/FriendContextMenu';
 import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
+import LiveFootballAndNews from '../components/LiveFootballAndNews';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
 
@@ -23,6 +24,7 @@ export default function CommunityHome({ user }) {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all' | 'video' | 'image' | 'text'
+  const [showMobileLiveHub, setShowMobileLiveHub] = useState(false);
 
   // New Post Form State
   const [postText, setPostText] = useState('');
@@ -1054,6 +1056,16 @@ export default function CommunityHome({ user }) {
 
         <button
           type="button"
+          className={`filter-tab mobile-live-filter-btn ${showMobileLiveHub ? 'active' : ''}`}
+          onClick={() => setShowMobileLiveHub((prev) => !prev)}
+          title="Toggle Live Football Scores & Real-World News"
+        >
+          <span className="mobile-live-red-dot" />
+          <span>⚽ Scores & News</span>
+        </button>
+
+        <button
+          type="button"
           className="filter-refresh-btn"
           onClick={fetchPosts}
           title="Refresh Feed"
@@ -1061,6 +1073,13 @@ export default function CommunityHome({ user }) {
           <i className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`}></i>
         </button>
       </div>
+
+      {/* Mobile Live Football & News Container (When toggled on mobile) */}
+      {showMobileLiveHub && (
+        <div className="mobile-live-hub-container">
+          <LiveFootballAndNews />
+        </div>
+      )}
 
       {/* 4. Feed Stream */}
       <section className="community-posts-stream">
@@ -1594,30 +1613,8 @@ export default function CommunityHome({ user }) {
           </div>
         </div>
 
-        {/* Card 3: Trending Topics */}
-        <div className="sidebar-card trending-card">
-          <h4 className="trending-title">
-            <i className="fa-solid fa-arrow-trend-up"></i>
-            <span>Trending in Community</span>
-          </h4>
-          <div className="trending-list">
-            <div className="trending-item">
-              <span className="trending-category">Technology • Trending</span>
-              <strong>#AITranslation</strong>
-              <span className="trending-count">34.2K posts</span>
-            </div>
-            <div className="trending-item">
-              <span className="trending-category">Social • Trending</span>
-              <strong>#GioVideoMoments</strong>
-              <span className="trending-count">22.8K posts</span>
-            </div>
-            <div className="trending-item">
-              <span className="trending-category">Community • Trending</span>
-              <strong>#GlobalFriends</strong>
-              <span className="trending-count">19.5K posts</span>
-            </div>
-          </div>
-        </div>
+        {/* Card 3: Real World News & Live Football Scores Hub */}
+        <LiveFootballAndNews />
 
         {/* Footer */}
         <div className="sidebar-footer">

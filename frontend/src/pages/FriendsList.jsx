@@ -8,7 +8,7 @@ import FriendContextMenu from "../components/FriendContextMenu";
 import WhatsAppDeleteModal from "../components/WhatsAppDeleteModal";
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from "../utils/deletedFriends";
 import { getMessagePreview } from "../utils/messageContent";
-import { resolveAvatarUrl } from "../utils/avatarUrl";
+import { resolveAvatarUrl, handleAvatarError } from "../utils/avatarUrl";
 import { getUserActivitySummary } from "../utils/timeAgo";
 import { useLanguage } from '../contexts/LanguageContext';
 import { useDispatch, useSelector } from 'react-redux';
@@ -26,6 +26,8 @@ export default function FriendsList() {
   const [searchResults, setSearchResults] = useState([]);
   const [searchLoading, setSearchLoading] = useState(false);
   const [selectedProfileUser, setSelectedProfileUser] = useState(null);
+  const [friendTab, setFriendTab] = useState('all'); // 'all', 'requests', 'sent'
+  const [requestFeedback, setRequestFeedback] = useState({});
   const navigate = useNavigate();
   const dispatch = useDispatch();
   const liveConversations = useSelector((state) => state.chat.conversations);
@@ -181,6 +183,7 @@ export default function FriendsList() {
       setConversations((prev) =>
         prev.map((c) => (c.conversationId === convId ? { ...c, status: 'ACCEPTED' } : c))
       );
+      setRequestFeedback((prev) => ({ ...prev, [convId]: 'accepted' }));
     } catch (err) {
       console.error('Failed to accept request:', err);
     }
@@ -193,8 +196,19 @@ export default function FriendsList() {
       setConversations((prev) =>
         prev.map((c) => (c.conversationId === convId ? { ...c, status: 'DECLINED' } : c))
       );
+      setRequestFeedback((prev) => ({ ...prev, [convId]: 'declined' }));
     } catch (err) {
       console.error('Failed to decline request:', err);
+    }
+  };
+
+  const handleCancelOutgoing = async (e, convId) => {
+    e.stopPropagation();
+    try {
+      await deleteConversation(convId);
+      setConversations((prev) => prev.filter((c) => c.conversationId !== convId));
+    } catch (err) {
+      console.error('Failed to cancel request:', err);
     }
   };
 
@@ -287,125 +301,237 @@ export default function FriendsList() {
           )}
         </div>
 
-        {/* Prominent Incoming Friend Requests Banner for Kwame / Recipient */}
-        {incomingRequests.length > 0 && (
-          <div className="incoming-requests-container">
-            <div className="incoming-requests-header">
-              <span className="incoming-badge">{incomingRequests.length}</span>
-              <span>Incoming Friend Requests</span>
-            </div>
-            {incomingRequests.map((req) => {
-              const reqDisplayName = req.otherUser?.displayName || req.otherUser?.username || 'User';
-              return (
-                <div
-                  key={req.conversationId}
-                  className="incoming-request-item"
-                  onClick={() =>
-                    navigate(`/chat/${req.conversationId}`, {
-                      state: { friend: req.otherUser },
-                    })
-                  }
-                >
+        {/* Facebook Friends Navigation Tabs */}
+        <div className="fb-requests-nav-tabs">
+          <button
+            type="button"
+            className={`fb-req-tab-btn ${friendTab === 'all' ? 'active' : ''}`}
+            onClick={() => setFriendTab('all')}
+          >
+            <i className="fa-solid fa-user-group" />
+            <span>All Friends</span>
+          </button>
+          <button
+            type="button"
+            className={`fb-req-tab-btn ${friendTab === 'requests' ? 'active' : ''}`}
+            onClick={() => setFriendTab('requests')}
+          >
+            <i className="fa-solid fa-user-plus" />
+            <span>Requests</span>
+            {incomingRequests.length > 0 && (
+              <span className="fb-badge-alert">{incomingRequests.length}</span>
+            )}
+          </button>
+          <button
+            type="button"
+            className={`fb-req-tab-btn ${friendTab === 'sent' ? 'active' : ''}`}
+            onClick={() => setFriendTab('sent')}
+          >
+            <i className="fa-solid fa-paper-plane" />
+            <span>Sent ({outgoingRequests.length})</span>
+          </button>
+        </div>
+
+        {/* 1. Requests Tab View */}
+        {friendTab === 'requests' && (
+          <div className="fb-requests-stream">
+            {incomingRequests.length === 0 ? (
+              <div className="no-chats-box">
+                <i className="fa-solid fa-user-check no-chats-icon" style={{ color: '#1877f2' }} />
+                <h3 className="no-chats-title">No Pending Requests</h3>
+                <p className="no-chats-desc">When someone sends you a friend request on Giochat, it will appear here.</p>
+              </div>
+            ) : (
+              incomingRequests.map((req) => {
+                const reqDisplayName = req.otherUser?.displayName || req.otherUser?.username || 'User';
+                const statusFeedback = requestFeedback[req.conversationId];
+                return (
+                  <div key={req.conversationId} className="fb-request-card">
+                    <div
+                      className="fb-request-avatar-wrap"
+                      onClick={() => setSelectedProfileUser(req.otherUser)}
+                      title="View Profile"
+                    >
+                      <img
+                        src={resolveAvatarUrl(req.otherUser?.avatarUrl, reqDisplayName)}
+                        alt={reqDisplayName}
+                        className="fb-request-avatar"
+                        onError={(e) => handleAvatarError(e, reqDisplayName)}
+                      />
+                    </div>
+                    <div className="fb-request-body">
+                      <div className="fb-request-name-row">
+                        <strong
+                          className="fb-request-name"
+                          onClick={() => setSelectedProfileUser(req.otherUser)}
+                        >
+                          {reqDisplayName}
+                        </strong>
+                        <span className="fb-request-handle">@{req.otherUser?.username}</span>
+                      </div>
+                      <span className="fb-request-meta-text">
+                        <i className="fa-solid fa-user-clock" /> Sent you a friend request
+                      </span>
+
+                      {statusFeedback === 'accepted' ? (
+                        <div className="fb-request-status-banner">
+                          <span className="fb-status-msg-accepted">
+                            <i className="fa-solid fa-circle-check" /> Request Confirmed!
+                          </span>
+                          <button
+                            type="button"
+                            className="fb-btn-jump-chat"
+                            onClick={() =>
+                              navigate(`/chat/${req.conversationId}`, {
+                                state: { friend: req.otherUser },
+                              })
+                            }
+                          >
+                            <i className="fa-solid fa-message" /> Message
+                          </button>
+                        </div>
+                      ) : statusFeedback === 'declined' ? (
+                        <div className="fb-request-status-banner">
+                          <span className="fb-status-msg-deleted">Request removed</span>
+                        </div>
+                      ) : (
+                        <div className="fb-request-actions-row">
+                          <button
+                            type="button"
+                            className="fb-btn-confirm"
+                            onClick={(e) => handleQuickAccept(e, req.conversationId)}
+                          >
+                            <i className="fa-solid fa-check" /> Confirm
+                          </button>
+                          <button
+                            type="button"
+                            className="fb-btn-delete"
+                            onClick={(e) => handleQuickDecline(e, req.conversationId)}
+                          >
+                            <i className="fa-solid fa-xmark" /> Delete
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        )}
+
+        {/* 2. Sent Tab View */}
+        {friendTab === 'sent' && (
+          <div className="fb-requests-stream">
+            {outgoingRequests.length === 0 ? (
+              <div className="no-chats-box">
+                <i className="fa-solid fa-paper-plane no-chats-icon" />
+                <h3 className="no-chats-title">No Sent Requests</h3>
+                <p className="no-chats-desc">Use search above to find users and connect with friends.</p>
+              </div>
+            ) : (
+              outgoingRequests.map((req) => (
+                <div key={req.conversationId} className="fb-request-card">
                   <div
-                    className="incoming-req-avatar-wrap"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedProfileUser(req.otherUser);
-                    }}
+                    className="fb-request-avatar-wrap"
+                    onClick={() => setSelectedProfileUser(req.otherUser)}
                   >
                     <img
-                      src={resolveAvatarUrl(req.otherUser?.avatarUrl, reqDisplayName)}
-                      alt={reqDisplayName}
-                      className="incoming-req-avatar"
+                      src={resolveAvatarUrl(req.otherUser?.avatarUrl, req.otherUser?.displayName || req.otherUser?.username)}
+                      alt={req.otherUser?.username}
+                      className="fb-request-avatar"
+                      onError={(e) => handleAvatarError(e, req.otherUser?.displayName || req.otherUser?.username)}
                     />
                   </div>
-                  <div className="incoming-req-details">
-                    <strong className="incoming-req-name">{reqDisplayName}</strong>
-                    <span className="incoming-req-text">sent you a request</span>
-                  </div>
-                  <div className="incoming-req-actions">
-                    <button
-                      type="button"
-                      className="btn-req-accept-icon"
-                      onClick={(e) => handleQuickAccept(e, req.conversationId)}
-                      title="Accept Request"
-                      aria-label="Accept Request"
-                    >
-                      <i className="fa-solid fa-check"></i>
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-req-decline-icon"
-                      onClick={(e) => handleQuickDecline(e, req.conversationId)}
-                      title="Decline Request"
-                      aria-label="Decline Request"
-                    >
-                      <i className="fa-solid fa-xmark"></i>
-                    </button>
+                  <div className="fb-request-body">
+                    <div className="fb-request-name-row">
+                      <strong className="fb-request-name">{req.otherUser?.displayName || req.otherUser?.username}</strong>
+                      <span className="fb-request-handle">@{req.otherUser?.username}</span>
+                    </div>
+                    <span className="fb-request-meta-text" style={{ color: '#f59e0b' }}>
+                      <i className="fa-solid fa-clock" /> Waiting for response
+                    </span>
+                    <div className="fb-request-actions-row">
+                      <button
+                        type="button"
+                        className="fb-btn-cancel-req"
+                        onClick={(e) => handleCancelOutgoing(e, req.conversationId)}
+                      >
+                        Cancel Request
+                      </button>
+                    </div>
                   </div>
                 </div>
-              );
-            })}
+              ))
+            )}
           </div>
         )}
 
-        {/* Outgoing Friend Requests Pending */}
-        {outgoingRequests.length > 0 && (
-          <div className="incoming-requests-container" style={{ borderColor: 'rgba(99, 102, 241, 0.3)' }}>
-            <div className="incoming-requests-header" style={{ color: '#818cf8' }}>
-              <span className="incoming-badge" style={{ background: '#4f46e5' }}>{outgoingRequests.length}</span>
-              <span>Pending Requests Sent</span>
-            </div>
-            {outgoingRequests.map((req) => (
+        {/* 3. All Friends Tab View */}
+        {friendTab === 'all' && (
+          <>
+            {/* Quick banner notice if incoming requests exist */}
+            {incomingRequests.length > 0 && (
               <div
-                key={req.conversationId}
-                className="incoming-request-item"
-                style={{ opacity: 0.9 }}
-                onClick={() =>
-                  navigate(`/chat/${req.conversationId}`, {
-                    state: { friend: req.otherUser },
-                  })
-                }
+                className="fb-request-card"
+                style={{
+                  background: 'rgba(24, 119, 242, 0.08)',
+                  borderColor: 'rgba(24, 119, 242, 0.25)',
+                  cursor: 'pointer',
+                  marginBottom: '12px'
+                }}
+                onClick={() => setFriendTab('requests')}
               >
-                <div className="incoming-req-info">
-                  <span className="incoming-req-name">@{req.otherUser?.username || 'User'}</span>
-                  <span className="incoming-req-text">waiting for acceptance</span>
+                <div className="fb-request-avatar-wrap" style={{ width: '42px', height: '42px' }}>
+                  <img
+                    src={resolveAvatarUrl(incomingRequests[0].otherUser?.avatarUrl, incomingRequests[0].otherUser?.displayName || incomingRequests[0].otherUser?.username)}
+                    alt="Incoming"
+                    className="fb-request-avatar"
+                    onError={(e) => handleAvatarError(e, incomingRequests[0].otherUser?.displayName || incomingRequests[0].otherUser?.username)}
+                  />
                 </div>
+                <div className="fb-request-body">
+                  <strong className="fb-request-name" style={{ fontSize: '0.9rem' }}>
+                    {incomingRequests[0].otherUser?.displayName || incomingRequests[0].otherUser?.username} {incomingRequests.length > 1 ? `and ${incomingRequests.length - 1} others` : ''} sent you a request
+                  </strong>
+                  <span className="fb-request-meta-text">Tap to review requests ({incomingRequests.length})</span>
+                </div>
+                <i className="fa-solid fa-chevron-right" style={{ color: '#1877f2', fontSize: '0.9rem' }} />
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        {mutualFriendsConversations.length === 0 && incomingRequests.length === 0 && (
-          <div className="no-chats-box">
-            <i className="fa-solid fa-user-group no-chats-icon" />
-            <h3 className="no-chats-title">No Mutual Friends Yet</h3>
-            <p className="no-chats-desc">Only accepted mutual friends appear here. Use search above to find usernames and connect.</p>
-          </div>
-        )}
+            {mutualFriendsConversations.length === 0 && (
+              <div className="no-chats-box">
+                <i className="fa-solid fa-user-group no-chats-icon" />
+                <h3 className="no-chats-title">No Mutual Friends Yet</h3>
+                <p className="no-chats-desc">Only accepted mutual friends appear here. Use search above to find usernames and connect.</p>
+              </div>
+            )}
 
-        <div className="friends-list">
-          {mutualFriendsConversations.map((conv) => (
-            <FriendCard
-              key={conv.conversationId}
-              friend={conv.otherUser}
-              conversationId={conv.conversationId}
-              lastMessage={getMessagePreview(liveConversations[conv.conversationId]?.lastMessage ?? conv.lastMessage)}
-              lastMessageAt={liveConversations[conv.conversationId]?.lastMessageAt ?? conv.lastMessageTime}
-              status={conv.status}
-              initiatorId={conv.initiatorId}
-              currentUserId={currentUserId}
-              onAvatarClick={(friend) => setSelectedProfileUser(friend)}
-              onContextMenu={(e, friend, cId) => handleContextMenu(e, friend, cId)}
-              onDelete={(friend, e, cId) => handleDeleteFriend(friend, e, cId)}
-              onClick={() =>
-                navigate(`/chat/${conv.conversationId}`, {
-                  state: { friend: conv.otherUser },
-                })
-              }
-            />
-          ))}
-        </div>
+            <div className="friends-list">
+              {mutualFriendsConversations.map((conv) => (
+                <FriendCard
+                  key={conv.conversationId}
+                  friend={conv.otherUser}
+                  conversationId={conv.conversationId}
+                  lastMessage={getMessagePreview(liveConversations[conv.conversationId]?.lastMessage ?? conv.lastMessage)}
+                  lastMessageAt={liveConversations[conv.conversationId]?.lastMessageAt ?? conv.lastMessageTime}
+                  status={conv.status}
+                  initiatorId={conv.initiatorId}
+                  currentUserId={currentUserId}
+                  onAvatarClick={(friend) => setSelectedProfileUser(friend)}
+                  onContextMenu={(e, friend, cId) => handleContextMenu(e, friend, cId)}
+                  onDelete={(friend, e, cId) => handleDeleteFriend(friend, e, cId)}
+                  onClick={() =>
+                    navigate(`/chat/${conv.conversationId}`, {
+                      state: { friend: conv.otherUser },
+                    })
+                  }
+                />
+              ))}
+            </div>
+          </>
+        )}
       </aside>
 
       <section className="friends-placeholder">

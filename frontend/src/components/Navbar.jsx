@@ -6,7 +6,9 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { setMyStatus } from '../store/slices/presenceSlice';
-import { resolveAvatarUrl } from '../utils/avatarUrl';
+import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
+import QRRoomModal from './QRRoomModal';
+import VoiceTranslateModal from './VoiceTranslateModal';
 
 export default function Navbar({ user, onLogout, isChatOpen }) {
   const navigate = useNavigate();
@@ -19,6 +21,8 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
   const conversations = useSelector((state) => state.chat?.conversations || {});
 
   const [searchQuery, setSearchQuery] = useState('');
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [showVoiceTranslateModal, setShowVoiceTranslateModal] = useState(false);
 
   const totalUnread = useMemo(() => {
     return Object.values(conversations).reduce((sum, conv) => sum + (conv.unread || 0), 0);
@@ -116,6 +120,28 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         <div className="fb-nav-right">
           {/* Settings & Toggle placed right next to each other */}
           <div className="fb-nav-toggle-group">
+            {/* Live Voice Translator */}
+            <button
+              type="button"
+              onClick={() => setShowVoiceTranslateModal(true)}
+              className="fb-circle-btn voice-trans-nav-btn"
+              title="🎙️ Live Voice Translator - Speak & Understand"
+              aria-label="Live Voice Translator"
+            >
+              <i className="fa-solid fa-microphone-lines" />
+            </button>
+
+            {/* QR Conversation Room */}
+            <button
+              type="button"
+              onClick={() => setShowQRModal(true)}
+              className="fb-circle-btn qr-nav-btn"
+              title="QR Conversation Room - Scan & Join"
+              aria-label="QR conversation room"
+            >
+              <i className="fa-solid fa-qrcode" />
+            </button>
+
             {/* Theme Toggle */}
             <button
               onClick={toggleTheme}
@@ -145,7 +171,12 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               title={`${user.displayName || user.username} (${myStatus})`}
             >
               <div className="fb-avatar-container">
-                <img src={avatarSrc} alt={user.username} className="fb-profile-avatar" />
+                <img
+                  src={avatarSrc}
+                  alt={user.username}
+                  className="fb-profile-avatar"
+                  onError={(e) => handleAvatarError(e, user?.displayName || user?.username)}
+                />
                 <span className={`fb-status-badge ${myStatus}`} />
                 <select
                   className="fb-status-badge-select"
@@ -176,6 +207,17 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
             <i className="fa-solid fa-arrow-right-from-bracket" />
           </button>
         </div>
+      )}
+      {showQRModal && (
+        <QRRoomModal user={user} onClose={() => setShowQRModal(false)} />
+      )}
+      {showVoiceTranslateModal && (
+        <VoiceTranslateModal
+          isOpen={showVoiceTranslateModal}
+          onClose={() => setShowVoiceTranslateModal(false)}
+          initialSourceLang={user?.preferredLanguage || language || 'en'}
+          initialTargetLang={language === 'en' ? 'es' : 'en'}
+        />
       )}
     </nav>
   );

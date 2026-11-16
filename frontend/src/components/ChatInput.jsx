@@ -37,6 +37,7 @@ export default function ChatInput({
   onCancelEdit,
   disabled = false,
   disabledPlaceholder = '',
+  onOpenVoiceTranslate,
 }) {
   const [text, setText] = useState('');
   const [recording, setRecording] = useState(false);
@@ -871,6 +872,20 @@ export default function ChatInput({
               >
                 <i className="fa-solid fa-camera"></i>
               </button>
+
+              {/* Live Voice Translate Trigger */}
+              {onOpenVoiceTranslate && (
+                <button
+                  type="button"
+                  className="wa-pill-btn wa-voice-trans-btn"
+                  onClick={onOpenVoiceTranslate}
+                  title="🎙️ Live Voice Translate - Speak & Understand"
+                  aria-label="Live Voice Translate"
+                  disabled={isBusy}
+                >
+                  <i className="fa-solid fa-microphone-lines"></i>
+                </button>
+              )}
             </div>
 
             {/* Right Action Circle Button: Send (if typing/draft/edit) OR Voice Mic (if empty) */}

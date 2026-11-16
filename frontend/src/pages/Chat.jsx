@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useLocation, useParams, useNavigate } from 'react-router-dom';
 import {
   getMessages,
@@ -22,12 +22,19 @@ import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LanguagePickerModal from '../components/LanguagePickerModal';
 import { getLanguageInfo } from '../utils/languages';
 import { getMessagePreview } from '../utils/messageContent';
-import { resolveAvatarUrl } from '../utils/avatarUrl';
+import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import { formatTimeAgo, getUserActivitySummary } from '../utils/timeAgo';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useWebRTCCall } from '../hooks/useWebRTCCall';
 import CallPanel from '../components/CallPanel';
+import QRRoomModal from '../components/QRRoomModal';
+import PronunciationModal from '../components/PronunciationModal';
+import FamilyDictionaryModal from '../components/FamilyDictionaryModal';
+import FamilyProfileModal from '../components/FamilyProfileModal';
+import VoiceTranslateModal from '../components/VoiceTranslateModal';
+import { getFriendFamilyProfile } from '../utils/familyProfiles';
+import { getFadingModeConfig, saveFadingModeConfig } from '../utils/fadingTranslation';
 import { useDispatch, useSelector } from 'react-redux';
 import { setActiveConversation, setMessages as setStoreMessages, addMessage as addStoreMessage, updateMessage as updateStoreMessage } from '../store/slices/chatSlice';
 import { setUserStatuses } from '../store/slices/presenceSlice';
@@ -69,6 +76,29 @@ export default function Chat({ currentUserId, currentUser }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isFriendBlocked, setIsFriendBlocked] = useState(false);
   const [isBlockedByFriend, setIsBlockedByFriend] = useState(false);
+
+  // Phase 2: Unique Experience state
+  const [showQRModal, setShowQRModal] = useState(false);
+  const [pronunciationTarget, setPronunciationTarget] = useState(null);
+  const [showFamilyDictModal, setShowFamilyDictModal] = useState(false);
+  const [showFamilyProfileModal, setShowFamilyProfileModal] = useState(false);
+  const [fadingMode, setFadingMode] = useState(() => getFadingModeConfig().enabled);
+  const [showVoiceTranslateModal, setShowVoiceTranslateModal] = useState(false);
+  const [familyProfile, setFamilyProfile] = useState(null);
+  const [blockConfirmTarget, setBlockConfirmTarget] = useState(null);
+
+  useEffect(() => {
+    const fId = friend?.id || friend?.userId || friend?._id;
+    if (fId) {
+      setFamilyProfile(getFriendFamilyProfile(fId));
+    }
+  }, [friend]);
+
+  const handleToggleFadingMode = () => {
+    const next = !fadingMode;
+    setFadingMode(next);
+    saveFadingModeConfig({ enabled: next, targetLang: chatLanguage || 'es' });
+  };
 
   useEffect(() => {
     const fId = friend?.id || friend?.userId || friend?._id;
@@ -252,6 +282,23 @@ export default function Chat({ currentUserId, currentUser }) {
   const userStatuses = useSelector((s) => s.presence?.userStatuses || {});
   const onlineIds = useSelector((s) => s.presence?.onlineIds || []);
   const typingMap = useSelector((s) => s.presence?.typing || {});
+  const reduxConversations = useSelector((s) => s.chat?.conversations || {});
+
+  const otherUnreadTotal = useMemo(() => {
+    return Object.values(reduxConversations).reduce((sum, conv) => {
+      const cId = conv.conversationId || conv.id;
+      if (String(cId) === String(conversationId)) return sum;
+      return sum + (conv.unread || 0);
+    }, 0);
+  }, [reduxConversations, conversationId]);
+
+  const handleBack = useCallback(() => {
+    if (window.history.state && window.history.state.idx > 0) {
+      navigate(-1);
+    } else {
+      navigate('/friends');
+    }
+  }, [navigate]);
 
   const sortConversations = (items) => {
     if (!Array.isArray(items)) return [];
@@ -726,12 +773,17 @@ export default function Chat({ currentUserId, currentUser }) {
               <div className="chat-header-user">
                 <button
                   type="button"
-                  className="chat-back-btn"
-                  onClick={() => navigate('/friends')}
-                  title={t('friends') || 'Back'}
-                  aria-label="Back to friends"
+                  className="chat-back-btn fb-chat-back-btn"
+                  onClick={handleBack}
+                  title={t('friends') || 'Back to Chats'}
+                  aria-label="Back to chats"
                 >
-                  <i className="fa-solid fa-chevron-left" />
+                  <i className="fa-solid fa-arrow-left" />
+                  {otherUnreadTotal > 0 && (
+                    <span className="fb-back-unread-badge">
+                      {otherUnreadTotal > 99 ? '99+' : otherUnreadTotal}
+                    </span>
+                  )}
                 </button>
                 <div
                   className="friend-avatar-wrap clickable"
@@ -741,6 +793,7 @@ export default function Chat({ currentUserId, currentUser }) {
                   <img
                     src={resolveAvatarUrl(friend.avatarUrl, friendDisplayName)}
                     alt={friendDisplayName}
+                    onError={(e) => handleAvatarError(e, friendDisplayName)}
                   />
                   <span className={`online-dot ${friendStatusType}`} title={friendStatusLabel}></span>
                 </div>
@@ -750,6 +803,19 @@ export default function Chat({ currentUserId, currentUser }) {
                 >
                   <div className="chat-header-name-row">
                     <h2>{friendDisplayName}</h2>
+                    {familyProfile?.roleLabel && (
+                      <span
+                        className="family-role-badge-tag clickable"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setShowFamilyProfileModal(true);
+                        }}
+                        title={`Family Role: ${familyProfile.roleLabel} (${familyProfile.formalityTone || 'Standard'}). Click to edit.`}
+                      >
+                        <i className={familyProfile.roleIcon || 'fa-solid fa-people-roof'} />
+                        <span>{familyProfile.roleLabel}</span>
+                      </span>
+                    )}
                     {friend.username && friend.username !== friendDisplayName && (
                       <span className="chat-header-handle">@{friend.username}</span>
                     )}
@@ -785,6 +851,51 @@ export default function Chat({ currentUserId, currentUser }) {
                 {isAccepted && <div className="chat-header-divider" />}
 
                 <div className="chat-header-call-group">
+                  {/* Fading Immersion Mode Toggle */}
+                  <button
+                    type="button"
+                    className={`chat-call-btn ${fadingMode ? 'immersion-active' : ''}`}
+                    onClick={handleToggleFadingMode}
+                    title={fadingMode ? 'Fading Immersion Mode: ON (Click to toggle)' : 'Enable Fading Immersion Learning Mode'}
+                    aria-label="Fading immersion mode"
+                  >
+                    <i className="fa-solid fa-brain" />
+                  </button>
+
+                  {/* Family & Cultural Dictionary */}
+                  <button
+                    type="button"
+                    className="chat-call-btn"
+                    onClick={() => setShowFamilyDictModal(true)}
+                    title="Family & Cultural Dictionary"
+                    aria-label="Family dictionary"
+                  >
+                    <i className="fa-solid fa-book-bookmark" />
+                  </button>
+
+                  {/* QR Room Code */}
+                  {/* 🎙️ Live Voice Translator Button */}
+                  <button
+                    type="button"
+                    className="chat-call-btn"
+                    onClick={() => setShowVoiceTranslateModal(true)}
+                    title="🎙️ Live Voice Translator - Speak & Understand Any Language"
+                    aria-label="Live Voice Translator"
+                  >
+                    <i className="fa-solid fa-microphone-lines" />
+                  </button>
+
+                  {/* QR Room */}
+                  <button
+                    type="button"
+                    className="chat-call-btn"
+                    onClick={() => setShowQRModal(true)}
+                    title="QR Conversation Room"
+                    aria-label="QR room"
+                  >
+                    <i className="fa-solid fa-qrcode" />
+                  </button>
+
                   <button
                     type="button"
                     className="chat-call-btn voice-call-btn"
@@ -884,6 +995,7 @@ export default function Chat({ currentUserId, currentUser }) {
                   src={resolveAvatarUrl(friend.avatarUrl, friendDisplayName)}
                   alt={friendDisplayName}
                   className="person-hero-avatar"
+                  onError={(e) => handleAvatarError(e, friendDisplayName)}
                 />
                 <span className={`online-dot ${friendStatusType}`} />
               </div>
@@ -1003,6 +1115,9 @@ export default function Chat({ currentUserId, currentUser }) {
               }}
               onDelete={handleDelete}
               onScrollToMessage={handleScrollToMessage}
+              onPronounce={(text, lang) => setPronunciationTarget({ text, lang: lang || chatLanguage || 'en' })}
+              fadingModeEnabled={fadingMode}
+              immersionLang={chatLanguage}
             />
           ))}
 
@@ -1034,34 +1149,47 @@ export default function Chat({ currentUserId, currentUser }) {
           )}
         </div>
 
-        {/* Chat Request Status Banners */}
+        {/* Facebook Messenger Style Chat Request Invitation Box */}
         {isRecipient && (
-          <div className="chat-request-bar incoming-request">
-            <div className="chat-request-bar-content">
-              <div className="chat-request-icon-wrap">
-                <i className="fa-solid fa-user-plus"></i>
-              </div>
-              <div className="chat-request-info">
-                <strong>{friendDisplayName}</strong> sent you a chat request.
-                <span>Accept to start chatting and making voice & video calls.</span>
+          <div className="fb-messenger-request-box">
+            <div className="fb-messenger-req-header">
+              <img
+                src={resolveAvatarUrl(friend?.avatarUrl, friendDisplayName)}
+                alt={friendDisplayName}
+                className="fb-messenger-req-avatar"
+                onError={(e) => handleAvatarError(e, friendDisplayName)}
+              />
+              <div className="fb-messenger-req-title-wrap">
+                <span className="fb-messenger-req-title">{friendDisplayName} sent you a request</span>
+                <span className="fb-messenger-req-sub">
+                  Accept to start translating and chatting. They won't know you've seen this request until you accept.
+                </span>
               </div>
             </div>
-            <div className="chat-request-buttons">
+            <div className="fb-messenger-req-actions">
               <button
                 type="button"
-                className="btn-req-accept"
+                className="fb-messenger-req-btn-confirm"
                 onClick={handleAcceptRequest}
                 disabled={requestActionLoading}
               >
-                <i className="fa-solid fa-check"></i> Accept
+                <i className="fa-solid fa-check" /> Confirm Request
               </button>
               <button
                 type="button"
-                className="btn-req-decline"
+                className="fb-messenger-req-btn-delete"
                 onClick={handleDeclineRequest}
                 disabled={requestActionLoading}
               >
-                <i className="fa-solid fa-xmark"></i> Decline
+                <i className="fa-solid fa-xmark" /> Delete
+              </button>
+              <button
+                type="button"
+                className="fb-messenger-req-btn-block"
+                onClick={() => setBlockConfirmTarget(friend)}
+                disabled={requestActionLoading}
+              >
+                <i className="fa-solid fa-ban" /> Block
               </button>
             </div>
           </div>
@@ -1117,60 +1245,33 @@ export default function Chat({ currentUserId, currentUser }) {
         />
 
         {isFriendBlocked ? (
-          <div
-            style={{
-              padding: '16px 20px',
-              background: 'rgba(239, 68, 68, 0.08)',
-              borderTop: '1px solid rgba(239, 68, 68, 0.25)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '12px'
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <i className="fa-solid fa-ban" style={{ color: '#ef4444', fontSize: '1.25rem' }}></i>
-              <div>
-                <strong style={{ color: '#f8fafc', fontSize: '0.9rem', display: 'block' }}>
-                  You have blocked @{friend?.username || 'this user'}
-                </strong>
-                <span style={{ color: '#94a3b8', fontSize: '0.78rem' }}>
-                  Unblock to send messages or start calls with this contact.
-                </span>
+          <div className="fb-messenger-blocked-bar">
+            <div className="fb-messenger-blocked-info">
+              <div className="fb-blocked-shield-icon">
+                <i className="fa-solid fa-user-shield" />
+              </div>
+              <div className="fb-messenger-blocked-texts">
+                <strong>You blocked {friendDisplayName}</strong>
+                <span>You can't message or call each other in this chat. Unblock to resume chatting.</span>
               </div>
             </div>
             <button
               type="button"
+              className="fb-messenger-unblock-btn"
               onClick={() => handleToggleBlockFriend(friend)}
-              style={{
-                background: 'linear-gradient(135deg, #4f46e5, #6366f1)',
-                color: '#fff',
-                border: 'none',
-                borderRadius: '8px',
-                padding: '8px 16px',
-                fontSize: '0.85rem',
-                fontWeight: 600,
-                cursor: 'pointer'
-              }}
             >
-              Unblock
+              <i className="fa-solid fa-user-check" /> Unblock
             </button>
           </div>
         ) : isBlockedByFriend ? (
-          <div
-            style={{
-              padding: '16px 20px',
-              background: 'rgba(255, 255, 255, 0.04)',
-              borderTop: '1px solid rgba(255, 255, 255, 0.1)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '10px',
-              color: '#94a3b8',
-              fontSize: '0.88rem'
-            }}
-          >
-            <i className="fa-solid fa-circle-exclamation" style={{ color: '#f59e0b', fontSize: '1.1rem' }}></i>
-            <span>You cannot send messages to @{friend?.username || 'this user'}.</span>
+          <div className="fb-messenger-blocked-bar" style={{ background: 'rgba(255, 255, 255, 0.04)', borderColor: 'rgba(255, 255, 255, 0.1)' }}>
+            <div className="fb-messenger-blocked-info">
+              <i className="fa-solid fa-circle-exclamation" style={{ color: '#f59e0b', fontSize: '1.2rem' }} />
+              <div className="fb-messenger-blocked-texts">
+                <strong>This account is unavailable</strong>
+                <span>You cannot send messages or start calls with @{friend?.username || 'this user'}.</span>
+              </div>
+            </div>
           </div>
         ) : (
           <ChatInput
@@ -1189,6 +1290,7 @@ export default function Chat({ currentUserId, currentUser }) {
                 ? 'Chat request was declined'
                 : ''
             }
+            onOpenVoiceTranslate={() => setShowVoiceTranslateModal(true)}
           />
         )}
       </section>
@@ -1250,6 +1352,87 @@ export default function Chat({ currentUserId, currentUser }) {
           onClose={() => !isDeleting && setDeleteModalTarget(null)}
           onConfirm={handleConfirmDelete}
         />
+      )}
+
+      {showQRModal && (
+        <QRRoomModal user={currentUser} onClose={() => setShowQRModal(false)} />
+      )}
+
+      {showVoiceTranslateModal && (
+        <VoiceTranslateModal
+          isOpen={showVoiceTranslateModal}
+          onClose={() => setShowVoiceTranslateModal(false)}
+          initialSourceLang={currentUser?.preferredLanguage || language || 'en'}
+          initialTargetLang={chatLanguage || friend?.preferredLanguage || 'es'}
+          friendName={friendDisplayName}
+          onSendToChat={(translatedText, originalSpokenText) => {
+            const payload = {
+              content: JSON.stringify({
+                type: 'text',
+                text: translatedText,
+                transcript: originalSpokenText,
+              }),
+            };
+            handleSend(payload.content);
+          }}
+        />
+      )}
+
+      {pronunciationTarget && (
+        <PronunciationModal
+          text={pronunciationTarget.text}
+          lang={pronunciationTarget.lang}
+          onClose={() => setPronunciationTarget(null)}
+        />
+      )}
+
+      {showFamilyDictModal && (
+        <FamilyDictionaryModal onClose={() => setShowFamilyDictModal(false)} />
+      )}
+
+      {showFamilyProfileModal && (
+        <FamilyProfileModal
+          friend={friend}
+          onClose={() => setShowFamilyProfileModal(false)}
+          onSaved={(saved) => setFamilyProfile(saved)}
+        />
+      )}
+
+      {blockConfirmTarget && (
+        <div className="unique-modal-backdrop" onClick={() => setBlockConfirmTarget(null)}>
+          <div className="fb-confirm-modal-box" onClick={(e) => e.stopPropagation()}>
+            <div className="fb-confirm-modal-header">
+              <div className="fb-confirm-icon-danger">
+                <i className="fa-solid fa-user-slash" />
+              </div>
+              <div>
+                <h3 className="fb-confirm-title">Block @{blockConfirmTarget.username || 'this user'}?</h3>
+                <p className="fb-confirm-desc">
+                  They will no longer be able to message you, start video calls, or see your community posts. You can unblock them at any time in Settings.
+                </p>
+              </div>
+            </div>
+            <div className="fb-confirm-actions">
+              <button
+                type="button"
+                className="fb-confirm-cancel"
+                onClick={() => setBlockConfirmTarget(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="fb-confirm-action-btn"
+                onClick={async () => {
+                  await handleToggleBlockFriend(blockConfirmTarget);
+                  setBlockConfirmTarget(null);
+                }}
+              >
+                Block Account
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

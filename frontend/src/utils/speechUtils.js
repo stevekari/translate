@@ -2,8 +2,8 @@
  * Utility for Text-to-Speech (TTS) and Speech-to-Text (STT) voice translations.
  */
 
-// Language code to BCP 47 speech synthesis locale mapping
-const LANG_TO_LOCALE = {
+// Language code to BCP 47 speech synthesis/recognition locale mapping
+export const LANG_TO_LOCALE = {
   en: 'en-US',
   es: 'es-ES',
   fr: 'fr-FR',
@@ -34,12 +34,31 @@ const LANG_TO_LOCALE = {
   cs: 'cs-CZ',
   ro: 'ro-RO',
   hu: 'hu-HU',
+  sw: 'sw-KE',
+  yo: 'yo-NG',
+  ig: 'ig-NG',
+  ha: 'ha-NG',
+  zu: 'zu-ZA',
+  tl: 'fil-PH',
+  bn: 'bn-BD',
+  ur: 'ur-PK',
+  fa: 'fa-IR',
+  ms: 'ms-MY',
 };
 
 let currentUtterance = null;
 
+export function isSpeechSynthesisSupported() {
+  return typeof window !== 'undefined' && 'speechSynthesis' in window;
+}
+
+export function isSpeechRecognitionSupported() {
+  if (typeof window === 'undefined') return false;
+  return Boolean(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
 export function stopSpeaking() {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  if (isSpeechSynthesisSupported()) {
     try {
       window.speechSynthesis.cancel();
       currentUtterance = null;
@@ -50,14 +69,14 @@ export function stopSpeaking() {
 }
 
 export function isSpeaking() {
-  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  if (isSpeechSynthesisSupported()) {
     return window.speechSynthesis.speaking;
   }
   return false;
 }
 
-export function speakText(text, langCode = 'en', onStart, onEnd, onError) {
-  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+export function speakText(text, langCode = 'en', onStart, onEnd, onError, rate = 0.95) {
+  if (!isSpeechSynthesisSupported()) {
     onError?.('Speech synthesis not supported in this browser');
     return false;
   }
@@ -73,13 +92,14 @@ export function speakText(text, langCode = 'en', onStart, onEnd, onError) {
     const locale = LANG_TO_LOCALE[langCode?.toLowerCase()] || langCode || 'en-US';
     const utterance = new SpeechSynthesisUtterance(text.trim());
     utterance.lang = locale;
-    utterance.rate = 0.95; // Slightly natural pace
+    utterance.rate = typeof rate === 'number' ? rate : 0.95;
     utterance.pitch = 1.0;
 
     // Pick a matching voice if available
     const voices = window.speechSynthesis.getVoices?.() || [];
     if (voices.length > 0) {
-      const match = voices.find((v) => v.lang.toLowerCase().startsWith(locale.toLowerCase().slice(0, 2))) ||
+      const match = voices.find((v) => v.lang.toLowerCase() === locale.toLowerCase()) ||
+                    voices.find((v) => v.lang.toLowerCase().startsWith(locale.toLowerCase().slice(0, 2))) ||
                     voices.find((v) => v.lang.toLowerCase().includes(langCode?.toLowerCase()));
       if (match) {
         utterance.voice = match;

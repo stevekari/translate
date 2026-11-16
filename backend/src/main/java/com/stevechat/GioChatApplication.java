@@ -7,9 +7,9 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 @SpringBootApplication
-public class TransChatApplication {
+public class GioChatApplication {
     public static void main(String[] args) {
-        SpringApplication.run(TransChatApplication.class, args);
+        SpringApplication.run(GioChatApplication.class, args);
     }
 
     @Bean

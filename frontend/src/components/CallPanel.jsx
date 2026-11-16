@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { resolveAvatarUrl } from '../utils/avatarUrl';
+import { resolveAvatarUrl, handleAvatarError, getInitials } from '../utils/avatarUrl';
 
 export default function CallPanel({
   callState,
@@ -150,9 +150,14 @@ export default function CallPanel({
             <div className="video-connecting-placeholder">
               <div className="video-avatar-pulse">
                 {friend?.avatarUrl ? (
-                  <img src={avatarSrc} alt={friendName} className="call-friend-avatar" />
+                  <img
+                    src={avatarSrc}
+                    alt={friendName}
+                    className="call-friend-avatar"
+                    onError={(e) => handleAvatarError(e, friendName)}
+                  />
                 ) : (
-                  <div className="call-friend-initial">{friendName.charAt(0).toUpperCase()}</div>
+                  <div className="call-friend-initial">{getInitials(friendName)}</div>
                 )}
                 <span className="pulse-ring"></span>
               </div>
@@ -186,9 +191,14 @@ export default function CallPanel({
         <div className="voice-call-container">
           <div className="voice-avatar-wrapper">
             {friend?.avatarUrl ? (
-              <img src={avatarSrc} alt={friendName} className="voice-friend-avatar" />
+              <img
+                src={avatarSrc}
+                alt={friendName}
+                className="voice-friend-avatar"
+                onError={(e) => handleAvatarError(e, friendName)}
+              />
             ) : (
-              <div className="voice-friend-initial">{friendName.charAt(0).toUpperCase()}</div>
+              <div className="voice-friend-initial">{getInitials(friendName)}</div>
             )}
             <span className={`voice-pulse-ring ${connected ? 'connected-pulse' : 'calling-pulse'}`}></span>
           </div>

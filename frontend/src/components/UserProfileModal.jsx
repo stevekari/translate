@@ -11,6 +11,7 @@ import {
 } from '../api/conversationApi';
 import { formatJoinedDate, formatLastSeenText } from '../utils/timeAgo';
 import { unmarkFriendDeleted } from '../utils/deletedFriends';
+import { handleAvatarError, getInitials } from '../utils/avatarUrl';
 import '../styles/profileModal.css';
 
 export default function UserProfileModal({ user, userId, onClose, onStartCall }) {
@@ -175,10 +176,15 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
         <div className="profile-modal-header">
           <div className="profile-modal-avatar-wrapper">
             {avatarUrl ? (
-              <img src={avatarUrl} alt={displayName} className="profile-modal-avatar" />
+              <img
+                src={avatarUrl}
+                alt={displayName}
+                className="profile-modal-avatar"
+                onError={(e) => handleAvatarError(e, displayName || username)}
+              />
             ) : (
               <div className="profile-modal-avatar-fallback">
-                {displayName.charAt(0).toUpperCase()}
+                {getInitials(displayName || username)}
               </div>
             )}
             <span className={`profile-modal-status-badge ${isOnline ? (statusStr === 'busy' ? 'busy' : 'online') : 'offline'}`} />

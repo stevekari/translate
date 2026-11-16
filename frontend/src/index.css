@@ -11,6 +11,10 @@
 @import './styles/themecontext.css';
 @import './styles/footer.css';
 @import './styles/mobileNav.css';
+@import './styles/uniqueExperience.css';
+@import './styles/facebookRequests.css';
+@import './styles/voiceTranslate.css';
+@import './styles/liveScoresAndNews.css';
 
 /* LIGHT THEME - default */
 :root {
@@ -201,7 +205,69 @@ a {
 .img-round {
   width: 80px;
   height: 80px;
-  border-radius: 50px;
-  object-fit: cover;
-  opacity: .7;
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  opacity: .9;
+}
+
+/* ==========================================================================
+   UNIVERSAL PERFECT CIRCULAR PROFILE PHOTOS & INITIAL AVATARS
+   Ensures 100% round, unskewed, high-fidelity profile photos across the app
+   ========================================================================== */
+.fb-profile-avatar,
+.fb-accounts-avatar,
+.fb-avatar-preview,
+.settings-avatar-preview,
+.friend-avatar,
+.chat-header-user .friend-avatar-wrap img,
+.person-hero-avatar,
+.fb-request-avatar,
+.fb-messenger-req-avatar,
+.incoming-req-avatar,
+.mini-card-avatar,
+.sidebar-friend-item .friend-avatar,
+.author-avatar-wrap img,
+.creator-avatar img,
+.x-author-avatar img,
+.x-form-avatar img,
+.x-delete-avatar,
+.fb-blocked-avatar,
+.manage-user-avatar,
+.manage-modal-avatar,
+.call-friend-avatar,
+.voice-friend-avatar,
+.incoming-call-avatar-img,
+.profile-modal-avatar,
+.friend-context-avatar,
+.wa-delete-avatar,
+img.avatar,
+img.fb-avatar,
+.avatar-circle {
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  object-fit: cover !important;
+  overflow: hidden !important;
+  display: block;
+}
+
+/* Fallback Initial Avatars - Perfectly Rounded & Centered */
+.profile-modal-avatar-fallback,
+.call-friend-initial,
+.voice-friend-initial,
+.incoming-call-avatar,
+.author-avatar-fallback,
+.creator-avatar-placeholder,
+.x-avatar-fallback,
+.x-form-avatar-fallback,
+.notif-avatar-placeholder {
+  border-radius: 50% !important;
+  aspect-ratio: 1 / 1 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  overflow: hidden !important;
+  font-weight: 700 !important;
+  user-select: none !important;
 }

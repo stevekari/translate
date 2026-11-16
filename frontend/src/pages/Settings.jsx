@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateProfile, deleteAccount, getMe, getAllUsers, deleteUser, cleanDuplicateUsers, getBlockedUsers, unblockUser } from '../api/userApi';
+import { updateProfile, deleteAccount, getMe, getAllUsers, deleteUser, cleanDuplicateUsers, getBlockedUsers, unblockUser, blockUser, searchUsers } from '../api/userApi';
 import { uploadMedia } from '../api/mediaApi';
 import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import { getUserActivitySummary } from '../utils/timeAgo';
@@ -11,6 +11,8 @@ import { usePWAInstall } from '../hooks/usePWAInstall';
 import { setMyStatus } from '../store/slices/presenceSlice';
 import { signInWithGoogle } from '../firebase';
 import PasswordStrengthMeter, { evaluatePasswordStrength } from '../components/PasswordStrengthMeter';
+import { getFamilyDictionary, addFamilyTerm, removeFamilyTerm } from '../utils/familyDictionary';
+import { getFadingModeConfig, saveFadingModeConfig } from '../utils/fadingTranslation';
 
 export default function Settings({ user, onProfileUpdate, onLogout }) {
   const navigate = useNavigate();
@@ -58,6 +60,48 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
   const [blockedLoading, setBlockedLoading] = useState(false);
   const [blockedSearchQuery, setBlockedSearchQuery] = useState('');
 
+  // Phase 2: Family Dictionary & Fading Immersion
+  const [familyDict, setFamilyDict] = useState(() => getFamilyDictionary());
+  const [fadingConfig, setFadingConfig] = useState(() => getFadingModeConfig());
+  const [dictSearch, setDictSearch] = useState('');
+  const [newDictTerm, setNewDictTerm] = useState('');
+  const [newDictMeaning, setNewDictMeaning] = useState('');
+  const [newDictLang, setNewDictLang] = useState('Spanish');
+  const [newDictCulture, setNewDictCulture] = useState('Family Slang');
+  const [showAddDictForm, setShowAddDictForm] = useState(false);
+
+  const handleToggleImmersion = () => {
+    const updated = { ...fadingConfig, enabled: !fadingConfig.enabled };
+    setFadingConfig(updated);
+    saveFadingModeConfig(updated);
+  };
+
+  const handleImmersionLangChange = (targetLang) => {
+    const updated = { ...fadingConfig, targetLang };
+    setFadingConfig(updated);
+    saveFadingModeConfig(updated);
+  };
+
+  const handleAddDictEntry = (e) => {
+    e.preventDefault();
+    if (!newDictTerm.trim() || !newDictMeaning.trim()) return;
+    const updated = addFamilyTerm({
+      term: newDictTerm.trim(),
+      meaning: newDictMeaning.trim(),
+      language: newDictLang.trim(),
+      culture: newDictCulture.trim(),
+    });
+    setFamilyDict(updated);
+    setNewDictTerm('');
+    setNewDictMeaning('');
+    setShowAddDictForm(false);
+  };
+
+  const handleDeleteDictEntry = (term) => {
+    const updated = removeFamilyTerm(term);
+    setFamilyDict(updated);
+  };
+
   const loadBlockedUsers = async () => {
     setBlockedLoading(true);
     try {
@@ -75,6 +119,60 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
       loadBlockedUsers();
     }
   }, [tab]);
+
+  const [candidateSearchQuery, setCandidateSearchQuery] = useState('');
+  const [candidateUsers, setCandidateUsers] = useState([]);
+  const [candidateLoading, setCandidateLoading] = useState(false);
+  const [confirmBlockTarget, setConfirmBlockTarget] = useState(null);
+  const [confirmUnblockTarget, setConfirmUnblockTarget] = useState(null);
+
+  useEffect(() => {
+    if (!candidateSearchQuery.trim() || candidateSearchQuery.trim().length < 2) {
+      setCandidateUsers([]);
+      return;
+    }
+    const t = setTimeout(async () => {
+      setCandidateLoading(true);
+      try {
+        const results = await searchUsers(candidateSearchQuery.trim());
+        const blockedIds = new Set(blockedUsersList.map((b) => b.id));
+        setCandidateUsers(
+          (Array.isArray(results) ? results : []).filter(
+            (u) => u.id !== user?.userId && !blockedIds.has(u.id)
+          )
+        );
+      } catch (e) {
+        console.warn('Candidate search error:', e);
+      } finally {
+        setCandidateLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [candidateSearchQuery, blockedUsersList, user?.userId]);
+
+  const handleExecuteBlock = async (targetUser) => {
+    try {
+      await blockUser(targetUser.id);
+      setBlockedUsersList((prev) => [targetUser, ...prev]);
+      setCandidateSearchQuery('');
+      setCandidateUsers([]);
+      setConfirmBlockTarget(null);
+      setStatus({ type: 'success', text: `Blocked @${targetUser.username} successfully.` });
+    } catch (e) {
+      console.error('Failed to block user:', e);
+    }
+  };
+
+  const handleExecuteUnblock = async (targetUser) => {
+    try {
+      await unblockUser(targetUser.id);
+      setBlockedUsersList((prev) => prev.filter((u) => u.id !== targetUser.id));
+      setConfirmUnblockTarget(null);
+      setStatus({ type: 'success', text: `Unblocked @${targetUser.username}.` });
+    } catch (e) {
+      console.error('Failed to unblock user:', e);
+    }
+  };
 
   const handleUnblockUserFromSettings = async (targetId) => {
     try {
@@ -494,6 +592,20 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
       badgeClass: 'fb-nav-purple',
     },
     {
+      id: 'family-dict',
+      title: 'Family & Cultural Dictionary',
+      subtitle: 'Custom idioms, nicknames & slang glossary',
+      icon: 'fa-solid fa-book-bookmark',
+      badgeClass: 'fb-nav-amber',
+    },
+    {
+      id: 'immersion',
+      title: 'Fading Immersion Mode',
+      subtitle: 'Effortless language acquisition as you chat',
+      icon: 'fa-solid fa-brain',
+      badgeClass: 'fb-nav-teal',
+    },
+    {
       id: 'security',
       title: t('security') || 'Password & Security',
       subtitle: 'Change password & login security',
@@ -651,7 +763,12 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
 
             <div className="fb-avatar-section">
               <div className="fb-avatar-wrap">
-                <img className="settings-avatar-preview fb-avatar-preview" src={avatarPreview} alt={t('preview')} />
+                <img
+                  className="settings-avatar-preview fb-avatar-preview"
+                  src={avatarPreview}
+                  alt={t('preview')}
+                  onError={(e) => handleAvatarError(e, displayName || username)}
+                />
                 <span className={`fb-avatar-status-dot ${onlineIds.includes(user?.id || userProfile?.id) ? 'online' : ''}`} />
               </div>
               <div className="fb-avatar-actions">
@@ -833,6 +950,200 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                   <div className="bubble-orig">¿Cómo estás hoy?</div>
                   <div className="bubble-trans">
                     <i className="fa-solid fa-earth-americas"></i> <em>How are you today?</em>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Phase 2: Family & Cultural Dictionary Tab */}
+        {tab === 'family-dict' && (
+          <div className="settings-card fb-card">
+            <div className="fb-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="unique-icon-badge dict-badge">
+                  <i className="fa-solid fa-book-bookmark" />
+                </span>
+                <div>
+                  <h1 style={{ margin: 0 }}>Family & Cultural Dictionary</h1>
+                  <p className="settings-sub">
+                    Protect special family slang, greetings, cultural food, and nicknames from machine translation.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="dict-toolbar" style={{ margin: '8px 0' }}>
+              <div className="dict-search-wrap">
+                <i className="fa-solid fa-magnifying-glass dict-search-icon" />
+                <input
+                  type="text"
+                  placeholder="Search family terms or cultural meanings..."
+                  value={dictSearch}
+                  onChange={(e) => setDictSearch(e.target.value)}
+                  className="dict-search-input"
+                />
+              </div>
+              <button
+                type="button"
+                className="dict-add-btn"
+                onClick={() => setShowAddDictForm(!showAddDictForm)}
+              >
+                <i className={`fa-solid ${showAddDictForm ? 'fa-minus' : 'fa-plus'}`} />
+                <span>{showAddDictForm ? 'Cancel' : 'Add Term'}</span>
+              </button>
+            </div>
+
+            {showAddDictForm && (
+              <form onSubmit={handleAddDictEntry} className="dict-new-form">
+                <div className="dict-form-grid">
+                  <input
+                    type="text"
+                    placeholder="Word or idiom (e.g. Abuela, Fufu, Akwaaba)"
+                    value={newDictTerm}
+                    onChange={(e) => setNewDictTerm(e.target.value)}
+                    required
+                    className="dict-input"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Cultural meaning / Family context"
+                    value={newDictMeaning}
+                    onChange={(e) => setNewDictMeaning(e.target.value)}
+                    required
+                    className="dict-input"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Language / Dialect (e.g. Spanish, Twi)"
+                    value={newDictLang}
+                    onChange={(e) => setNewDictLang(e.target.value)}
+                    className="dict-input"
+                  />
+                  <input
+                    type="text"
+                    placeholder="Category (e.g. Nickname, Food, Greeting)"
+                    value={newDictCulture}
+                    onChange={(e) => setNewDictCulture(e.target.value)}
+                    className="dict-input"
+                  />
+                </div>
+                <button type="submit" className="dict-save-btn">
+                  <i className="fa-solid fa-check" />
+                  <span>Save to Family Dictionary</span>
+                </button>
+              </form>
+            )}
+
+            <div className="dict-items-list" style={{ maxHeight: '380px' }}>
+              {familyDict
+                .filter(
+                  (d) =>
+                    !dictSearch.trim() ||
+                    d.term.toLowerCase().includes(dictSearch.toLowerCase()) ||
+                    d.meaning.toLowerCase().includes(dictSearch.toLowerCase())
+                )
+                .map((item) => (
+                  <div key={item.term} className="dict-item-card">
+                    <div className="dict-item-info">
+                      <div className="dict-item-header">
+                        <span className="dict-item-term">{item.term}</span>
+                        <span className="dict-item-lang-badge">{item.language || 'Family'}</span>
+                        {item.culture && <span className="dict-item-culture-badge">{item.culture}</span>}
+                      </div>
+                      <p className="dict-item-meaning">{item.meaning}</p>
+                    </div>
+                    <button
+                      type="button"
+                      className="dict-item-delete"
+                      onClick={() => handleDeleteDictEntry(item.term)}
+                      title="Remove term"
+                    >
+                      <i className="fa-solid fa-trash-can" />
+                    </button>
+                  </div>
+                ))}
+            </div>
+          </div>
+        )}
+
+        {/* Phase 2: Fading Immersion Mode Tab */}
+        {tab === 'immersion' && (
+          <div className="settings-card fb-card">
+            <div className="fb-card-header">
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                <span className="unique-icon-badge coach-badge">
+                  <i className="fa-solid fa-brain" />
+                </span>
+                <div>
+                  <h1 style={{ margin: 0 }}>Fading Immersion Mode</h1>
+                  <p className="settings-sub">
+                    Effortlessly acquire new languages as you chat with friends & family.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <div className="fb-settings-group">
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>Enable Fading Immersion Learning</h4>
+                  <p>
+                    Gradually replaces foundational words in your messages with the target language. Tap any word to reveal hints and listen!
+                  </p>
+                </div>
+                <div className="fb-setting-action">
+                  <label className="fb-toggle">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(fadingConfig.enabled)}
+                      onChange={handleToggleImmersion}
+                    />
+                    <span className="fb-toggle-slider" />
+                  </label>
+                </div>
+              </div>
+
+              <div className="fb-setting-row">
+                <div className="fb-setting-content">
+                  <h4>Target Learning Language</h4>
+                  <p>Choose which language you want to gradually absorb through conversations.</p>
+                </div>
+                <div className="fb-setting-action">
+                  <select
+                    className="fb-select"
+                    value={fadingConfig.targetLang || 'es'}
+                    onChange={(e) => handleImmersionLangChange(e.target.value)}
+                    aria-label="Immersion Target Language"
+                  >
+                    <option value="es">🇪🇸 Spanish (Español)</option>
+                    <option value="fr">🇫🇷 French (Français)</option>
+                    <option value="de">🇩🇪 German (Deutsch)</option>
+                    <option value="tw">🇬🇭 Akan / Twi</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Live Immersion Preview Box */}
+              <div className="fb-preview-box">
+                <div className="fb-preview-header">
+                  <span className="fb-preview-badge">Live Immersion Text Preview</span>
+                  <span className={`badge ${fadingConfig.enabled ? 'success' : 'neutral'}`}>
+                    {fadingConfig.enabled ? 'Immersion Active' : 'Off'}
+                  </span>
+                </div>
+                <div className="fb-preview-bubbles">
+                  <div className="fb-preview-bubble incoming">
+                    <div className="bubble-orig">
+                      {fadingConfig.enabled ? (
+                        <>
+                          <span className="fading-immersion-chip">✨ {fadingConfig.targetLang === 'es' ? 'Hola' : fadingConfig.targetLang === 'fr' ? 'Bonjour' : fadingConfig.targetLang === 'tw' ? 'Akwaaba' : 'Hallo'}</span>, my <span className="fading-immersion-chip">✨ {fadingConfig.targetLang === 'es' ? 'amigo' : fadingConfig.targetLang === 'fr' ? 'ami' : fadingConfig.targetLang === 'tw' ? 'adamfo' : 'Freund'}</span>! How is your day?
+                        </>
+                      ) : (
+                        'Hello, my friend! How is your day?'
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1130,6 +1441,57 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
               </div>
             </div>
 
+            {/* Direct Block User Tool (Facebook Style) */}
+            <div className="fb-block-user-picker">
+              <span className="fb-block-picker-title">
+                <i className="fa-solid fa-user-slash" style={{ color: '#ef4444' }} /> Block a User on Giochat
+              </span>
+              <div className="fb-block-search-field">
+                <i className="fa-solid fa-magnifying-glass" />
+                <input
+                  type="text"
+                  placeholder="Type a username or display name to block..."
+                  value={candidateSearchQuery}
+                  onChange={(e) => setCandidateSearchQuery(e.target.value)}
+                  className="fb-block-search-input"
+                />
+              </div>
+
+              {candidateLoading && (
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', padding: '4px' }}>
+                  <i className="fa-solid fa-spinner fa-spin" /> Searching users...
+                </div>
+              )}
+
+              {candidateUsers.length > 0 && (
+                <div className="fb-block-search-results">
+                  {candidateUsers.map((cu) => (
+                    <div key={cu.id} className="fb-block-candidate-row">
+                      <div className="fb-blocked-user-meta">
+                        <img
+                          src={resolveAvatarUrl(cu.avatarUrl, cu.displayName || cu.username)}
+                          alt={cu.username}
+                          className="fb-blocked-avatar"
+                          onError={(e) => handleAvatarError(e, cu.displayName || cu.username)}
+                        />
+                        <div>
+                          <strong className="fb-blocked-name">{cu.displayName || cu.username}</strong>
+                          <span className="fb-blocked-handle">@{cu.username}</span>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        className="fb-btn-candidate-block"
+                        onClick={() => setConfirmBlockTarget(cu)}
+                      >
+                        <i className="fa-solid fa-ban" /> Block
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
             {/* Blocked Users Section */}
             <div className="fb-settings-group" style={{ marginTop: '16px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px', flexWrap: 'wrap', gap: '10px' }}>
@@ -1191,7 +1553,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                       <button
                         type="button"
                         className="fb-btn-unblock"
-                        onClick={() => handleUnblockUserFromSettings(bu.id)}
+                        onClick={() => setConfirmUnblockTarget(bu)}
                       >
                         Unblock
                       </button>
@@ -1200,6 +1562,77 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                 </div>
               )}
             </div>
+
+            {/* Block Confirmation Modal */}
+            {confirmBlockTarget && (
+              <div className="unique-modal-backdrop" onClick={() => setConfirmBlockTarget(null)}>
+                <div className="fb-confirm-modal-box" onClick={(e) => e.stopPropagation()}>
+                  <div className="fb-confirm-modal-header">
+                    <div className="fb-confirm-icon-danger">
+                      <i className="fa-solid fa-user-slash" />
+                    </div>
+                    <div>
+                      <h3 className="fb-confirm-title">Block @{confirmBlockTarget.username}?</h3>
+                      <p className="fb-confirm-desc">
+                        {confirmBlockTarget.displayName || confirmBlockTarget.username} will no longer be able to message you, start video calls, or see your community posts.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="fb-confirm-actions">
+                    <button
+                      type="button"
+                      className="fb-confirm-cancel"
+                      onClick={() => setConfirmBlockTarget(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="fb-confirm-action-btn"
+                      onClick={() => handleExecuteBlock(confirmBlockTarget)}
+                    >
+                      Block User
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Unblock Confirmation Modal */}
+            {confirmUnblockTarget && (
+              <div className="unique-modal-backdrop" onClick={() => setConfirmUnblockTarget(null)}>
+                <div className="fb-confirm-modal-box" onClick={(e) => e.stopPropagation()}>
+                  <div className="fb-confirm-modal-header">
+                    <div className="fb-confirm-icon-danger" style={{ background: 'rgba(24, 119, 242, 0.15)', color: '#1877f2' }}>
+                      <i className="fa-solid fa-user-check" />
+                    </div>
+                    <div>
+                      <h3 className="fb-confirm-title">Unblock @{confirmUnblockTarget.username}?</h3>
+                      <p className="fb-confirm-desc">
+                        They will be able to send you messages and see your profile again on Giochat.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="fb-confirm-actions">
+                    <button
+                      type="button"
+                      className="fb-confirm-cancel"
+                      onClick={() => setConfirmUnblockTarget(null)}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      className="fb-confirm-action-btn"
+                      style={{ background: '#1877f2' }}
+                      onClick={() => handleExecuteUnblock(confirmUnblockTarget)}
+                    >
+                      Confirm Unblock
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -1423,7 +1856,12 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
             </div>
 
             <div className="x-delete-header-profile">
-              <img className="x-delete-avatar" src={avatarPreview} alt={displayName || username} />
+              <img
+                className="x-delete-avatar"
+                src={avatarPreview}
+                alt={displayName || username}
+                onError={(e) => handleAvatarError(e, displayName || username)}
+              />
               <div className="x-delete-user-meta">
                 {displayName && displayName.trim().toLowerCase() !== username.trim().toLowerCase() ? (
                   <>

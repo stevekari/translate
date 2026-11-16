@@ -9,6 +9,8 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { translateMessage } from '../api/conversationApi';
 import { getLanguageInfo } from '../utils/languages';
 import { speakText, stopSpeaking, isSpeaking } from '../utils/speechUtils';
+import { annotateCulturalTerms } from '../utils/familyDictionary';
+import { applyFadingImmersion } from '../utils/fadingTranslation';
 
 function getLangFlag(code) {
   return getLanguageInfo(code).flag || '🌐';
@@ -76,7 +78,10 @@ export default function MessageBubble({
   onReact,
   onEdit,
   onDelete,
-  onScrollToMessage
+  onScrollToMessage,
+  onPronounce,
+  fadingModeEnabled,
+  immersionLang,
 }) {
   const { t, language } = useLanguage();
   const [showFullImage, setShowFullImage] = useState(false);
@@ -515,8 +520,57 @@ export default function MessageBubble({
         {!isDeleted && parsed.type === 'text' && (
           <>
             <div className="message-content">
-              {validTranslation && !showOriginal ? validTranslation.translatedText : parsed.text}
+              {(() => {
+                const rawText = validTranslation && !showOriginal ? validTranslation.translatedText : parsed.text;
+                if (!rawText) return null;
+                const culturalTokens = annotateCulturalTerms(rawText);
+                return culturalTokens.map((cToken, cIdx) => {
+                  if (cToken.isCultural) {
+                    return (
+                      <span
+                        key={`cult-${cIdx}`}
+                        className="cultural-term-chip"
+                        title={`Cultural Term: ${cToken.entry?.meaning || ''} (${cToken.entry?.language || ''})`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onPronounce?.(cToken.text, cToken.entry?.language || validTranslation?.targetLanguage || 'en');
+                        }}
+                      >
+                        📖 {cToken.text}
+                      </span>
+                    );
+                  }
+                  if (fadingModeEnabled) {
+                    const immersionTokens = applyFadingImmersion(cToken.text, immersionLang || validTranslation?.targetLanguage || 'es');
+                    return immersionTokens.map((iToken, iIdx) => {
+                      if (iToken.isFaded) {
+                        return (
+                          <span
+                            key={`imm-${cIdx}-${iIdx}`}
+                            className="fading-immersion-chip"
+                            title={`Learning: "${iToken.targetWord}" = "${iToken.nativeWord}". Click to listen!`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPronounce?.(iToken.targetWord, iToken.targetLang);
+                            }}
+                          >
+                            ✨ {iToken.text}
+                          </span>
+                        );
+                      }
+                      return <span key={`norm-${cIdx}-${iIdx}`}>{iToken.text}</span>;
+                    });
+                  }
+                  return <span key={`plain-${cIdx}`}>{cToken.text}</span>;
+                });
+              })()}
             </div>
+
+            {parsed.transcript && parsed.transcript.trim() !== parsed.text?.trim() && (
+              <div className="voice-trans-badge-inline" title="Original speech transcript">
+                <i className="fa-solid fa-microphone"></i> Spoke: "{parsed.transcript}"
+              </div>
+            )}
 
             {/* 🌍 GioTranslate Result Card at bottom */}
             {validTranslation && (
@@ -573,6 +627,20 @@ export default function MessageBubble({
                       ) : (
                         <i className="fa-solid fa-volume-high"></i>
                       )}
+                    </button>
+
+                    {/* 🎓 Pronunciation Coach Button */}
+                    <button
+                      type="button"
+                      className="message-coach-action-btn"
+                      onClick={() => onPronounce?.(
+                        showOriginal ? parsed.text : validTranslation.translatedText,
+                        showOriginal ? validTranslation.sourceLanguage : validTranslation.targetLanguage
+                      )}
+                      title="Pronunciation Coach - Practice native accent"
+                      aria-label="Practice pronunciation"
+                    >
+                      <i className="fa-solid fa-graduation-cap"></i>
                     </button>
 
                     <button

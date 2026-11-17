@@ -14,6 +14,7 @@ import MediaLightbox from '../components/MediaLightbox';
 import FriendContextMenu from '../components/FriendContextMenu';
 import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LiveFootballAndNews from '../components/LiveFootballAndNews';
+import HomeNewsFeed from '../components/HomeNewsFeed';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
 
@@ -1056,6 +1057,15 @@ export default function CommunityHome({ user }) {
 
         <button
           type="button"
+          className={`filter-tab ${filter === 'news' ? 'active' : ''}`}
+          onClick={() => setFilter('news')}
+        >
+          <i className="fa-solid fa-newspaper"></i>
+          <span>Live News 🇪🇸🌍</span>
+        </button>
+
+        <button
+          type="button"
           className={`filter-tab mobile-live-filter-btn ${showMobileLiveHub ? 'active' : ''}`}
           onClick={() => setShowMobileLiveHub((prev) => !prev)}
           title="Toggle Live Football Scores & Real-World News"
@@ -1083,19 +1093,23 @@ export default function CommunityHome({ user }) {
 
       {/* 4. Feed Stream */}
       <section className="community-posts-stream">
-        {loading && posts.length === 0 ? (
-          <div className="community-loading-state">
-            <i className="fa-solid fa-circle-notch fa-spin"></i>
-            <p>Loading global community posts...</p>
-          </div>
-        ) : filteredPosts.length === 0 ? (
-          <div className="community-empty-state">
-            <div className="empty-icon">🌟</div>
-            <h3>No posts in this feed yet</h3>
-            <p>Be the first to share a moment or video note with the community!</p>
-          </div>
+        {filter === 'news' ? (
+          <HomeNewsFeed user={user} />
         ) : (
-          filteredPosts.map((post) => {
+          <>
+            {loading && posts.length === 0 ? (
+              <div className="community-loading-state">
+                <i className="fa-solid fa-circle-notch fa-spin"></i>
+                <p>Loading global community posts...</p>
+              </div>
+            ) : filteredPosts.length === 0 ? (
+              <div className="community-empty-state">
+                <div className="empty-icon">🌟</div>
+                <h3>No community posts in this feed yet</h3>
+                <p>Be the first to share a moment, or enjoy fresh Spain & World news below!</p>
+              </div>
+            ) : (
+              filteredPosts.map((post) => {
             const isMyPost = String(post.userId) === String(user?.userId || user?.id);
             const translation = translations[post.id];
             const isTranslating = translatingPostId === post.id;
@@ -1482,8 +1496,13 @@ export default function CommunityHome({ user }) {
             );
           })
         )}
-      </section>
-      </main>
+
+        {/* Live Spain & World Breaking News Feed directly under posts */}
+        <HomeNewsFeed user={user} />
+      </>
+    )}
+  </section>
+  </main>
 
       {/* =========================================================================
           RIGHT SIDEBAR: Sponsored AI Ads, Scrolling & Trending

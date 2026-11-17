@@ -235,102 +235,133 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
         </div>
 
         <div className="profile-modal-actions">
+          {/* STATE 1: ALREADY FRIENDS */}
           {isAccepted && (
-            <>
-              <button type="button" className="profile-action-btn primary" onClick={handleSendMessage}>
+            <div className="profile-actions-row">
+              <button
+                type="button"
+                className="profile-fb-btn primary message-btn"
+                onClick={handleSendMessage}
+              >
                 <i className="fa-solid fa-comment-dots"></i>
                 <span>Message</span>
               </button>
-              <button type="button" className="profile-action-btn secondary" onClick={() => handleStartCall('voice')}>
+              <button
+                type="button"
+                className="profile-fb-btn secondary icon-btn"
+                onClick={() => handleStartCall('voice')}
+                title="Voice Call"
+                aria-label="Voice Call"
+              >
                 <i className="fa-solid fa-phone"></i>
                 <span>Voice</span>
               </button>
-              <button type="button" className="profile-action-btn secondary" onClick={() => handleStartCall('video')}>
+              <button
+                type="button"
+                className="profile-fb-btn secondary icon-btn"
+                onClick={() => handleStartCall('video')}
+                title="Video Call"
+                aria-label="Video Call"
+              >
                 <i className="fa-solid fa-video"></i>
                 <span>Video</span>
               </button>
-            </>
+            </div>
           )}
 
-          {isPending && relationship.isInitiator && (
-            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '8px', alignItems: 'center' }}>
-              <button type="button" className="profile-action-btn primary" disabled style={{ opacity: 0.85, width: '100%' }}>
-                <i className="fa-regular fa-clock"></i>
-                <span>Request Sent (Pending)</span>
+          {/* STATE 2: INCOMING REQUEST (User received friend request) -> FACEBOOK CONFIRM / DELETE */}
+          {isPending && !relationship.isInitiator && (
+            <div className="profile-actions-row">
+              <button
+                type="button"
+                className="profile-fb-btn primary"
+                onClick={handleAcceptRequest}
+                disabled={relLoading}
+              >
+                <i className="fa-solid fa-user-check"></i>
+                <span>Confirm</span>
               </button>
-              {relationship.conversationId && (
+              <button
+                type="button"
+                className="profile-fb-btn secondary"
+                onClick={handleDeclineRequest}
+                disabled={relLoading}
+              >
+                <i className="fa-solid fa-xmark"></i>
+                <span>Delete</span>
+              </button>
+            </div>
+          )}
+
+          {/* STATE 3: OUTGOING REQUEST (User sent request) -> FACEBOOK PENDING */}
+          {isPending && relationship.isInitiator && (
+            <div className="profile-actions-col">
+              <div className="profile-actions-row">
                 <button
                   type="button"
-                  className="profile-action-btn secondary"
-                  onClick={() => {
-                    onClose();
-                    navigate(`/chat/${relationship.conversationId}`, { state: { friend: profile } });
-                  }}
-                  style={{ width: '100%' }}
+                  className="profile-fb-btn secondary pending-btn"
+                  disabled
                 >
-                  <i className="fa-solid fa-comments"></i>
-                  <span>Open Chat</span>
+                  <i className="fa-regular fa-clock"></i>
+                  <span>Request Sent</span>
                 </button>
-              )}
-              <span style={{ fontSize: '0.78rem', color: '#94a3b8' }}>Waiting for user to accept your friend request</span>
-            </div>
-          )}
-
-          {isPending && !relationship.isInitiator && (
-            <div style={{ display: 'flex', width: '100%', gap: '8px' }}>
-              <button type="button" className="profile-action-btn primary" onClick={handleAcceptRequest} disabled={relLoading} style={{ flex: 1 }}>
-                <i className="fa-solid fa-check"></i>
-                <span>Accept</span>
-              </button>
-              <button type="button" className="profile-action-btn secondary" onClick={handleDeclineRequest} disabled={relLoading} style={{ flex: 1 }}>
-                <i className="fa-solid fa-xmark"></i>
-                <span>Decline</span>
-              </button>
-            </div>
-          )}
-
-          {isDeclined && (
-            <div style={{ display: 'flex', flexDirection: 'column', width: '100%', gap: '8px' }}>
-              <div style={{ fontSize: '0.8rem', color: '#fca5a5', textAlign: 'center' }}>
-                <i className="fa-solid fa-circle-exclamation"></i> Previous request was declined
+                {relationship.conversationId && (
+                  <button
+                    type="button"
+                    className="profile-fb-btn primary"
+                    onClick={() => {
+                      onClose();
+                      navigate(`/chat/${relationship.conversationId}`, { state: { friend: profile } });
+                    }}
+                  >
+                    <i className="fa-solid fa-comments"></i>
+                    <span>Open Chat</span>
+                  </button>
+                )}
               </div>
-              <button type="button" className="profile-action-btn primary" onClick={handleSendFriendRequest} disabled={relLoading} style={{ width: '100%' }}>
-                <i className="fa-solid fa-rotate-right"></i>
-                <span>Send Request Again</span>
+              <span className="profile-pending-hint">Waiting for @{username} to respond</span>
+            </div>
+          )}
+
+          {/* STATE 4: PREVIOUS REQUEST DECLINED */}
+          {isDeclined && (
+            <div className="profile-actions-col">
+              <span className="profile-declined-hint">
+                <i className="fa-solid fa-circle-exclamation"></i> Previous request was declined
+              </span>
+              <button
+                type="button"
+                className="profile-fb-btn primary full-width"
+                onClick={handleSendFriendRequest}
+                disabled={relLoading}
+              >
+                <i className="fa-solid fa-user-plus"></i>
+                <span>Add Friend Again</span>
               </button>
             </div>
           )}
 
+          {/* STATE 5: NOT FRIENDS -> FACEBOOK ADD FRIEND */}
           {isNone && (
-            <button type="button" className="profile-action-btn primary" onClick={handleSendFriendRequest} disabled={relLoading} style={{ width: '100%' }}>
+            <button
+              type="button"
+              className="profile-fb-btn primary full-width"
+              onClick={handleSendFriendRequest}
+              disabled={relLoading}
+            >
               <i className="fa-solid fa-user-plus"></i>
-              <span>Send Friend Request</span>
+              <span>Add Friend</span>
             </button>
           )}
 
-          {/* Telegram-style Block / Unblock User */}
-          <div style={{ width: '100%', marginTop: '8px', paddingTop: '8px', borderTop: '1px solid rgba(255, 255, 255, 0.08)' }}>
+          {/* DISCRETE, COMPACT, OVERFLOW-PROOF BLOCK / UNBLOCK OPTION */}
+          <div className="profile-modal-block-wrap">
             <button
               type="button"
-              className={`profile-action-btn ${isBlocked ? 'secondary' : 'danger'}`}
+              className={`profile-compact-block-btn ${isBlocked ? 'is-blocked' : ''}`}
               onClick={handleToggleBlock}
               disabled={blockLoading}
-              style={{
-                width: '100%',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '10px 16px',
-                borderRadius: '10px',
-                fontWeight: 600,
-                fontSize: '0.88rem',
-                cursor: 'pointer',
-                background: isBlocked ? 'rgba(99, 102, 241, 0.15)' : 'rgba(239, 68, 68, 0.12)',
-                border: isBlocked ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid rgba(239, 68, 68, 0.3)',
-                color: isBlocked ? '#818cf8' : '#f87171',
-                transition: 'all 0.2s ease',
-              }}
+              title={isBlocked ? 'Unblock user' : 'Block user'}
             >
               <i className={`fa-solid ${isBlocked ? 'fa-user-check' : 'fa-ban'}`}></i>
               <span>{isBlocked ? 'Unblock User' : 'Block User'}</span>

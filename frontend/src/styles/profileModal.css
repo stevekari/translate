@@ -20,7 +20,9 @@
   background: #111827;
   border: 1px solid rgba(255, 255, 255, 0.12);
   border-radius: 24px;
-  padding: 28px 24px;
+  padding: 24px 20px;
+  box-sizing: border-box;
+  overflow: hidden;
   box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
@@ -233,50 +235,201 @@
 
 .profile-modal-actions {
   width: 100%;
-  display: grid;
-  grid-template-columns: 2fr 1fr 1fr;
-  gap: 8px;
-  margin-top: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
+  box-sizing: border-box;
 }
 
-.profile-action-btn {
+.profile-actions-row {
   display: flex;
   align-items: center;
-  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.profile-actions-col {
+  display: flex;
+  flex-direction: column;
   gap: 6px;
-  padding: 10px 12px;
-  border-radius: 12px;
-  font-size: 0.88rem;
-  font-weight: 600;
+  width: 100%;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* Profile Action Buttons */
+.profile-fb-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 42px;
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 2vw;
+  font-size: clamp(0.95rem, 2vw, 1.15rem);
+  font-weight: 700;
   cursor: pointer;
   border: none;
-  transition: all 0.2s ease;
+  box-sizing: border-box;
+  white-space: nowrap;
+  transition: all 0.15s ease;
+  user-select: none;
+  outline: none;
 }
 
-.profile-action-btn.primary {
+.profile-fb-btn.full-width {
+  width: 100%;
+}
+
+/* App Color Primary Button (Warm Gold / Amber accent, NOT blue) */
+.profile-fb-btn.primary {
+  background: var(--accent, #d97706);
+  background: linear-gradient(135deg, var(--accent, #d97706), var(--accent-gold, #f59e0b));
+  color: #ffffff;
+  box-shadow: 0 3px 12px var(--accent-soft, rgba(217, 119, 6, 0.35));
+}
+
+[data-theme='dark'] .profile-fb-btn.primary {
+  background: var(--accent, #f59e0b);
   background: linear-gradient(135deg, #d97706, #f59e0b);
   color: #12100c;
-  font-weight: 700;
+  box-shadow: 0 3px 14px rgba(245, 158, 11, 0.4);
 }
 
-.profile-action-btn.primary:hover {
+.profile-fb-btn.primary:hover:not(:disabled) {
   filter: brightness(1.1);
   transform: translateY(-1px);
+  box-shadow: 0 5px 16px var(--accent-soft, rgba(217, 119, 6, 0.45));
 }
 
-.profile-action-btn.secondary {
+.profile-fb-btn.primary:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.profile-fb-btn.primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+}
+
+/* Facebook Secondary Button */
+.profile-fb-btn.secondary {
   background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #e2e8f0;
 }
 
-:root[data-theme="light"] .profile-action-btn.secondary {
-  background: rgba(0, 0, 0, 0.06);
-  color: #1e293b;
+:root[data-theme="light"] .profile-fb-btn.secondary {
+  background: #e4e6eb;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  color: #050505;
 }
 
-.profile-action-btn.secondary:hover {
+.profile-fb-btn.secondary:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.15);
+  color: #ffffff;
   transform: translateY(-1px);
+}
+
+:root[data-theme="light"] .profile-fb-btn.secondary:hover:not(:disabled) {
+  background: #d8dadf;
+  color: #050505;
+}
+
+.profile-fb-btn.message-btn {
+  flex: 2;
+}
+
+.profile-fb-btn.icon-btn {
+  flex: 1;
+  padding: 0 8px;
+}
+
+.profile-fb-btn.pending-btn {
+  opacity: 0.85;
+  cursor: default;
+}
+
+.profile-pending-hint {
+  font-size: 0.74rem;
+  color: #94a3b8;
+  text-align: center;
+}
+
+.profile-declined-hint {
+  font-size: 0.76rem;
+  color: #fca5a5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+
+/* Discrete, small, overflow-free Block User Option */
+.profile-modal-block-wrap {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-top: 4px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  box-sizing: border-box;
+}
+
+:root[data-theme="light"] .profile-modal-block-wrap {
+  border-top-color: rgba(0, 0, 0, 0.06);
+}
+
+.profile-compact-block-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
+  padding: 0 10px;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  background: transparent;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  color: #f87171;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+:root[data-theme="light"] .profile-compact-block-btn {
+  border-color: rgba(239, 68, 68, 0.35);
+  color: #dc2626;
+}
+
+.profile-compact-block-btn:hover:not(:disabled) {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.5);
+  color: #ef4444;
+}
+
+.profile-compact-block-btn.is-blocked {
+  border-color: rgba(99, 102, 241, 0.3);
+  color: #818cf8;
+}
+
+:root[data-theme="light"] .profile-compact-block-btn.is-blocked {
+  border-color: rgba(99, 102, 241, 0.4);
+  color: #4f46e5;
+}
+
+.profile-compact-block-btn.is-blocked:hover:not(:disabled) {
+  background: rgba(99, 102, 241, 0.12);
+  color: #6366f1;
+}
+
+.profile-compact-block-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 @keyframes modalFadeIn {

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { getLiveNews, FALLBACK_NEWS } from '../api/newsApi';
 import '../styles/liveScoresAndNews.css';
 
 // Initial realistic live football matches database
@@ -264,12 +265,21 @@ const INITIAL_NEWS = [
   },
 ];
 
+const NEWS_CATEGORIES = [
+  { id: 'all', label: 'All ⚡' },
+  { id: 'Spain', label: 'Spain 🇪🇸' },
+  { id: 'World', label: 'World 🌍' },
+  { id: 'Football', label: 'Football ⚽' },
+  { id: 'Tech', label: 'Tech 🚀' },
+];
+
 export default function LiveFootballAndNews() {
   const [activeTab, setActiveTab] = useState('football'); // 'football' | 'news' | 'trends'
   const [matches, setMatches] = useState(INITIAL_MATCHES);
-  const [newsList, setNewsList] = useState(INITIAL_NEWS);
+  const [newsList, setNewsList] = useState(FALLBACK_NEWS);
+  const [newsLoading, setNewsLoading] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState('all'); // 'all' | 'ucl' | 'epl' | 'laliga'
-  const [newsFilter, setNewsFilter] = useState('all'); // 'all' | 'World' | 'Football' | 'Tech & AI'
+  const [newsFilter, setNewsFilter] = useState('all'); // 'all' | 'Spain' | 'World' | 'Football' | 'Tech'
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('Just now');
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -297,12 +307,40 @@ export default function LiveFootballAndNews() {
     return () => clearInterval(interval);
   }, []);
 
-  const handleManualRefresh = () => {
+  // Fetch live breaking news whenever filter changes or tab is accessed
+  useEffect(() => {
+    let isMounted = true;
+    const fetchNews = async () => {
+      setNewsLoading(true);
+      try {
+        const data = await getLiveNews(newsFilter);
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setNewsList(data);
+        }
+      } catch (err) {
+        console.warn('Live news fetch failed:', err);
+      } finally {
+        if (isMounted) setNewsLoading(false);
+      }
+    };
+
+    fetchNews();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [newsFilter]);
+
+  const handleManualRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setIsRefreshing(false);
+    try {
+      sessionStorage.removeItem(`gio_news_cache_${newsFilter}`);
+      const data = await getLiveNews(newsFilter);
+      if (data && data.length > 0) {
+        setNewsList(data);
+      }
       setLastUpdated('Just now');
-      // Randomly simulate fresh live action on refresh
+      // Randomly simulate fresh live match ticker
       setMatches((prev) =>
         prev.map((m) => {
           if (m.isLive && m.minute) {
@@ -314,18 +352,17 @@ export default function LiveFootballAndNews() {
           return m;
         })
       );
-    }, 600);
+    } catch (err) {
+      console.warn('Refresh error:', err);
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const filteredMatches = matches.filter((m) => {
     if (leagueFilter === 'all') return true;
     if (leagueFilter === 'live') return m.isLive;
     return m.leagueCode === leagueFilter;
-  });
-
-  const filteredNews = newsList.filter((n) => {
-    if (newsFilter === 'all') return true;
-    return n.category === newsFilter;
   });
 
   const liveMatchesCount = matches.filter((m) => m.isLive).length;
@@ -491,54 +528,117 @@ export default function LiveFootballAndNews() {
       )}
 
       {/* =========================================================================
-          TAB 2: REAL-WORLD BREAKING NEWS
+          TAB 2: REAL-WORLD BREAKING NEWS (X-STYLE FEED)
           ========================================================================= */}
       {activeTab === 'news' && (
         <div className="news-feed-section">
           {/* News Category Filter Chips */}
           <div className="football-chips-row">
-            {['all', 'World', 'Football', 'Tech & AI', 'Global'].map((cat) => (
+            {NEWS_CATEGORIES.map((cat) => (
               <button
-                key={cat}
+                key={cat.id}
                 type="button"
-                className={`football-chip ${newsFilter === cat ? 'active' : ''}`}
-                onClick={() => setNewsFilter(cat)}
+                className={`football-chip ${newsFilter === cat.id ? 'active' : ''}`}
+                onClick={() => setNewsFilter(cat.id)}
               >
-                {cat === 'all' ? 'All Headlines' : cat}
+                {cat.label}
               </button>
             ))}
           </div>
 
-          {/* News Articles List */}
-          <div className="news-articles-list">
-            {filteredNews.map((article) => (
-              <div
-                key={article.id}
-                className="news-article-card"
-                onClick={() => setSelectedArticle(article)}
-                title="Click to read full story"
-              >
-                <div className="news-meta-row">
-                  <span className="news-source-tag">
-                    <span>{article.sourceLogo}</span>
-                    <span>{article.source}</span>
-                  </span>
-                  <span className="news-cat-pill">{article.categoryTag}</span>
-                  <span className="news-time-ago">{article.timeAgo}</span>
-                </div>
-
-                <h4 className="news-headline">{article.title}</h4>
-                <p className="news-summary">{article.summary}</p>
-
-                <div className="news-bottom-row">
-                  <span className="news-read-time">
-                    <i className="fa-regular fa-clock"></i> {article.readTime}
-                  </span>
-                  <span className="news-read-more">Read full story &rarr;</span>
-                </div>
-              </div>
-            ))}
+          {/* Live Status indicator */}
+          <div className="x-news-live-banner">
+            <span className="x-news-live-dot"></span>
+            <span>Live {newsFilter === 'Spain' ? 'Spain & European' : newsFilter === 'World' ? 'Global World' : 'Breaking'} Feed</span>
+            <span className="x-news-source-hint">• Tap card or link to read original</span>
           </div>
+
+          {/* News Articles List */}
+          {newsLoading ? (
+            <div className="news-loading-spinner">
+              <i className="fa-solid fa-circle-notch fa-spin"></i>
+              <span>Fetching live headlines...</span>
+            </div>
+          ) : (
+            <div className="x-news-feed-list">
+              {newsList.map((article) => (
+                <article
+                  key={article.id}
+                  className="x-post-card"
+                  onClick={() => setSelectedArticle(article)}
+                  title="Click to expand story preview"
+                >
+                  {/* Top row: Avatar + Outlet + Verified + Handle + Time */}
+                  <div className="x-post-header">
+                    <div className="x-post-avatar" title={article.source}>
+                      {article.sourceLogo || '📰'}
+                    </div>
+                    <div className="x-post-user-info">
+                      <span className="x-post-name">{article.source}</span>
+                      {article.verified && (
+                        <span className="x-post-verified" title="Verified News Outlet">
+                          <i className="fa-solid fa-circle-check"></i>
+                        </span>
+                      )}
+                      <span className="x-post-handle">{article.handle || '@news'}</span>
+                      <span className="x-post-dot">·</span>
+                      <span className="x-post-time">{article.timeAgo}</span>
+                    </div>
+                    <span className="x-post-cat-badge">{article.category}</span>
+                  </div>
+
+                  {/* X Post Content: Punchy Headline & Short Text */}
+                  <div className="x-post-content">
+                    <h4 className="x-post-headline">{article.title}</h4>
+                    {article.summary && (
+                      <p className="x-post-snippet">{article.summary}</p>
+                    )}
+                  </div>
+
+                  {/* Optional Media Thumbnail */}
+                  {article.imageUrl && (
+                    <div className="x-post-media-wrap">
+                      <img
+                        src={article.imageUrl}
+                        alt={article.title}
+                        className="x-post-media"
+                        loading="lazy"
+                        onError={(e) => {
+                          e.currentTarget.style.display = 'none';
+                        }}
+                      />
+                    </div>
+                  )}
+
+                  {/* X Post Action / Footer Row with Original Link */}
+                  <div className="x-post-footer">
+                    <div className="x-post-stats">
+                      <span className="x-stat-item" title="Engagement">
+                        <i className="fa-regular fa-heart"></i> {article.likes || 142}
+                      </span>
+                      <span className="x-stat-item" title="Reposts">
+                        <i className="fa-solid fa-repeat"></i> {article.reposts || 38}
+                      </span>
+                    </div>
+
+                    {article.url && (
+                      <a
+                        href={article.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="x-post-link-btn"
+                        title="Open original website article in new tab"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <span>Read on {article.source?.split(' ')[0] || 'Web'}</span>
+                        <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                      </a>
+                    )}
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -702,8 +802,9 @@ export default function LiveFootballAndNews() {
                 <span className="news-source-tag">
                   <span>{selectedArticle.sourceLogo}</span>
                   <strong>{selectedArticle.source}</strong>
+                  {selectedArticle.handle && <span style={{ opacity: 0.7, fontSize: '0.75rem' }}>{selectedArticle.handle}</span>}
                 </span>
-                <span className="news-cat-pill">{selectedArticle.categoryTag}</span>
+                <span className="news-cat-pill">{selectedArticle.category || selectedArticle.categoryTag}</span>
                 <span className="news-time-ago">{selectedArticle.timeAgo}</span>
               </div>
               <button
@@ -719,30 +820,53 @@ export default function LiveFootballAndNews() {
             <h3 className="news-modal-headline">{selectedArticle.title}</h3>
             <p className="news-modal-lead">{selectedArticle.summary}</p>
 
-            <div className="match-modal-section">
-              <span className="match-section-title">Key Takeaways & Details</span>
-              <div className="news-modal-points">
-                {selectedArticle.keyPoints.map((point, idx) => (
-                  <div key={idx} className="news-point-item">
-                    <i className="fa-solid fa-circle-check"></i>
-                    <span>{point}</span>
-                  </div>
-                ))}
+            {selectedArticle.imageUrl && (
+              <div style={{ borderRadius: '12px', overflow: 'hidden', maxHeight: '200px' }}>
+                <img
+                  src={selectedArticle.imageUrl}
+                  alt={selectedArticle.title}
+                  style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                />
               </div>
-            </div>
+            )}
+
+            {Array.isArray(selectedArticle.keyPoints) && selectedArticle.keyPoints.length > 0 && (
+              <div className="match-modal-section">
+                <span className="match-section-title">Key Takeaways & Details</span>
+                <div className="news-modal-points">
+                  {selectedArticle.keyPoints.map((point, idx) => (
+                    <div key={idx} className="news-point-item">
+                      <i className="fa-solid fa-circle-check"></i>
+                      <span>{point}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="news-modal-footer">
-              <span className="news-read-time">
-                <i className="fa-solid fa-newspaper"></i> Verified Journalism Feed
-              </span>
+              {selectedArticle.url ? (
+                <a
+                  href={selectedArticle.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="news-modal-open-link-btn"
+                >
+                  <i className="fa-solid fa-arrow-up-right-from-square"></i> Read Full Story on {selectedArticle.source}
+                </a>
+              ) : (
+                <span className="news-read-time">
+                  <i className="fa-solid fa-newspaper"></i> Verified Journalism Feed
+                </span>
+              )}
               <button
                 type="button"
                 className="news-share-btn"
                 onClick={() => {
                   if (navigator.share) {
-                    navigator.share({ title: selectedArticle.title, text: selectedArticle.summary }).catch(() => {});
+                    navigator.share({ title: selectedArticle.title, text: selectedArticle.summary, url: selectedArticle.url || '' }).catch(() => {});
                   } else {
-                    navigator.clipboard.writeText(`${selectedArticle.title}\n${selectedArticle.summary}`);
+                    navigator.clipboard.writeText(`${selectedArticle.title}\n${selectedArticle.summary}\n${selectedArticle.url || ''}`);
                     alert('Story copied to clipboard!');
                   }
                 }}

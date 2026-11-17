@@ -456,9 +456,31 @@ export default function HomeNewsFeed({ user }) {
                 )}
               </div>
 
-              {/* Interactive Footer: Like, Comment, Share */}
+              {/* Interactive Footer: X (Twitter) Standard Actions */}
               <footer className="post-card-footer">
-                {/* 1. Like Button */}
+                {/* 1. Reply / Comment Button */}
+                <button
+                  type="button"
+                  className={`post-action-btn comment-action ${isCommentsOpen ? 'active' : ''}`}
+                  onClick={() => handleToggleComments(article.id)}
+                  title="View & Add Comments"
+                >
+                  <i className="fa-regular fa-comment"></i>
+                  <span className="action-count">{articleComments.length}</span>
+                </button>
+
+                {/* 2. Repost / Share Button */}
+                <button
+                  type="button"
+                  className="post-action-btn share-action"
+                  onClick={() => handleShare(article)}
+                  title="Share this story"
+                >
+                  <i className="fa-solid fa-repeat"></i>
+                  <span className="action-count">{article.reposts || 38}</span>
+                </button>
+
+                {/* 3. Like Button */}
                 <button
                   type="button"
                   className={`post-action-btn like-action ${articleLikeInfo.liked ? 'liked' : ''}`}
@@ -471,28 +493,6 @@ export default function HomeNewsFeed({ user }) {
                   <span className="action-count">{articleLikeInfo.count}</span>
                 </button>
 
-                {/* 2. Comment Button */}
-                <button
-                  type="button"
-                  className={`post-action-btn comment-action ${isCommentsOpen ? 'active' : ''}`}
-                  onClick={() => handleToggleComments(article.id)}
-                  title="View & Add Comments"
-                >
-                  <i className="fa-regular fa-comment"></i>
-                  <span className="action-count">{articleComments.length}</span>
-                </button>
-
-                {/* 3. Share Button */}
-                <button
-                  type="button"
-                  className="post-action-btn share-action"
-                  onClick={() => handleShare(article)}
-                  title="Share this news"
-                >
-                  <i className="fa-solid fa-share-nodes"></i>
-                  <span>{copiedId === article.id ? 'Copied!' : 'Share'}</span>
-                </button>
-
                 {/* 4. Quick Modal Reader */}
                 <button
                   type="button"
@@ -500,8 +500,8 @@ export default function HomeNewsFeed({ user }) {
                   onClick={() => setSelectedArticle(article)}
                   title="Quick Reader Mode"
                 >
-                  <i className="fa-solid fa-book-open"></i>
-                  <span>Details</span>
+                  <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                  <span>Read</span>
                 </button>
               </footer>
 

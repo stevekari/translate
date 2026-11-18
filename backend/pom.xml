@@ -83,7 +83,7 @@
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
                 <configuration>
-                    <mainClass>com.stevechat.TransChatApplication</mainClass>
+                    <mainClass>com.stevechat.GioChatApplication</mainClass>
                 </configuration>
             </plugin>
         </plugins>

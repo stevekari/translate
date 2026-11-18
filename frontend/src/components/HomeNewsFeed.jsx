@@ -26,7 +26,7 @@ const GLOBAL_LANGUAGES = [
   { code: 'ak', name: 'Twi', flag: '🇬🇭' },
 ];
 
-export default function HomeNewsFeed({ user }) {
+export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   const { language: currentAppLang } = useLanguage();
   const defaultTarget = user?.preferredLanguage || currentAppLang || 'en';
 
@@ -263,7 +263,7 @@ export default function HomeNewsFeed({ user }) {
   const activeLangObj = GLOBAL_LANGUAGES.find((l) => l.code === targetLang) || GLOBAL_LANGUAGES[0];
 
   return (
-    <div className="home-news-feed-container">
+    <div className={`home-news-feed-container ${!hasCommunityPosts ? 'is-primary-feed' : ''}`}>
       {/* Section Header */}
       <div className="home-news-header-box">
         <div className="home-news-header-top-row">

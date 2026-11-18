@@ -134,16 +134,26 @@ iframe {
     .chat-header {
         padding: max(10px, env(safe-area-inset-top, 10px)) 10px 10px 10px;
         gap: 8px;
+        width: 100%;
+        box-sizing: border-box;
+        overflow: hidden;
+    }
+
+    .chat-header-desktop-tools {
+        display: none !important;
     }
 
     .chat-header-user {
         gap: 8px;
         min-width: 0;
-        flex: 1;
+        flex: 1 1 auto;
+        overflow: hidden;
     }
 
     .chat-header-details {
         min-width: 0;
+        flex: 1;
+        overflow: hidden;
     }
 
     .chat-header-name {

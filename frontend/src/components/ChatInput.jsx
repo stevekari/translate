@@ -761,15 +761,111 @@ export default function ChatInput({
             </button>
           </div>
         ) : (
-          /* 3. WHATSAPP STYLE CHAT INPUT BAR */
-          <div className="wa-input-row">
-            {/* Unified Input Pill Container */}
-            <div className="wa-input-pill">
-              {/* Emoji Trigger */}
+          /* 3. FACEBOOK MESSENGER STYLE CHAT INPUT BAR */
+          <div className="wa-input-row fb-messenger-input-row">
+            {/* Left Action 1: Plus (+) Menu for Attachments */}
+            <div className="attach-menu-wrapper fb-input-action-wrap" ref={attachMenuRef}>
+              <button
+                type="button"
+                className={`fb-input-action-btn fb-attach-btn ${showAttachMenu ? 'active' : ''}`}
+                onClick={() => setShowAttachMenu((prev) => !prev)}
+                title="More actions: photos, files, voice translate"
+                aria-label="More actions"
+                disabled={isBusy}
+              >
+                <i className={`fa-solid ${showAttachMenu ? 'fa-xmark' : 'fa-plus'}`}></i>
+              </button>
+
+              {showAttachMenu && (
+                <div className="attach-dropdown-menu fb-attach-menu">
+                  <button
+                    type="button"
+                    className="attach-menu-item"
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      setShowCameraModal(true);
+                    }}
+                  >
+                    <i className="fa-solid fa-video attach-icon-polo attach-icon-gio"></i>
+                    <span>Record Gio Video Note</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="attach-menu-item"
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      fileInputRef.current?.click();
+                    }}
+                  >
+                    <i className="fa-solid fa-image attach-icon-photo"></i>
+                    <span>Photo / Image</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="attach-menu-item"
+                    onClick={() => {
+                      setShowAttachMenu(false);
+                      docInputRef.current?.click();
+                    }}
+                  >
+                    <i className="fa-solid fa-file-lines attach-icon-doc"></i>
+                    <span>Document / PDF</span>
+                  </button>
+                  {onOpenVoiceTranslate && (
+                    <button
+                      type="button"
+                      className="attach-menu-item"
+                      onClick={() => {
+                        setShowAttachMenu(false);
+                        onOpenVoiceTranslate();
+                      }}
+                    >
+                      <i className="fa-solid fa-microphone-lines attach-icon-voice-trans"></i>
+                      <span>Live Voice Translate</span>
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Left Action 2: Quick Camera button (Messenger style) */}
+            <button
+              type="button"
+              className="fb-input-action-btn fb-camera-btn"
+              onClick={() => setShowCameraModal(true)}
+              title="Record Gio Video Note / Camera"
+              aria-label="Camera"
+              disabled={isBusy}
+            >
+              <i className="fa-solid fa-camera"></i>
+            </button>
+
+            {/* Center: Input Pill with Text + Emoji button on the right inside pill */}
+            <div className="wa-input-pill fb-messenger-pill">
+              <input
+                ref={inputRef}
+                type="text"
+                className="wa-input-field fb-messenger-field"
+                value={text}
+                placeholder={
+                  disabled
+                    ? (disabledPlaceholder || 'Chat is locked')
+                    : editingMessage
+                    ? 'Update message...'
+                    : (imageDraft || documentDraft)
+                    ? 'Add a caption...'
+                    : (t('typeMessage') || 'Aa')
+                }
+                onChange={handleTextChange}
+                onBlur={stopTypingNow}
+                disabled={isBusy}
+              />
+
+              {/* Emoji Trigger on the right inside pill */}
               <div className="emoji-picker-wrap">
                 <button
                   type="button"
-                  className="wa-pill-btn wa-emoji-btn"
+                  className="wa-pill-btn wa-emoji-btn fb-pill-emoji-btn"
                   onClick={() => setShowEmojiPicker((visible) => !visible)}
                   aria-label="Add emoji"
                   title="Add emoji"
@@ -793,106 +889,13 @@ export default function ChatInput({
                   </div>
                 )}
               </div>
-
-              {/* Main Text Input (Takes full remaining space, never overflows) */}
-              <input
-                ref={inputRef}
-                type="text"
-                className="wa-input-field"
-                value={text}
-                placeholder={
-                  disabled
-                    ? (disabledPlaceholder || 'Chat is locked')
-                    : editingMessage
-                    ? 'Update message...'
-                    : (imageDraft || documentDraft)
-                    ? 'Add a caption...'
-                    : t('typeMessage')
-                }
-
-                onChange={handleTextChange}
-                onBlur={stopTypingNow}
-                disabled={isBusy}
-              />
-
-              {/* Attachment Button (+) inside Pill */}
-              <div className="attach-menu-wrapper" ref={attachMenuRef}>
-                <button
-                  type="button"
-                  className="wa-pill-btn wa-attach-btn"
-                  onClick={() => setShowAttachMenu((prev) => !prev)}
-                  title="Attach photo or document"
-                  aria-label="Attach file"
-                  disabled={isBusy}
-                >
-                  <i className={`fa-solid ${showAttachMenu ? 'fa-xmark' : 'fa-paperclip'}`}></i>
-                </button>
-
-                {showAttachMenu && (
-                  <div className="attach-dropdown-menu">
-                    <button
-                      type="button"
-                      className="attach-menu-item"
-                      onClick={() => {
-                        setShowAttachMenu(false);
-                        setShowCameraModal(true);
-                      }}
-                    >
-                      <i className="fa-solid fa-video attach-icon-polo attach-icon-gio"></i>
-                      <span>Record Gio Video Note</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="attach-menu-item"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <i className="fa-solid fa-image attach-icon-photo"></i>
-                      <span>Photo / Image</span>
-                    </button>
-                    <button
-                      type="button"
-                      className="attach-menu-item"
-                      onClick={() => docInputRef.current?.click()}
-                    >
-                      <i className="fa-solid fa-file-lines attach-icon-doc"></i>
-                      <span>Document / PDF</span>
-                    </button>
-                  </div>
-                )}
-              </div>
-
-              {/* Camera / Video Note Button (Gio Video) */}
-              <button
-                type="button"
-                className="wa-pill-btn wa-camera-btn"
-                onClick={() => setShowCameraModal(true)}
-                title="Record Gio Video Note"
-                aria-label="Record Gio Video Note"
-                disabled={isBusy}
-              >
-                <i className="fa-solid fa-camera"></i>
-              </button>
-
-              {/* Live Voice Translate Trigger */}
-              {onOpenVoiceTranslate && (
-                <button
-                  type="button"
-                  className="wa-pill-btn wa-voice-trans-btn"
-                  onClick={onOpenVoiceTranslate}
-                  title="🎙️ Live Voice Translate - Speak & Understand"
-                  aria-label="Live Voice Translate"
-                  disabled={isBusy}
-                >
-                  <i className="fa-solid fa-microphone-lines"></i>
-                </button>
-              )}
             </div>
 
             {/* Right Action Circle Button: Send (if typing/draft/edit) OR Voice Mic (if empty) */}
             {Boolean(text.trim() || imageDraft || documentDraft || editingMessage) ? (
               <button
                 type="submit"
-                className={`wa-action-circle wa-send-btn ${isSendingAnim ? 'sending-active' : ''}`}
+                className={`wa-action-circle wa-send-btn fb-messenger-send ${isSendingAnim ? 'sending-active' : ''}`}
                 disabled={isBusy || (!text.trim() && !imageDraft && !documentDraft)}
                 aria-label="Send message"
               >
@@ -907,10 +910,10 @@ export default function ChatInput({
             ) : (
               <button
                 type="button"
-                className="wa-action-circle wa-voice-btn"
+                className="wa-action-circle wa-voice-btn fb-messenger-mic"
                 onClick={startRecording}
-                title={t('recordVoice')}
-                aria-label={t('recordVoice')}
+                title={t('recordVoice') || 'Record voice message'}
+                aria-label={t('recordVoice') || 'Record voice message'}
                 disabled={isBusy}
               >
                 <i className="fa-solid fa-microphone"></i>

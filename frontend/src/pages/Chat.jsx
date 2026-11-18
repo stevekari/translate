@@ -84,6 +84,7 @@ export default function Chat({ currentUserId, currentUser }) {
   const [showFamilyProfileModal, setShowFamilyProfileModal] = useState(false);
   const [fadingMode, setFadingMode] = useState(() => getFadingModeConfig().enabled);
   const [showVoiceTranslateModal, setShowVoiceTranslateModal] = useState(false);
+  const [showMessengerToolsModal, setShowMessengerToolsModal] = useState(false);
   const [familyProfile, setFamilyProfile] = useState(null);
   const [blockConfirmTarget, setBlockConfirmTarget] = useState(null);
 
@@ -832,70 +833,40 @@ export default function Chat({ currentUserId, currentUser }) {
                 </div>
               </div>
               <div className="chat-header-actions">
-                {isAccepted && (
-                  <div className="chat-header-lang-wrapper">
+                {/* Desktop Quick Tools: Language Pill & Immersion Mode */}
+                <div className="chat-header-desktop-tools">
+                  {isAccepted && (
+                    <div className="chat-header-lang-wrapper">
+                      <button
+                        type="button"
+                        className="chat-header-translate-pill"
+                        onClick={() => setShowChatLangModal(true)}
+                        title="Change translation target language"
+                      >
+                        <span className="lang-pill-icon">🌍</span>
+                        <span className="lang-pill-flag">{chatLangInfo.flag}</span>
+                        <span className="lang-pill-name">{chatLangInfo.name}</span>
+                        <i className="fa-solid fa-chevron-down lang-pill-arrow"></i>
+                      </button>
+                    </div>
+                  )}
+
+                  {isAccepted && (
                     <button
                       type="button"
-                      className="chat-header-translate-pill"
-                      onClick={() => setShowChatLangModal(true)}
-                      title="Change translation target language"
+                      className={`chat-call-btn ${fadingMode ? 'immersion-active' : ''}`}
+                      onClick={handleToggleFadingMode}
+                      title={fadingMode ? 'Fading Immersion Mode: ON (Click to toggle)' : 'Enable Fading Immersion Learning Mode'}
+                      aria-label="Fading immersion mode"
                     >
-                      <span className="lang-pill-icon">🌍</span>
-                      <span className="lang-pill-flag">{chatLangInfo.flag}</span>
-                      <span className="lang-pill-name">{chatLangInfo.name}</span>
-                      <i className="fa-solid fa-chevron-down lang-pill-arrow"></i>
+                      <i className="fa-solid fa-brain" />
                     </button>
-                  </div>
-                )}
+                  )}
+                  {isAccepted && <div className="chat-header-divider" />}
+                </div>
 
-                {isAccepted && <div className="chat-header-divider" />}
-
-                <div className="chat-header-call-group">
-                  {/* Fading Immersion Mode Toggle */}
-                  <button
-                    type="button"
-                    className={`chat-call-btn ${fadingMode ? 'immersion-active' : ''}`}
-                    onClick={handleToggleFadingMode}
-                    title={fadingMode ? 'Fading Immersion Mode: ON (Click to toggle)' : 'Enable Fading Immersion Learning Mode'}
-                    aria-label="Fading immersion mode"
-                  >
-                    <i className="fa-solid fa-brain" />
-                  </button>
-
-                  {/* Family & Cultural Dictionary */}
-                  <button
-                    type="button"
-                    className="chat-call-btn"
-                    onClick={() => setShowFamilyDictModal(true)}
-                    title="Family & Cultural Dictionary"
-                    aria-label="Family dictionary"
-                  >
-                    <i className="fa-solid fa-book-bookmark" />
-                  </button>
-
-                  {/* QR Room Code */}
-                  {/* 🎙️ Live Voice Translator Button */}
-                  <button
-                    type="button"
-                    className="chat-call-btn"
-                    onClick={() => setShowVoiceTranslateModal(true)}
-                    title="🎙️ Live Voice Translator - Speak & Understand Any Language"
-                    aria-label="Live Voice Translator"
-                  >
-                    <i className="fa-solid fa-microphone-lines" />
-                  </button>
-
-                  {/* QR Room */}
-                  <button
-                    type="button"
-                    className="chat-call-btn"
-                    onClick={() => setShowQRModal(true)}
-                    title="QR Conversation Room"
-                    aria-label="QR room"
-                  >
-                    <i className="fa-solid fa-qrcode" />
-                  </button>
-
+                {/* Primary Call & More Action Group: Clean, visible everywhere without overflowing */}
+                <div className="chat-header-call-group fb-header-call-group">
                   <button
                     type="button"
                     className="chat-call-btn voice-call-btn"
@@ -917,56 +888,17 @@ export default function Chat({ currentUserId, currentUser }) {
                   >
                     <i className="fa-solid fa-video"></i>
                   </button>
-                </div>
 
-                <div className="chat-header-divider" />
-
-                <div className="chat-header-actions-extra" style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                  {isFriendBlocked && (
-                    <span
-                      style={{
-                        background: 'rgba(239, 68, 68, 0.2)',
-                        color: '#f87171',
-                        border: '1px solid rgba(239, 68, 68, 0.35)',
-                        padding: '4px 8px',
-                        borderRadius: '6px',
-                        fontSize: '0.75rem',
-                        fontWeight: 600,
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <i className="fa-solid fa-ban"></i> Blocked
-                    </span>
-                  )}
-
+                  {/* Facebook Messenger More / Chat Details & Tools button */}
                   <button
                     type="button"
-                    className="chat-call-btn"
-                    style={{
-                      background: isFriendBlocked ? 'rgba(99, 102, 241, 0.2)' : 'rgba(239, 68, 68, 0.12)',
-                      color: isFriendBlocked ? '#818cf8' : '#ef4444',
-                      border: isFriendBlocked ? '1px solid rgba(99, 102, 241, 0.35)' : '1px solid rgba(239, 68, 68, 0.25)',
-                    }}
-                    onClick={() => handleToggleBlockFriend(friend)}
-                    title={isFriendBlocked ? `Unblock @${friend?.username || 'user'}` : `Block @${friend?.username || 'user'}`}
+                    className={`chat-call-btn fb-chat-more-btn ${showMessengerToolsModal ? 'active' : ''}`}
+                    onClick={() => setShowMessengerToolsModal(true)}
+                    title="Conversation details, translation & tools"
+                    aria-label="Conversation details and tools"
                   >
-                    <i className={`fa-solid ${isFriendBlocked ? 'fa-user-check' : 'fa-ban'}`}></i>
-                  </button>
-
-                  <button
-                    type="button"
-                    className="chat-call-btn"
-                    style={{
-                      background: 'rgba(239, 68, 68, 0.1)',
-                      color: '#f87171',
-                      border: '1px solid rgba(239, 68, 68, 0.2)',
-                    }}
-                    onClick={(e) => handleDeleteFriend(friend, e, conversationId)}
-                    title="Delete chat"
-                  >
-                    <i className="fa-solid fa-trash-can"></i>
+                    <i className="fa-solid fa-ellipsis-vertical"></i>
+                    {isFriendBlocked && <span className="fb-more-blocked-badge" />}
                   </button>
                 </div>
               </div>
@@ -1430,6 +1362,228 @@ export default function Chat({ currentUserId, currentUser }) {
               >
                 Block Account
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Facebook Messenger Style Chat Details & Tools Sheet */}
+      {showMessengerToolsModal && friend && (
+        <div className="unique-modal-backdrop fb-tools-backdrop" onClick={() => setShowMessengerToolsModal(false)}>
+          <div className="fb-messenger-tools-card" onClick={(e) => e.stopPropagation()}>
+            <div className="fb-tools-card-header">
+              <div className="fb-tools-user-summary">
+                <div
+                  className="fb-tools-avatar-wrap clickable"
+                  onClick={() => {
+                    setShowMessengerToolsModal(false);
+                    setSelectedProfileUser(friend);
+                  }}
+                  title="View full profile"
+                >
+                  <img
+                    src={resolveAvatarUrl(friend?.avatarUrl, friendDisplayName)}
+                    alt={friendDisplayName}
+                    onError={(e) => handleAvatarError(e, friendDisplayName)}
+                  />
+                  <span className={`online-dot ${friendStatusType}`} />
+                </div>
+                <div className="fb-tools-user-info">
+                  <h3>{friendDisplayName}</h3>
+                  <p className="fb-tools-status">
+                    {friend.username ? `@${friend.username}` : ''} • {friendStatusLabel}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="fb-tools-close-btn"
+                onClick={() => setShowMessengerToolsModal(false)}
+                aria-label="Close"
+              >
+                <i className="fa-solid fa-xmark"></i>
+              </button>
+            </div>
+
+            <div className="fb-tools-scroll-content">
+              {/* Language Selection Quick Banner */}
+              <div className="fb-tools-section">
+                <span className="fb-tools-section-title">Translation Target</span>
+                <button
+                  type="button"
+                  className="fb-tools-lang-btn"
+                  onClick={() => {
+                    setShowMessengerToolsModal(false);
+                    setShowChatLangModal(true);
+                  }}
+                >
+                  <div className="fb-tools-lang-info">
+                    <span className="fb-tools-lang-flag">{chatLangInfo.flag}</span>
+                    <div className="fb-tools-lang-text">
+                      <strong>{chatLangInfo.name}</strong>
+                      <span>Tap to change language</span>
+                    </div>
+                  </div>
+                  <i className="fa-solid fa-chevron-right"></i>
+                </button>
+              </div>
+
+              {/* Quick Tools Grid */}
+              <div className="fb-tools-section">
+                <span className="fb-tools-section-title">Chat & Learning Tools</span>
+                <div className="fb-tools-list">
+                  <button
+                    type="button"
+                    className="fb-tools-item"
+                    onClick={() => {
+                      setShowMessengerToolsModal(false);
+                      setShowVoiceTranslateModal(true);
+                    }}
+                  >
+                    <div className="fb-tools-item-icon voice-icon">
+                      <i className="fa-solid fa-microphone-lines"></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>Live Voice Translator</strong>
+                      <span>Speak and listen translated in real time</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right arrow"></i>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="fb-tools-item"
+                    onClick={() => {
+                      handleToggleFadingMode();
+                    }}
+                  >
+                    <div className={`fb-tools-item-icon brain-icon ${fadingMode ? 'active' : ''}`}>
+                      <i className="fa-solid fa-brain"></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>Fading Immersion Mode</strong>
+                      <span>Vocabulary immersion learning</span>
+                    </div>
+                    <span className={`fb-tools-toggle-badge ${fadingMode ? 'on' : 'off'}`}>
+                      {fadingMode ? 'ON' : 'OFF'}
+                    </span>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="fb-tools-item"
+                    onClick={() => {
+                      setShowMessengerToolsModal(false);
+                      setShowFamilyDictModal(true);
+                    }}
+                  >
+                    <div className="fb-tools-item-icon dict-icon">
+                      <i className="fa-solid fa-book-bookmark"></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>Cultural Dictionary</strong>
+                      <span>Slang, idioms & shared expressions</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right arrow"></i>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="fb-tools-item"
+                    onClick={() => {
+                      setShowMessengerToolsModal(false);
+                      setShowQRModal(true);
+                    }}
+                  >
+                    <div className="fb-tools-item-icon qr-icon">
+                      <i className="fa-solid fa-qrcode"></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>QR Conversation Room</strong>
+                      <span>Scan code to quickly join chat</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right arrow"></i>
+                  </button>
+
+                  {familyProfile && (
+                    <button
+                      type="button"
+                      className="fb-tools-item"
+                      onClick={() => {
+                        setShowMessengerToolsModal(false);
+                        setShowFamilyProfileModal(true);
+                      }}
+                    >
+                      <div className="fb-tools-item-icon family-icon">
+                        <i className={familyProfile.roleIcon || 'fa-solid fa-people-roof'} />
+                      </div>
+                      <div className="fb-tools-item-text">
+                        <strong>Family Role & Formality</strong>
+                        <span>{familyProfile.roleLabel} • {familyProfile.formalityTone || 'Standard'}</span>
+                      </div>
+                      <i className="fa-solid fa-chevron-right arrow"></i>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    className="fb-tools-item"
+                    onClick={() => {
+                      setShowMessengerToolsModal(false);
+                      setSelectedProfileUser(friend);
+                    }}
+                  >
+                    <div className="fb-tools-item-icon profile-icon">
+                      <i className="fa-solid fa-user"></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>View Full Profile</strong>
+                      <span>Bio, media & mutual friends</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right arrow"></i>
+                  </button>
+                </div>
+              </div>
+
+              {/* Privacy & Danger Zone */}
+              <div className="fb-tools-section fb-tools-danger-section">
+                <span className="fb-tools-section-title">Privacy & Conversation</span>
+                <div className="fb-tools-list">
+                  <button
+                    type="button"
+                    className="fb-tools-item danger"
+                    onClick={() => {
+                      setShowMessengerToolsModal(false);
+                      handleToggleBlockFriend(friend);
+                    }}
+                  >
+                    <div className="fb-tools-item-icon block-icon">
+                      <i className={`fa-solid ${isFriendBlocked ? 'fa-user-check' : 'fa-ban'}`}></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>{isFriendBlocked ? 'Unblock Friend' : 'Block User'}</strong>
+                      <span>{isFriendBlocked ? 'Allow calls and messages again' : 'Stop calls and messages from this user'}</span>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="fb-tools-item danger"
+                    onClick={(e) => {
+                      setShowMessengerToolsModal(false);
+                      handleDeleteFriend(friend, e, conversationId);
+                    }}
+                  >
+                    <div className="fb-tools-item-icon delete-icon">
+                      <i className="fa-solid fa-trash-can"></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>Delete Chat</strong>
+                      <span>Permanently remove chat messages</span>
+                    </div>
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -359,6 +359,9 @@ public class ChatWebSocketController {
 
     @MessageMapping("/presence.status")
     public void updatePresenceStatus(Map<String, Object> payload, Principal principal) {
+        if (principal == null || principal.getName() == null) {
+            return;
+        }
         Long senderId = resolveSenderId(principal.getName());
         String status = (String) payload.getOrDefault("status", "online");
         WebSocketEventListener.setUserCustomStatus(senderId, status);

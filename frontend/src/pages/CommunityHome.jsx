@@ -1102,12 +1102,6 @@ export default function CommunityHome({ user }) {
                 <i className="fa-solid fa-circle-notch fa-spin"></i>
                 <p>Loading global community posts...</p>
               </div>
-            ) : filteredPosts.length === 0 ? (
-              <div className="community-empty-state">
-                <div className="empty-icon">🌟</div>
-                <h3>No community posts in this feed yet</h3>
-                <p>Be the first to share a moment, or enjoy fresh Spain & World news below!</p>
-              </div>
             ) : (
               filteredPosts.map((post) => {
             const isMyPost = String(post.userId) === String(user?.userId || user?.id);
@@ -1497,8 +1491,8 @@ export default function CommunityHome({ user }) {
           })
         )}
 
-        {/* Live Spain & World Breaking News Feed directly under posts */}
-        <HomeNewsFeed user={user} />
+        {/* Live Spain & World Breaking News Feed directly under posts or filling the feed */}
+        <HomeNewsFeed user={user} hasCommunityPosts={filteredPosts.length > 0} />
       </>
     )}
   </section>

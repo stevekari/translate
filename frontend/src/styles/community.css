@@ -2681,6 +2681,10 @@
   margin-top: 1.2rem;
 }
 
+.home-news-feed-container.is-primary-feed {
+  margin-top: 0;
+}
+
 .home-news-header-box {
   background: var(--bg-card, #1e293b);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));

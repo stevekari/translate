@@ -1,6 +1,8 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 
+const BACKEND_TARGET = process.env.VITE_BACKEND_TARGET || "http://127.0.0.1:10000";
+
 export default defineConfig({
   define: {
     global: "globalThis",
@@ -17,44 +19,44 @@ export default defineConfig({
     },
     proxy: {
       "/auth": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/api": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/ws": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
         ws: true,
       },
       "/conversations": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/posts": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/messages": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/translate": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/users": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/media": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
       "/uploads": {
-        target: "http://localhost:10000",
+        target: BACKEND_TARGET,
         changeOrigin: true,
       },
     },

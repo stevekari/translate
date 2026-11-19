@@ -7,6 +7,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.stevechat.dto.AiAnswerResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.net.URI;
@@ -24,6 +25,15 @@ public class AiService {
     private final HttpClient httpClient;
     private final ObjectMapper objectMapper;
 
+    @Value("${cloudflare.account.id:}")
+    private String cfAccountId;
+
+    @Value("${cloudflare.api.token:}")
+    private String cfApiToken;
+
+    @Value("${cloudflare.ai.model:@cf/meta/llama-3.1-8b-instruct}")
+    private String cfAiModel;
+
     public AiService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
@@ -40,7 +50,19 @@ public class AiService {
         String trimmedQuestion = question.trim();
         String contextSnippet = (context != null && !context.isBlank()) ? context.trim() : null;
 
-        // 1. Check for Gemini API Key
+        // 1. Cloudflare Workers AI (Fast, global, multi-model)
+        if (cfAccountId != null && !cfAccountId.isBlank() && cfApiToken != null && !cfApiToken.isBlank()) {
+            try {
+                AiAnswerResponse resp = callCloudflare(cfAccountId, cfApiToken, cfAiModel, trimmedQuestion, contextSnippet, targetLang);
+                if (resp != null && resp.isSuccess() && resp.getAnswer() != null && !resp.getAnswer().isBlank()) {
+                    return resp;
+                }
+            } catch (Exception e) {
+                log.warn("Cloudflare Workers AI call failed, trying next provider: {}", e.getMessage());
+            }
+        }
+
+        // 2. Check for Gemini API Key
         String geminiApiKey = System.getenv("GEMINI_API_KEY");
         if (geminiApiKey == null || geminiApiKey.isBlank()) {
             geminiApiKey = System.getProperty("gemini.api.key");
@@ -87,6 +109,44 @@ public class AiService {
         // 4. Fallback to Built-in Contextual Smart Assistant
         String fallbackAnswer = generateBuiltInAnswer(trimmedQuestion, contextSnippet, targetLang);
         return new AiAnswerResponse(fallbackAnswer, "GioAI Built-in Assistant", true);
+    }
+
+    private AiAnswerResponse callCloudflare(String accountId, String apiToken, String model, String question, String context, String language) throws Exception {
+        String prompt = buildPrompt(question, context, language);
+        String modelToUse = (model != null && !model.isBlank()) ? model : "@cf/meta/llama-3.1-8b-instruct";
+        String url = "https://api.cloudflare.com/client/v4/accounts/" + accountId.trim() + "/ai/run/" + modelToUse.trim();
+
+        ObjectNode root = objectMapper.createObjectNode();
+        ArrayNode messages = root.putArray("messages");
+        messages.addObject()
+                .put("role", "system")
+                .put("content", "You are GioAI, an intelligent, polite, and helpful multilingual chat companion. Answer clearly in language: " + language + ".");
+        messages.addObject()
+                .put("role", "user")
+                .put("content", prompt);
+
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(url))
+                .timeout(Duration.ofSeconds(15))
+                .header("Content-Type", "application/json")
+                .header("Authorization", "Bearer " + apiToken.trim())
+                .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(root), StandardCharsets.UTF_8))
+                .build();
+
+        HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+        if (response.statusCode() == 200) {
+            JsonNode resNode = objectMapper.readTree(response.body());
+            JsonNode textNode = resNode.at("/result/response");
+            if (textNode.isMissingNode() || textNode.asText().isBlank()) {
+                textNode = resNode.at("/result/choices/0/message/content");
+            }
+            if (!textNode.isMissingNode() && !textNode.asText().isBlank()) {
+                return new AiAnswerResponse(textNode.asText().trim(), "Cloudflare AI", true);
+            }
+        } else {
+            log.warn("Cloudflare AI returned status {}: {}", response.statusCode(), response.body());
+        }
+        return null;
     }
 
     private AiAnswerResponse callGemini(String apiKey, String question, String context, String language) throws Exception {

@@ -10,7 +10,7 @@ export async function askAiQuestion(question, context = '', language = 'en') {
     };
   }
 
-  // 1. First Tier: Call Spring Boot Backend (/api/ai/ask)
+  // 1. Primary Tier: Call Spring Boot Backend (/api/ai/ask) which securely runs Cloudflare Workers AI server-side
   try {
     const res = await api.post('/api/ai/ask', {
       question: trimmed,
@@ -21,10 +21,10 @@ export async function askAiQuestion(question, context = '', language = 'en') {
       return res.data;
     }
   } catch (backendErr) {
-    console.warn('Backend /api/ai/ask call failed (server may need restart), falling back to direct AI:', backendErr?.message);
+    console.warn('Backend /api/ai/ask call failed, falling back to public AI:', backendErr?.message);
   }
 
-  // 2. Second Tier: Direct browser fetch to Cloud AI (Pollinations free OpenAI-compatible engine)
+  // 2. Second Tier: Direct browser fetch to Cloud AI (Pollinations free engine)
   try {
     const prompt = `You are GioAI, a friendly, concise, and helpful multicultural chat assistant. Respond warmly and clearly in language '${language || 'en'}'. ${context ? `Conversation context: "${context}". ` : ''}User Question: ${trimmed}`;
     

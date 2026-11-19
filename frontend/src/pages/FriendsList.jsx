@@ -102,7 +102,15 @@ export default function FriendsList() {
   useEffect(() => {
     getMyConversations()
      .then((items) => {
-       const filtered = Array.isArray(items) ? items.filter((c) => !isFriendDeleted(c.otherUser)) : [];
+       const filtered = Array.isArray(items)
+         ? items.filter((c) => {
+             if (!c?.otherUser || isFriendDeleted(c.otherUser)) return false;
+             const otherId = c.otherUser.id || c.otherUser.userId;
+             if (otherId && currentUserId && String(otherId) === String(currentUserId)) return false;
+             if (c.otherUser.username && user?.username && c.otherUser.username.trim().toLowerCase() === user.username.trim().toLowerCase()) return false;
+             return true;
+           })
+         : [];
        setConversations(filtered);
        dispatch(setConversationState(filtered));
      })
@@ -119,13 +127,19 @@ export default function FriendsList() {
 
   const sortedConversations = useMemo(() => {
     return [...conversations]
-      .filter((c) => !isFriendDeleted(c.otherUser))
+      .filter((c) => {
+        if (!c?.otherUser || isFriendDeleted(c.otherUser)) return false;
+        const otherId = c.otherUser.id || c.otherUser.userId;
+        if (otherId && currentUserId && String(otherId) === String(currentUserId)) return false;
+        if (c.otherUser.username && user?.username && c.otherUser.username.trim().toLowerCase() === user.username.trim().toLowerCase()) return false;
+        return true;
+      })
       .sort((a, b) => {
         const timeA = new Date(liveConversations[a.conversationId]?.lastMessageAt ?? a.lastMessageTime ?? a.createdAt ?? 0).getTime();
         const timeB = new Date(liveConversations[b.conversationId]?.lastMessageAt ?? b.lastMessageTime ?? b.createdAt ?? 0).getTime();
         return timeB - timeA;
       });
-  }, [conversations, liveConversations]);
+  }, [conversations, liveConversations, currentUserId, user?.username]);
 
   const trimmedSearch = search.trim();
 
@@ -143,7 +157,13 @@ export default function FriendsList() {
             if (presence && typeof presence === 'object') {
               dispatch(setUserStatuses(presence));
             }
-            setSearchResults(results);
+            const filtered = (results || []).filter((u) => {
+              const uId = u.id || u.userId;
+              if (uId && currentUserId && String(uId) === String(currentUserId)) return false;
+              if (u.username && user?.username && u.username.trim().toLowerCase() === user.username.trim().toLowerCase()) return false;
+              return true;
+            });
+            setSearchResults(filtered);
           }
         })
         .catch(() => {
@@ -158,7 +178,7 @@ export default function FriendsList() {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [trimmedSearch, dispatch]);
+  }, [trimmedSearch, dispatch, currentUserId, user?.username]);
 
   const incomingRequests = useMemo(() => {
     return sortedConversations.filter(

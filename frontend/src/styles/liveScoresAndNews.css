@@ -367,6 +367,20 @@
   color: #ef4444;
 }
 
+.news-country-pill {
+  font-size: 0.68rem;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: var(--surface-hi, rgba(255, 255, 255, 0.08));
+  color: var(--text-muted, #94a3b8);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.12));
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 2px;
+}
+
 .x-news-live-banner {
   display: flex;
   align-items: center;

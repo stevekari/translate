@@ -39,6 +39,26 @@ export default function CommunityHome({ user }) {
   const [translations, setTranslations] = useState({});
   const [translatingPostId, setTranslatingPostId] = useState(null);
 
+  const targetLangCode = user?.preferredLanguage || currentLang || 'en';
+  const targetLangName = useMemo(() => {
+    const map = {
+      en: 'English',
+      es: 'Spanish',
+      fr: 'French',
+      de: 'German',
+      pt: 'Portuguese',
+      nl: 'Dutch',
+      it: 'Italian',
+      tw: 'Twi',
+      ak: 'Twi',
+      ar: 'Arabic',
+      zh: 'Chinese',
+      ru: 'Russian',
+      ja: 'Japanese',
+    };
+    return map[targetLangCode.toLowerCase()] || targetLangCode.toUpperCase();
+  }, [targetLangCode]);
+
   // Active comments accordion: { [postId]: { open: boolean, loading: boolean, list: [] } }
   const [commentsState, setCommentsState] = useState({});
   const [commentInputs, setCommentInputs] = useState({});
@@ -76,69 +96,8 @@ export default function CommunityHome({ user }) {
     });
   };
 
-  // Right Sidebar: Sponsored AI Ads State
-  const [currentAdIndex, setCurrentAdIndex] = useState(0);
-  const [isAdPaused, setIsAdPaused] = useState(false);
-
-  const sponsoredAds = useMemo(() => [
-    {
-      id: 1,
-      tag: 'AI TRANSLATION • SPONSORED',
-      title: 'Neural Speech Translator 2.0',
-      desc: 'Dub and translate your voice notes & video walkie-talkies in 100+ languages in real time.',
-      cta: 'Try AI Translation',
-      icon: 'fa-solid fa-language',
-      gradient: 'linear-gradient(135deg, rgba(24, 119, 242, 0.22), rgba(13, 101, 217, 0.08))',
-      badgeColor: '#1877f2',
-      stars: '4.9 ★★★★★ (12.4k reviews)',
-      link: '/settings',
-    },
-    {
-      id: 2,
-      tag: 'PRODUCTIVITY • AI COPILOT',
-      title: 'Smart Chat Assistant & Summaries',
-      desc: 'Instant context summaries and auto-suggested smart replies for fast and effortless chats.',
-      cta: 'Explore Copilot',
-      icon: 'fa-solid fa-robot',
-      gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.22), rgba(109, 40, 217, 0.08))',
-      badgeColor: '#8b5cf6',
-      stars: '4.8 ★★★★★ (9.1k reviews)',
-      link: '/settings',
-    },
-    {
-      id: 3,
-      tag: 'STUDIO AUDIO • SPONSORED',
-      title: 'AI Acoustic Noise Shield',
-      desc: 'Studio-grade filtering removes 99% of background wind and traffic noise from all voice recordings.',
-      cta: 'Upgrade Audio',
-      icon: 'fa-solid fa-microphone-lines',
-      gradient: 'linear-gradient(135deg, rgba(16, 185, 129, 0.22), rgba(5, 150, 105, 0.08))',
-      badgeColor: '#10b981',
-      stars: '5.0 ★★★★★ (16.2k reviews)',
-      link: '/settings',
-    },
-    {
-      id: 4,
-      tag: 'GLOBAL FRIENDS • SPONSORED',
-      title: 'Meet Native Speakers Worldwide',
-      desc: 'Exchange language and culture directly with verified friends in over 120+ countries.',
-      cta: 'Find Friends',
-      icon: 'fa-solid fa-earth-americas',
-      gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.22), rgba(217, 119, 6, 0.08))',
-      badgeColor: '#f59e0b',
-      stars: '4.9 ★★★★★ (21k reviews)',
-      link: '/friends',
-    },
-  ], []);
-
-  // Auto-scroll ads every 4.5 seconds
-  useEffect(() => {
-    if (isAdPaused) return;
-    const interval = setInterval(() => {
-      setCurrentAdIndex((prev) => (prev + 1) % sponsoredAds.length);
-    }, 4500);
-    return () => clearInterval(interval);
-  }, [isAdPaused, sponsoredAds.length]);
+  // Right Sidebar: Spotlight & Trending State
+  // (Fake sponsored ads removed per user request)
 
   // Load Friends for Left Sidebar
   useEffect(() => {
@@ -152,7 +111,10 @@ export default function CommunityHome({ user }) {
         const seenUsernames = new Set();
         const currentId = user?.userId || user?.id;
         const currentUsername = (user?.username || '').trim().toLowerCase();
-        if (currentId) seenIds.add(currentId);
+        if (currentId) {
+          seenIds.add(currentId);
+          seenIds.add(String(currentId));
+        }
         if (currentUsername) seenUsernames.add(currentUsername);
 
         if (Array.isArray(convs) && convs.length > 0) {
@@ -161,9 +123,17 @@ export default function CommunityHome({ user }) {
             if (!u || !u.id || isFriendDeleted(u)) continue;
             // Only mutual friends with an ACCEPTED friendship
             if (c.status !== 'ACCEPTED') continue;
+            const uIdStr = String(u.id);
             const uLower = (u.username || '').trim().toLowerCase();
-            if (seenIds.has(u.id) || (uLower && seenUsernames.has(uLower))) continue;
+            if (
+              (currentId && (String(currentId) === uIdStr || currentId === u.id)) ||
+              (currentUsername && uLower === currentUsername) ||
+              seenIds.has(u.id) ||
+              seenIds.has(uIdStr) ||
+              (uLower && seenUsernames.has(uLower))
+            ) continue;
             seenIds.add(u.id);
+            seenIds.add(uIdStr);
             if (uLower) seenUsernames.add(uLower);
             list.push({
               id: u.id,
@@ -646,8 +616,6 @@ export default function CommunityHome({ user }) {
     }
     return posts;
   }, [posts, filter]);
-
-  const currentAd = sponsoredAds[currentAdIndex] || sponsoredAds[0];
 
   return (
     <div className="community-home-wrapper">
@@ -1228,7 +1196,7 @@ export default function CommunityHome({ user }) {
                       ) : (
                         <>
                           <i className="fa-solid fa-language"></i>
-                          <span>Translate Text</span>
+                          <span>Translate to {targetLangName}</span>
                         </>
                       )}
                     </button>
@@ -1511,89 +1479,10 @@ export default function CommunityHome({ user }) {
   </main>
 
       {/* =========================================================================
-          RIGHT SIDEBAR: Sponsored AI Ads, Scrolling & Trending
+          RIGHT SIDEBAR: AI Tech Spotlight, Trending & AI Assistant
           ========================================================================= */}
       <aside className="community-sidebar-right">
-        {/* Card 1: Interactive Sponsored AI Ads Carousel */}
-        <div
-          className="sidebar-card sponsored-card"
-          onMouseEnter={() => setIsAdPaused(true)}
-          onMouseLeave={() => setIsAdPaused(false)}
-        >
-          <div className="sponsored-header">
-            <span className="sponsored-label">
-              <i className="fa-solid fa-rectangle-ad sponsored-tag-icon"></i>
-              <span>Sponsored</span>
-            </span>
-            <div className="sponsored-actions">
-              <span className="sponsored-info-icon" title="Featured AI tools & sponsor suggestions">
-                <i className="fa-solid fa-circle-info"></i>
-              </span>
-            </div>
-          </div>
-
-          {/* Active Ad Showcase */}
-          <div className="ad-carousel-card" style={{ background: currentAd.gradient }}>
-            <div className="ad-top-row">
-              <span className="ad-badge" style={{ background: currentAd.badgeColor }}>
-                {currentAd.tag}
-              </span>
-              <div className="ad-icon-circle">
-                <i className={currentAd.icon}></i>
-              </div>
-            </div>
-
-            <h3 className="ad-title">{currentAd.title}</h3>
-            <p className="ad-desc">{currentAd.desc}</p>
-            <span className="ad-stars">{currentAd.stars}</span>
-
-            <div className="ad-cta-row">
-              <button
-                type="button"
-                className="ad-cta-btn"
-                onClick={currentAd.action}
-              >
-                <span>{currentAd.cta}</span>
-                <i className="fa-solid fa-arrow-up-right-from-square"></i>
-              </button>
-            </div>
-          </div>
-
-          {/* Carousel Pagination & Controls */}
-          <div className="ad-controls-row">
-            <button
-              type="button"
-              className="ad-nav-btn"
-              onClick={() => setCurrentAdIndex((prev) => (prev - 1 + sponsoredAds.length) % sponsoredAds.length)}
-              title="Previous Ad"
-            >
-              <i className="fa-solid fa-chevron-left"></i>
-            </button>
-
-            <div className="ad-dots-wrap">
-              {sponsoredAds.map((ad, idx) => (
-                <button
-                  key={ad.id}
-                  type="button"
-                  className={`ad-dot ${idx === currentAdIndex ? 'active' : ''}`}
-                  onClick={() => setCurrentAdIndex(idx)}
-                  title={ad.title}
-                />
-              ))}
-            </div>
-
-            <button
-              type="button"
-              className="ad-nav-btn"
-              onClick={() => setCurrentAdIndex((prev) => (prev + 1) % sponsoredAds.length)}
-              title="Next Ad"
-            >
-              <i className="fa-solid fa-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-
-        {/* Card 2: Scrolling AI Spotlight Ticker */}
+        {/* Card 1: Scrolling AI Spotlight Ticker */}
         <div className="sidebar-card ai-spotlight-card">
           <div className="spotlight-header">
             <span className="spotlight-title">

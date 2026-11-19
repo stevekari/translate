@@ -7,19 +7,20 @@
 import api from './axios.js';
 
 export const NEWS_COUNTRIES = [
-  { code: 'WORLD', name: 'Global', flag: '🌍' },
+  { code: 'ALL', name: 'All Countries (Mixed)', flag: '🌍' },
+  { code: 'GH', name: 'Ghana', flag: '🇬🇭' },
   { code: 'US', name: 'United States', flag: '🇺🇸' },
   { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
   { code: 'ES', name: 'Spain', flag: '🇪🇸' },
-  { code: 'GH', name: 'Ghana', flag: '🇬🇭' },
-  { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
   { code: 'FR', name: 'France', flag: '🇫🇷' },
   { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+  { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
   { code: 'IT', name: 'Italy', flag: '🇮🇹' },
   { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
   { code: 'NL', name: 'Netherlands', flag: '🇳🇱' },
   { code: 'MX', name: 'Mexico', flag: '🇲🇽' },
   { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+  { code: 'WORLD', name: 'World Affairs', flag: '🌐' },
 ];
 
 export const NEWS_CATEGORIES = [
@@ -31,71 +32,143 @@ export const NEWS_CATEGORIES = [
 
 const RSS2JSON_BASE = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
-// High-quality dynamic fallback articles
+// High-quality dynamic fallback articles mixing different countries
 export const FALLBACK_NEWS = [
   {
-    id: 'live-news-1',
-    source: 'Global Breaking Wire',
-    handle: '@globalwire',
-    sourceLogo: '🌍',
-    verified: true,
-    category: 'World',
-    title: 'Historic Multilateral Agreement Accelerates Renewable Power Grids Worldwide',
-    summary: 'International ministers and energy partners sign major climate infrastructure framework to connect continents.',
-    url: 'https://news.google.com',
-    timeAgo: 'Just now',
-    readTime: '2 min',
-    imageUrl: null,
-    likes: 840,
-    reposts: 215,
-  },
-  {
-    id: 'live-news-2',
+    id: 'live-news-es',
     source: 'El País',
     handle: '@elpais',
     sourceLogo: '🇪🇸',
     verified: true,
     category: 'Spain',
+    country: 'ES',
     title: 'España lidera la inversión europea en energías limpias y alta velocidad ferroviaria',
     summary: 'El país consolida su transformación energética y modernización digital con nuevos corredores sostenibles.',
     url: 'https://elpais.com',
-    timeAgo: '15m',
+    timeAgo: '5m',
     readTime: '3 min',
     imageUrl: null,
     likes: 620,
     reposts: 110,
   },
   {
-    id: 'live-news-3',
-    source: 'Sports World',
-    handle: '@sportsworld',
-    sourceLogo: '⚽',
-    verified: true,
-    category: 'Football',
-    title: 'Champions League Drama: Thrilling Quarter-Final Showdown Captivates Millions',
-    summary: 'Late drama and breathtaking goals set up an unforgettable European football tournament finale.',
-    url: 'https://www.marca.com',
-    timeAgo: '24m',
-    readTime: '2 min',
-    imageUrl: null,
-    likes: 1540,
-    reposts: 420,
-  },
-  {
-    id: 'live-news-4',
+    id: 'live-news-us',
     source: 'Reuters Tech',
     handle: '@reuterstech',
-    sourceLogo: '🚀',
+    sourceLogo: '🇺🇸',
     verified: true,
     category: 'Tech',
+    country: 'US',
     title: 'Breakthrough On-Device AI Models Deliver Real-Time Multilingual Speech Translation',
     summary: 'New low-latency neural architectures enable instant voice dubbing and communication across hundreds of native dialects.',
     url: 'https://www.reuters.com',
-    timeAgo: '42m',
+    timeAgo: '12m',
     readTime: '3 min',
     imageUrl: null,
     likes: 920,
     reposts: 280,
+  },
+  {
+    id: 'live-news-gh',
+    source: 'Joy Online',
+    handle: '@joyonline',
+    sourceLogo: '🇬🇭',
+    verified: true,
+    category: 'Ghana',
+    country: 'GH',
+    title: 'Ghana Technology and Startup Ecosystem Expands Inter-African Mobile Payment Channels',
+    summary: 'Strategic regional partnerships simplify financial inclusion and direct family remittances across borders.',
+    url: 'https://www.myjoyonline.com',
+    timeAgo: '15m',
+    readTime: '2 min',
+    imageUrl: null,
+    likes: 540,
+    reposts: 140,
+  },
+  {
+    id: 'live-news-gh-citi',
+    source: 'Citi Newsroom',
+    handle: '@citinewsroom',
+    sourceLogo: '🇬🇭',
+    verified: true,
+    category: 'Tech',
+    country: 'GH',
+    title: 'Bank of Ghana and FinTech Hubs Launch New High-Speed Digital Payment Infrastructure',
+    summary: 'New interoperable clearing systems enable instant settlement for local commerce, businesses, and pan-African transfers.',
+    url: 'https://citinewsroom.com',
+    timeAgo: '28m',
+    readTime: '3 min',
+    imageUrl: null,
+    likes: 420,
+    reposts: 95,
+  },
+  {
+    id: 'live-news-gh-sports',
+    source: 'Graphic Online',
+    handle: '@graphiconline',
+    sourceLogo: '🇬🇭',
+    verified: true,
+    category: 'Football',
+    country: 'GH',
+    title: 'Black Stars Announce High-Intensity Squad for Upcoming World Qualification Fixtures',
+    summary: 'Coach reveals vibrant blend of promising local league stars and top European talents ahead of international showdowns.',
+    url: 'https://www.graphic.com.gh',
+    timeAgo: '42m',
+    readTime: '2 min',
+    imageUrl: null,
+    likes: 710,
+    reposts: 180,
+  },
+  {
+    id: 'live-news-gb',
+    source: 'BBC News',
+    handle: '@bbcnews',
+    sourceLogo: '🇬🇧',
+    verified: true,
+    category: 'World',
+    country: 'GB',
+    title: 'Historic Multilateral Agreement Accelerates Renewable Power Grids Worldwide',
+    summary: 'International ministers and energy partners sign major climate infrastructure framework to connect continents.',
+    url: 'https://www.bbc.com/news',
+    timeAgo: '26m',
+    readTime: '2 min',
+    imageUrl: null,
+    likes: 840,
+    reposts: 215,
+  },
+  {
+    id: 'live-news-fr',
+    source: 'Le Monde',
+    handle: '@lemonde',
+    sourceLogo: '🇫🇷',
+    verified: true,
+    category: 'France',
+    country: 'FR',
+    title: 'La France accélère le déploiement de ses réseaux de transport décarbonés',
+    summary: 'Nouveaux corridors ferroviaires et investissements d\'infrastructure modernes annoncés pour 2026.',
+    url: 'https://www.lemonde.fr',
+    timeAgo: '35m',
+    readTime: '3 min',
+    imageUrl: null,
+    likes: 490,
+    reposts: 88,
+  },
+  {
+    id: 'live-news-ng',
+    source: 'Punch News',
+    handle: '@punchng',
+    sourceLogo: '🇳🇬',
+    verified: true,
+    category: 'Nigeria',
+    country: 'NG',
+    title: 'Continental Fintech Forum Showcases Cross-Border Real-Time Settlement Platforms',
+    summary: 'Fintech leaders discuss decentralized infrastructure connecting African commerce to European markets.',
+    url: 'https://punchng.com',
+    timeAgo: '44m',
+    readTime: '2 min',
+    imageUrl: null,
+    likes: 710,
+    reposts: 190,
   },
 ];
 
@@ -170,22 +243,19 @@ function getFlag(code) {
   return c ? c.flag : '🌍';
 }
 
-/**
- * Fetch from direct RSS proxy (client-side fallback if backend is restarting)
- */
-async function fetchClientRss(country, category) {
+async function fetchSingleRss(cCode, category) {
   try {
-    const feedUrl = getCountryGoogleFeedUrl(country, category);
+    const feedUrl = getCountryGoogleFeedUrl(cCode, category);
     const proxyUrl = `${RSS2JSON_BASE}${encodeURIComponent(feedUrl)}`;
     const res = await fetch(proxyUrl);
     if (!res.ok) return [];
     const data = await res.json();
     if (!Array.isArray(data.items) || data.items.length === 0) return [];
 
-    const flag = getFlag(country);
-    return data.items.slice(0, 16).map((item, idx) => {
+    const flag = getFlag(cCode);
+    return data.items.slice(0, 4).map((item, idx) => {
       let title = item.title?.replace(/&amp;/g, '&')?.replace(/&#39;/g, "'") || '';
-      let sourceName = item.author || (country + ' News');
+      let sourceName = item.author || (cCode + ' News');
       if (title.includes(' - ')) {
         const parts = title.split(' - ');
         sourceName = parts[parts.length - 1].trim();
@@ -193,13 +263,13 @@ async function fetchClientRss(country, category) {
       }
 
       return {
-        id: `client-news-${country}-${idx}-${Date.now()}`,
+        id: `client-news-${cCode}-${idx}-${Date.now()}`,
         source: sourceName,
         handle: `@${sourceName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
         sourceLogo: flag,
         verified: true,
-        category: category === 'all' ? (country === 'WORLD' ? 'World' : country) : category,
-        country,
+        category: category === 'all' ? (cCode === 'ALL' || cCode === 'WORLD' ? 'World' : cCode) : category,
+        country: cCode,
         title,
         summary: cleanText(item.description) || title,
         url: item.link || item.guid || 'https://news.google.com',
@@ -209,6 +279,31 @@ async function fetchClientRss(country, category) {
         reposts: Math.floor(Math.random() * 180) + 30,
       };
     });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Fetch from direct RSS proxy (client-side fallback if backend is restarting)
+ */
+async function fetchClientRss(country, category) {
+  try {
+    if (country === 'ALL' || country === 'MIXED') {
+      const countrySample = ['ES', 'US', 'GB', 'GH', 'FR', 'NG'];
+      const results = await Promise.all(countrySample.map((c) => fetchSingleRss(c, category)));
+      const interleaved = [];
+      for (let rank = 0; rank < 4; rank++) {
+        for (const list of results) {
+          if (rank < list.length) {
+            interleaved.push(list[rank]);
+          }
+        }
+      }
+      return interleaved.length > 0 ? interleaved : FALLBACK_NEWS;
+    }
+
+    return await fetchSingleRss(country, category);
   } catch (err) {
     console.warn('Client RSS fallback failed:', err);
     return [];
@@ -218,10 +313,10 @@ async function fetchClientRss(country, category) {
 /**
  * Main function: Get live, country-specific breaking news
  * @param {string} category e.g. 'all', 'Football', 'Tech', 'World'
- * @param {string} country e.g. 'ES', 'US', 'GB', 'GH', 'FR', 'WORLD'
+ * @param {string} country e.g. 'ALL', 'ES', 'US', 'GB', 'GH', 'FR'
  * @param {boolean} forceRefresh whether to bypass cache
  */
-export async function getLiveNews(category = 'all', country = 'WORLD', forceRefresh = false) {
+export async function getLiveNews(category = 'all', country = 'ALL', forceRefresh = false) {
   const cacheKey = `gio_news_${country}_${category}`;
 
   // 1. Check in-memory session cache (60 seconds)
@@ -263,6 +358,9 @@ export async function getLiveNews(category = 'all', country = 'WORLD', forceRefr
   }
 
   // 4. Third attempt: Dynamic fallback news with fresh timestamps
+  if (country === 'ALL' || country === 'MIXED') {
+    return FALLBACK_NEWS;
+  }
   const flag = getFlag(country);
   return FALLBACK_NEWS.map((art) => ({
     ...art,

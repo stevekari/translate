@@ -273,7 +273,9 @@ export default function LiveFootballAndNews() {
   const [leagueFilter, setLeagueFilter] = useState('all'); // 'all' | 'ucl' | 'epl' | 'laliga'
   const [newsFilter, setNewsFilter] = useState('all'); // 'all' | 'Football' | 'Tech' | 'World'
   const [newsCountry, setNewsCountry] = useState(() => {
-    return localStorage.getItem('gio_news_country') || 'WORLD';
+    const saved = localStorage.getItem('gio_news_country');
+    if (!saved || saved === 'WORLD') return 'ALL';
+    return saved;
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('Just now');
@@ -598,7 +600,7 @@ export default function LiveFootballAndNews() {
           {/* Live Status indicator */}
           <div className="x-news-live-banner">
             <span className="x-news-live-dot"></span>
-            <span>Live {activeCountryObj?.name || 'Global'} Feed</span>
+            <span>Live {activeCountryObj?.code === 'ALL' ? 'Mixed Countries' : (activeCountryObj?.name || 'Global')} Feed</span>
             <span className="x-news-source-hint">• Auto-updates</span>
           </div>
 
@@ -627,6 +629,11 @@ export default function LiveFootballAndNews() {
                       {article.verified && (
                         <span className="x-post-verified" title="Verified News Outlet">
                           <i className="fa-solid fa-circle-check"></i>
+                        </span>
+                      )}
+                      {article.country && article.country !== 'WORLD' && (
+                        <span className="news-country-pill" title={`From ${article.country}`}>
+                          {article.sourceLogo || '🌍'} {article.country}
                         </span>
                       )}
                       <span className="x-post-handle">{article.handle || '@news'}</span>

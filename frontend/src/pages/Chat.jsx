@@ -48,6 +48,15 @@ export default function Chat({ currentUserId, currentUser }) {
   const { t, language, setLanguage } = useLanguage();
   const dispatch = useDispatch();
 
+  const effectiveCurrentUserId = currentUserId || currentUser?.id || currentUser?.userId || (() => {
+    try {
+      const u = JSON.parse(localStorage.getItem('user'));
+      return u?.userId || u?.id;
+    } catch {
+      return null;
+    }
+  })();
+
   useEffect(() => {
     dispatch(setActiveConversation(conversationId));
     return () => dispatch(setActiveConversation(null));
@@ -296,7 +305,13 @@ export default function Chat({ currentUserId, currentUser }) {
 
   const safeMessages = Array.isArray(messages) ? messages : [];
   const safeConversations = (Array.isArray(conversations) ? conversations : []).filter(
-    (c) => !isFriendDeleted(c?.otherUser) && (c.status === 'ACCEPTED' || String(c.conversationId) === String(conversationId))
+    (c) => {
+      if (!c?.otherUser || isFriendDeleted(c?.otherUser)) return false;
+      const otherId = c.otherUser.id || c.otherUser.userId;
+      if (otherId && effectiveCurrentUserId && String(otherId) === String(effectiveCurrentUserId)) return false;
+      if (c.otherUser.username && currentUser?.username && c.otherUser.username.trim().toLowerCase() === currentUser.username.trim().toLowerCase()) return false;
+      return (c.status === 'ACCEPTED' || String(c.conversationId) === String(conversationId));
+    }
   );
 
   useEffect(() => {
@@ -527,15 +542,6 @@ export default function Chat({ currentUserId, currentUser }) {
   const friendCustomStatus = friendPresence?.status || (isFriendOnline ? 'online' : 'offline');
   const isFriendBusy = friendCustomStatus === 'busy';
 
-  const effectiveCurrentUserId = currentUserId || (() => {
-    try {
-      const u = JSON.parse(localStorage.getItem('user'));
-      return u?.userId || u?.id;
-    } catch {
-      return null;
-    }
-  })();
-
   const friendStatusType = isFriendBusy ? 'busy' : isFriendOnline ? 'online' : 'offline';
   const friendLastSeenTime = friendPresence?.lastSeen || friend?.lastSeen;
   const friendLastSeenText = !isFriendOnline && friendLastSeenTime ? `Last seen ${formatTimeAgo(friendLastSeenTime)}` : null;
@@ -705,7 +711,13 @@ export default function Chat({ currentUserId, currentUser }) {
             if (presence && typeof presence === 'object') {
               dispatch(setUserStatuses(presence));
             }
-            setSearchResults(results);
+            const filtered = (results || []).filter((u) => {
+              const uId = u.id || u.userId;
+              if (uId && effectiveCurrentUserId && String(uId) === String(effectiveCurrentUserId)) return false;
+              if (u.username && currentUser?.username && u.username.trim().toLowerCase() === currentUser.username.trim().toLowerCase()) return false;
+              return true;
+            });
+            setSearchResults(filtered);
           }
         })
         .catch(() => {
@@ -1364,7 +1376,7 @@ export default function Chat({ currentUserId, currentUser }) {
           isOpen={showVoiceTranslateModal}
           onClose={() => setShowVoiceTranslateModal(false)}
           initialSourceLang={currentUser?.preferredLanguage || language || 'en'}
-          initialTargetLang={chatLanguage || friend?.preferredLanguage || 'es'}
+          initialTargetLang={chatLanguage || friend?.preferredLanguage || currentUser?.preferredLanguage || 'en'}
           friendName={friendDisplayName}
           onSendToChat={(translatedText, originalSpokenText) => {
             const payload = {

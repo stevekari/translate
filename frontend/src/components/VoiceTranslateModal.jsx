@@ -13,13 +13,13 @@ import '../styles/voiceTranslate.css';
 export default function VoiceTranslateModal({
   isOpen = true,
   onClose,
-  initialSourceLang = 'en',
-  initialTargetLang = 'es',
+  initialSourceLang = 'auto',
+  initialTargetLang = 'en',
   onSendToChat,
   friendName,
 }) {
-  const [sourceLang, setSourceLang] = useState(initialSourceLang || 'en');
-  const [targetLang, setTargetLang] = useState(initialTargetLang || 'es');
+  const [sourceLang, setSourceLang] = useState(initialSourceLang || 'auto');
+  const [targetLang, setTargetLang] = useState(initialTargetLang || 'en');
   const [isListening, setIsListening] = useState(false);
   const [spokenText, setSpokenText] = useState('');
   const [interimText, setInterimText] = useState('');

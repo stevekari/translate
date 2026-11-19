@@ -216,7 +216,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           isOpen={showVoiceTranslateModal}
           onClose={() => setShowVoiceTranslateModal(false)}
           initialSourceLang={user?.preferredLanguage || language || 'en'}
-          initialTargetLang={language === 'en' ? 'es' : 'en'}
+          initialTargetLang={user?.preferredLanguage || language || 'en'}
         />
       )}
     </nav>

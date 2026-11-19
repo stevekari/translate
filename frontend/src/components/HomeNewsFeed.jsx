@@ -1,11 +1,15 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getLiveNews, FALLBACK_NEWS, NEWS_COUNTRIES, NEWS_CATEGORIES } from '../api/newsApi';
-import { quickTranslate } from '../api/conversationApi';
+import { quickTranslate, sendMessageRest, getMyConversations, startConversation } from '../api/conversationApi';
+import { isFriendDeleted } from '../utils/deletedFriends';
 import { useLanguage } from '../contexts/LanguageContext';
 import { resolveBackendUrl } from '../utils/apiBaseUrl';
 
 const GLOBAL_LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
+  { code: 'tw', name: 'Twi', flag: '🇬🇭' },
+  { code: 'ak', name: 'Twi', flag: '🇬🇭' },
   { code: 'es', name: 'Español', flag: '🇪🇸' },
   { code: 'fr', name: 'Français', flag: '🇫🇷' },
   { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
@@ -16,21 +20,38 @@ const GLOBAL_LANGUAGES = [
   { code: 'zh', name: '中文', flag: '🇨🇳' },
   { code: 'ru', name: 'Русский', flag: '🇷🇺' },
   { code: 'ja', name: '日本語', flag: '🇯🇵' },
-  { code: 'ak', name: 'Twi', flag: '🇬🇭' },
 ];
 
 export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
+  const navigate = useNavigate();
   const { language: currentAppLang } = useLanguage();
   const defaultTarget = user?.preferredLanguage || currentAppLang || 'en';
 
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeCountry, setActiveCountry] = useState(() => {
-    return localStorage.getItem('gio_news_country') || 'WORLD';
+    const saved = localStorage.getItem('gio_news_country');
+    if (!saved || saved === 'WORLD') return 'ALL';
+    return saved;
   });
-  const [targetLang, setTargetLang] = useState(defaultTarget);
+  const [targetLang, setTargetLang] = useState(() => {
+    const saved = localStorage.getItem('gio_news_target_lang');
+    if (saved && GLOBAL_LANGUAGES.some((l) => l.code === saved)) {
+      return saved;
+    }
+    return defaultTarget;
+  });
   const [autoTranslate, setAutoTranslate] = useState(() => {
     return localStorage.getItem('gio_news_auto_translate') === 'true';
   });
+
+  // Sync target language whenever user profile or app language loads
+  useEffect(() => {
+    const saved = localStorage.getItem('gio_news_target_lang');
+    if (!saved) {
+      const preferred = user?.preferredLanguage || currentAppLang || 'en';
+      setTargetLang(preferred);
+    }
+  }, [user?.preferredLanguage, currentAppLang]);
 
   const [newsList, setNewsList] = useState(FALLBACK_NEWS);
   const [loading, setLoading] = useState(false);
@@ -64,6 +85,14 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   const [openComments, setOpenComments] = useState({});
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+
+  // Send to Chat modal state
+  const [sendToChatArticle, setSendToChatArticle] = useState(null);
+  const [friendsForShare, setFriendsForShare] = useState([]);
+  const [loadingFriendsForShare, setLoadingFriendsForShare] = useState(false);
+  const [shareFriendSearch, setShareFriendSearch] = useState('');
+  const [sendingChatId, setSendingChatId] = useState(null);
+  const [sentSuccessId, setSentSuccessId] = useState(null);
 
   // Reusable news fetcher
   const fetchArticles = useCallback(async (cat = activeCategory, country = activeCountry, force = false) => {
@@ -195,11 +224,91 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   // Handle Target Language Change
   const handleChangeTargetLang = (newLang) => {
     setTargetLang(newLang);
+    localStorage.setItem('gio_news_target_lang', newLang);
     // If autoTranslate is on, reset existing translations to re-translate to new language
     if (autoTranslate) {
       setTranslations({});
     }
   };
+
+  // Open Send to Chat Friend Selector Modal
+  const handleOpenSendToChat = async (article) => {
+    setSendToChatArticle(article);
+    setShareFriendSearch('');
+    setSentSuccessId(null);
+    setSendingChatId(null);
+    setLoadingFriendsForShare(true);
+    try {
+      const convs = await getMyConversations().catch(() => []);
+      const currentId = user?.userId || user?.id;
+      const currentUsername = (user?.username || '').trim().toLowerCase();
+      const list = [];
+      const seen = new Set();
+      if (Array.isArray(convs)) {
+        for (const c of convs) {
+          const u = c.otherUser;
+          if (!u || !u.id || isFriendDeleted(u)) continue;
+          if (c.status !== 'ACCEPTED') continue;
+          const uIdStr = String(u.id);
+          const uLower = (u.username || '').trim().toLowerCase();
+          if (
+            (currentId && (String(currentId) === uIdStr || currentId === u.id)) ||
+            (currentUsername && uLower === currentUsername) ||
+            seen.has(uIdStr)
+          ) continue;
+          seen.add(uIdStr);
+          list.push({
+            id: u.id,
+            username: u.username,
+            displayName: u.displayName || u.username,
+            avatarUrl: u.avatarUrl,
+            conversationId: c.conversationId,
+          });
+        }
+      }
+      setFriendsForShare(list);
+    } catch (err) {
+      console.error('Failed to load friends for send to chat:', err);
+    } finally {
+      setLoadingFriendsForShare(false);
+    }
+  };
+
+  // Send Article Directly to Selected Friend via Chat REST API
+  const handleSendArticleToFriend = async (friend) => {
+    if (!sendToChatArticle || sendingChatId) return;
+    setSendingChatId(friend.id);
+    try {
+      let convId = friend.conversationId;
+      if (!convId) {
+        const conv = await startConversation(friend.id);
+        convId = conv?.conversationId || conv?.id;
+      }
+      if (!convId) throw new Error('Could not resolve conversation ID');
+
+      const articleTrans = translations[sendToChatArticle.id];
+      const title = (articleTrans?.isShowing && articleTrans.title) ? articleTrans.title : sendToChatArticle.title;
+      const summary = (articleTrans?.isShowing && articleTrans.summary) ? articleTrans.summary : sendToChatArticle.summary;
+
+      const messageContent = `📰 *${sendToChatArticle.source || 'News'}*: ${title}\n\n${summary || ''}\n\n🔗 ${sendToChatArticle.url || ''}`.trim();
+
+      await sendMessageRest(convId, messageContent);
+      setSentSuccessId(friend.id);
+    } catch (err) {
+      console.error('Failed to send article to chat:', err);
+      alert('Could not send article to chat. Please try again.');
+    } finally {
+      setSendingChatId(null);
+    }
+  };
+
+  const filteredShareFriends = useMemo(() => {
+    if (!shareFriendSearch.trim()) return friendsForShare;
+    const q = shareFriendSearch.toLowerCase();
+    return friendsForShare.filter(
+      (f) => f.displayName?.toLowerCase().includes(q) || f.username?.toLowerCase().includes(q)
+    );
+  }, [friendsForShare, shareFriendSearch]);
 
   // Toggle Auto-Translate Switch
   const handleToggleAutoTranslate = () => {
@@ -313,7 +422,11 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
             <span className="live-sparkle-pill">
               <span className="live-dot-green"></span> LIVE
             </span>
-            <h3>{activeCountryObj.flag} {activeCountryObj.name} Breaking News</h3>
+            <h3>
+              {activeCountryObj.code === 'ALL'
+                ? '🌍 Global Breaking News (Multi-Country Mix)'
+                : `${activeCountryObj.flag} ${activeCountryObj.name} Breaking News`}
+            </h3>
           </div>
 
           {/* Country + AI Translation + Live Refresh Toolbar */}
@@ -382,7 +495,9 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
             <span className="live-dot-green"></span> Live Stream
           </span>
           <span className="news-status-item news-status-country">
-            {activeCountryObj.flag} {activeCountryObj.name}
+            {activeCountryObj.code === 'ALL'
+              ? '🌍 Mixed Countries Feed'
+              : `${activeCountryObj.flag} ${activeCountryObj.name}`}
           </span>
           <span className="news-status-item news-status-updated">
             <i className="fa-regular fa-clock"></i> Updated {lastUpdatedText}
@@ -392,8 +507,63 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
           </span>
         </div>
 
+        {/* Quick Country Pills Row featuring Ghana 🇬🇭 prominently */}
+        <div className="news-quick-country-row">
+          <button
+            type="button"
+            className={`news-quick-pill ${activeCountry === 'ALL' ? 'active' : ''}`}
+            onClick={() => handleCountryChange('ALL')}
+          >
+            🌍 All (Mixed)
+          </button>
+          <button
+            type="button"
+            className={`news-quick-pill ghana-pill ${activeCountry === 'GH' ? 'active' : ''}`}
+            onClick={() => handleCountryChange('GH')}
+          >
+            🇬🇭 Ghana News
+          </button>
+          <button
+            type="button"
+            className={`news-quick-pill ${activeCountry === 'US' ? 'active' : ''}`}
+            onClick={() => handleCountryChange('US')}
+          >
+            🇺🇸 USA
+          </button>
+          <button
+            type="button"
+            className={`news-quick-pill ${activeCountry === 'GB' ? 'active' : ''}`}
+            onClick={() => handleCountryChange('GB')}
+          >
+            🇬🇧 UK
+          </button>
+          <button
+            type="button"
+            className={`news-quick-pill ${activeCountry === 'ES' ? 'active' : ''}`}
+            onClick={() => handleCountryChange('ES')}
+          >
+            🇪🇸 Spain
+          </button>
+          <button
+            type="button"
+            className={`news-quick-pill ${activeCountry === 'NG' ? 'active' : ''}`}
+            onClick={() => handleCountryChange('NG')}
+          >
+            🇳🇬 Nigeria
+          </button>
+          <button
+            type="button"
+            className={`news-quick-pill ${activeCountry === 'FR' ? 'active' : ''}`}
+            onClick={() => handleCountryChange('FR')}
+          >
+            🇫🇷 France
+          </button>
+        </div>
+
         <p className="home-news-subtitle">
-          Real-time stories from {activeCountryObj.flag} {activeCountryObj.name} and global wire services, auto-translated to {activeLangObj.flag} {activeLangObj.name} with original source links.
+          {activeCountryObj.code === 'ALL'
+            ? `Breaking news blended across Spain 🇪🇸, US 🇺🇸, UK 🇬🇧, Ghana 🇬🇭, France 🇫🇷, Nigeria 🇳🇬, Germany 🇩🇪, and global wire services — auto-translated to ${activeLangObj.flag} ${activeLangObj.name}.`
+            : `Real-time stories from ${activeCountryObj.flag} ${activeCountryObj.name} and top breaking channels, auto-translated to ${activeLangObj.flag} ${activeLangObj.name} with original source links.`}
         </p>
 
         {/* Category Filter Chips */}
@@ -448,6 +618,11 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
                       <span className="x-post-verified" title="Verified News Outlet">
                         <i className="fa-solid fa-circle-check"></i>
                       </span>
+                      {article.country && article.country !== 'WORLD' && (
+                        <span className="news-country-pill" title={`From ${article.country}`}>
+                          {article.sourceLogo || '🌍'} {article.country}
+                        </span>
+                      )}
                       <span className="author-handle">{article.handle || '@news'}</span>
                       <span className="post-lang-badge">{article.category}</span>
                     </div>
@@ -568,7 +743,18 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
                   <span className="action-count">{article.reposts || 38}</span>
                 </button>
 
-                {/* 3. Like Button */}
+                {/* 3. Send to Chat Button */}
+                <button
+                  type="button"
+                  className="post-action-btn send-to-chat-action"
+                  onClick={() => handleOpenSendToChat(article)}
+                  title="Send story to a friend in chat"
+                >
+                  <i className="fa-regular fa-paper-plane"></i>
+                  <span>Send</span>
+                </button>
+
+                {/* 4. Like Button */}
                 <button
                   type="button"
                   className={`post-action-btn like-action ${articleLikeInfo.liked ? 'liked' : ''}`}
@@ -754,6 +940,144 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
               >
                 <i className="fa-solid fa-share-nodes"></i> Share Story
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Send to Chat Modal */}
+      {sendToChatArticle && (
+        <div className="news-modal-backdrop" onClick={() => setSendToChatArticle(null)}>
+          <div
+            className="news-modal-card send-to-chat-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="news-modal-close-btn"
+              onClick={() => setSendToChatArticle(null)}
+              title="Close"
+            >
+              <i className="fa-solid fa-xmark"></i>
+            </button>
+
+            <div className="send-to-chat-header">
+              <div className="send-to-chat-icon-badge">
+                <i className="fa-regular fa-paper-plane"></i>
+              </div>
+              <div>
+                <h3>Send News Story to Chat</h3>
+                <p className="send-to-chat-sub">Share this article directly with a friend in your conversations</p>
+              </div>
+            </div>
+
+            {/* Article Mini Preview */}
+            <div className="send-to-chat-preview-box">
+              <span className="send-to-chat-source-tag">
+                {sendToChatArticle.sourceLogo} {sendToChatArticle.source}
+              </span>
+              <p className="send-to-chat-article-title">
+                {translations[sendToChatArticle.id]?.isShowing
+                  ? translations[sendToChatArticle.id].title
+                  : sendToChatArticle.title}
+              </p>
+            </div>
+
+            {/* Friends Search */}
+            <div className="send-to-chat-search-wrap">
+              <i className="fa-solid fa-magnifying-glass search-icon"></i>
+              <input
+                type="text"
+                placeholder="Search friends to send to..."
+                value={shareFriendSearch}
+                onChange={(e) => setShareFriendSearch(e.target.value)}
+                className="send-to-chat-search-input"
+              />
+              {shareFriendSearch && (
+                <button
+                  type="button"
+                  className="search-clear-mini"
+                  onClick={() => setShareFriendSearch('')}
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            {/* Friends List */}
+            <div className="send-to-chat-friends-list">
+              {loadingFriendsForShare ? (
+                <div className="send-to-chat-empty">
+                  <i className="fa-solid fa-spinner fa-spin"></i> Loading friends...
+                </div>
+              ) : filteredShareFriends.length === 0 ? (
+                <div className="send-to-chat-empty">
+                  <i className="fa-solid fa-user-group"></i> No friends found
+                </div>
+              ) : (
+                filteredShareFriends.map((f) => {
+                  const isSent = sentSuccessId === f.id;
+                  const isSending = sendingChatId === f.id;
+                  return (
+                    <div key={f.id} className="send-to-chat-friend-row">
+                      <div className="send-to-chat-friend-info">
+                        <div className="friend-avatar-wrap">
+                          {f.avatarUrl ? (
+                            <img src={resolveBackendUrl(f.avatarUrl)} alt={f.username} className="friend-avatar-img" />
+                          ) : (
+                            <div className="friend-avatar-fallback">
+                              {(f.displayName || f.username || 'F')[0].toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div className="friend-name-col">
+                          <span className="friend-name-text">{f.displayName || f.username}</span>
+                          <span className="friend-user-handle">@{f.username}</span>
+                        </div>
+                      </div>
+
+                      <div className="send-to-chat-friend-actions">
+                        {isSent ? (
+                          <>
+                            <span className="sent-badge">
+                              <i className="fa-solid fa-check"></i> Sent
+                            </span>
+                            {f.conversationId && (
+                              <button
+                                type="button"
+                                className="open-chat-link-btn"
+                                onClick={() => {
+                                  setSendToChatArticle(null);
+                                  navigate(`/chat/${f.conversationId}`);
+                                }}
+                              >
+                                View Chat ➔
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <button
+                            type="button"
+                            className="send-btn"
+                            disabled={isSending}
+                            onClick={() => handleSendArticleToFriend(f)}
+                          >
+                            {isSending ? (
+                              <>
+                                <i className="fa-solid fa-spinner fa-spin"></i> Sending...
+                              </>
+                            ) : (
+                              <>
+                                <i className="fa-regular fa-paper-plane"></i> Send
+                              </>
+                            )}
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })
+              )}
             </div>
           </div>
         </div>

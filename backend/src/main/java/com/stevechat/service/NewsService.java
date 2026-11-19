@@ -21,7 +21,9 @@ import java.time.Instant;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,7 +55,7 @@ public class NewsService {
     }
 
     public List<NewsArticleDto> getLiveNews(String country, String category) {
-        String cCode = (country == null || country.isBlank()) ? "WORLD" : country.trim().toUpperCase(Locale.ROOT);
+        String cCode = (country == null || country.isBlank()) ? "ALL" : country.trim().toUpperCase(Locale.ROOT);
         String cat = (category == null || category.isBlank()) ? "all" : category.trim();
 
         String cacheKey = cCode + "_" + cat.toLowerCase(Locale.ROOT);
@@ -62,7 +64,13 @@ public class NewsService {
             return cached.articles;
         }
 
-        List<NewsArticleDto> articles = fetchFromGoogleNews(cCode, cat);
+        List<NewsArticleDto> articles;
+        if ("ALL".equals(cCode) || "MIXED".equals(cCode) || "WORLD".equals(cCode)) {
+            articles = fetchMixedMultiCountryNews(cat);
+        } else {
+            articles = fetchFromGoogleNews(cCode, cat);
+        }
+
         if (articles != null && !articles.isEmpty()) {
             cache.put(cacheKey, new CachedResult(articles));
             return articles;
@@ -70,6 +78,44 @@ public class NewsService {
 
         // Return fallback if fetch failed
         return generateCountryFallback(cCode, cat);
+    }
+
+    private List<NewsArticleDto> fetchMixedMultiCountryNews(String category) {
+        // Diverse mix of countries from Europe, Americas, Africa
+        String[] targetCountries = {"ES", "US", "GB", "GH", "FR", "NG", "DE", "IT", "BR"};
+
+        List<CompletableFuture<List<NewsArticleDto>>> futures = new ArrayList<>();
+        for (String c : targetCountries) {
+            futures.add(CompletableFuture.supplyAsync(() -> fetchFromGoogleNews(c, category)));
+        }
+
+        List<List<NewsArticleDto>> countryLists = new ArrayList<>();
+        for (CompletableFuture<List<NewsArticleDto>> f : futures) {
+            try {
+                List<NewsArticleDto> items = f.get(3500, TimeUnit.MILLISECONDS);
+                if (items != null && !items.isEmpty()) {
+                    countryLists.add(items);
+                }
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (countryLists.isEmpty()) {
+            return generateCountryFallback("ALL", category);
+        }
+
+        // Interleave articles from different countries in round-robin fashion
+        List<NewsArticleDto> mixed = new ArrayList<>();
+        int maxItemsPerCountry = 3;
+        for (int rank = 0; rank < maxItemsPerCountry; rank++) {
+            for (List<NewsArticleDto> list : countryLists) {
+                if (rank < list.size()) {
+                    mixed.add(list.get(rank));
+                }
+            }
+        }
+
+        return mixed.isEmpty() ? generateCountryFallback("ALL", category) : mixed;
     }
 
     private List<NewsArticleDto> fetchFromGoogleNews(String countryCode, String category) {
@@ -239,8 +285,109 @@ public class NewsService {
     }
 
     private List<NewsArticleDto> generateCountryFallback(String country, String category) {
-        String flag = getCountryFlag(country);
         List<NewsArticleDto> list = new ArrayList<>();
+
+        if ("ALL".equals(country) || "MIXED".equals(country)) {
+            list.add(new NewsArticleDto(
+                    "fallback-es-1",
+                    "España lidera la inversión europea en energías limpias y alta velocidad ferroviaria",
+                    "El país consolida su transformación energética y modernización digital con nuevos corredores sostenibles.",
+                    "https://elpais.com",
+                    "El País",
+                    "@elpais",
+                    "🇪🇸",
+                    category,
+                    "ES",
+                    new Date().toString(),
+                    "5m",
+                    null,
+                    620,
+                    110
+            ));
+            list.add(new NewsArticleDto(
+                    "fallback-us-1",
+                    "Global Tech Alliance Introduces Next-Generation AI Infrastructure Framework",
+                    "Major computing labs and research institutions collaborate on ultra-low latency multimodal translation.",
+                    "https://www.reuters.com",
+                    "Reuters Tech",
+                    "@reuters",
+                    "🇺🇸",
+                    category,
+                    "US",
+                    new Date().toString(),
+                    "12m",
+                    null,
+                    940,
+                    280
+            ));
+            list.add(new NewsArticleDto(
+                    "fallback-gh-1",
+                    "Ghana Accelerates Digital Economic Growth with New Continental Trade Hubs",
+                    "West African technological hubs partner with international finance institutions to expand mobile services.",
+                    "https://www.myjoyonline.com",
+                    "Joy Online",
+                    "@joyonline",
+                    "🇬🇭",
+                    category,
+                    "GH",
+                    new Date().toString(),
+                    "18m",
+                    null,
+                    510,
+                    95
+            ));
+            list.add(new NewsArticleDto(
+                    "fallback-gb-1",
+                    "Historic Cross-Continent Green Energy Interconnector Approved by Regulators",
+                    "Transmission network expansion will facilitate high-capacity subsea power transfer across borders.",
+                    "https://www.bbc.com/news",
+                    "BBC News",
+                    "@bbcnews",
+                    "🇬🇧",
+                    category,
+                    "GB",
+                    new Date().toString(),
+                    "24m",
+                    null,
+                    880,
+                    210
+            ));
+            list.add(new NewsArticleDto(
+                    "fallback-fr-1",
+                    "La France accélère le déploiement de ses réseaux de transport décarbonés",
+                    "Le plan de relance européen soutient de nouveaux corridors ferroviaires et technologies d'électrification.",
+                    "https://www.lemonde.fr",
+                    "Le Monde",
+                    "@lemonde",
+                    "🇫🇷",
+                    category,
+                    "FR",
+                    new Date().toString(),
+                    "32m",
+                    null,
+                    730,
+                    165
+            ));
+            list.add(new NewsArticleDto(
+                    "fallback-ng-1",
+                    "Nigeria Fintech Ecosystem Attracts Record Investment for Cross-Border Solutions",
+                    "Leading payment platforms launch multi-currency settlement channels connecting diaspora families.",
+                    "https://punchng.com",
+                    "Punch News",
+                    "@punchng",
+                    "🇳🇬",
+                    category,
+                    "NG",
+                    new Date().toString(),
+                    "41m",
+                    null,
+                    650,
+                    140
+            ));
+            return list;
+        }
+
+        String flag = getCountryFlag(country);
         list.add(new NewsArticleDto(
                 "fallback-" + country + "-1",
                 "Breaking: National Economic and Renewable Transition Agreement Announced",

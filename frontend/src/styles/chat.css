@@ -3,18 +3,25 @@
 .chat-page {
     display: flex;
     flex-direction: column;
-    height: calc(100dvh - 65px);
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
     max-width: 720px;
     padding: 0;
+    box-sizing: border-box;
 }
 
 .chat-layout-page {
     width: min(1100px, 100%);
-    padding: 20px 18px;
+    padding: 16px 18px;
     display: grid;
     grid-template-columns: 320px minmax(0, 1fr);
     gap: 16px;
     margin: 0 auto;
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    box-sizing: border-box;
 }
 
 .chat-sidebar {
@@ -23,9 +30,12 @@
     background: var(--surface);
     display: flex;
     flex-direction: column;
-    min-height: calc(100dvh - 105px);
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
     padding: 16px;
     overflow: hidden;
+    box-sizing: border-box;
 }
 
 .chat-sidebar h2 {
@@ -91,9 +101,11 @@
     border: 1px solid var(--border);
     border-radius: var(--radius);
     background: var(--surface);
-    height: calc(100dvh - 105px);
+    height: 100%;
+    max-height: 100%;
     overflow: hidden;
     position: relative;
+    box-sizing: border-box;
 }
 
 .chat-header {
@@ -101,9 +113,16 @@
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 14px 20px;
+    padding: 12px 18px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-sizing: border-box;
 }
 
 .chat-header-user {
@@ -972,7 +991,8 @@
 }
 
 .chat-messages {
-    flex: 1;
+    flex: 1 1 0%;
+    min-height: 0;
     overflow-y: auto;
     padding: 20px 24px;
     display: flex;
@@ -2109,9 +2129,8 @@
         gap: 0;
         width: 100%;
         max-width: 100vw;
-        height: 100dvh;
-        height: -webkit-fill-available;
-        max-height: 100dvh;
+        height: calc(100dvh - 52px);
+        max-height: calc(100dvh - 52px);
         overflow: hidden;
         border-radius: 0;
         border: none;
@@ -2125,9 +2144,8 @@
         flex: 1 1 100%;
         width: 100%;
         max-width: 100vw;
-        height: 100dvh;
-        height: -webkit-fill-available;
-        max-height: 100dvh;
+        height: 100%;
+        max-height: 100%;
         border-radius: 0;
         border: 0;
         display: flex;
@@ -3094,12 +3112,19 @@
     color: var(--accent);
 }
 
-/* /* ========================================================
+/* ========================================================
    🌍 GioTranslate UI Styles (Warm Gold & Yellowish Theme)
    ======================================================== */
+.message-bubble.has-translation,
+.message-bubble:has(.message-translation-box) {
+    min-width: min(340px, 92vw);
+    width: fit-content;
+    max-width: min(580px, 94%);
+}
+
 .message-translation-box {
     margin-top: 8px;
-    padding: 10px 12px;
+    padding: 10px 14px;
     border-radius: 12px;
     background: rgba(245, 158, 11, 0.08);
     border: 1px solid rgba(251, 191, 36, 0.28);
@@ -3107,6 +3132,9 @@
     animation: translationSlideDown 0.22s ease-out forwards;
     backdrop-filter: blur(8px);
     box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18), 0 0 10px rgba(245, 158, 11, 0.06);
+    width: 100%;
+    min-width: min(290px, 100%);
+    box-sizing: border-box;
 }
 
 .message-bubble.mine .message-translation-box {
@@ -3221,30 +3249,34 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
     margin-top: 8px;
-    padding-top: 6px;
-    border-top: 1px solid rgba(251, 191, 36, 0.12);
+    padding-top: 8px;
+    border-top: 1px solid rgba(251, 191, 36, 0.16);
 }
 
 .translation-toggle-btn {
-    background: transparent;
-    border: none;
+    background: rgba(245, 158, 11, 0.12);
+    border: 1px solid rgba(251, 191, 36, 0.35);
     color: #fbbf24;
-    font-size: 0.76rem;
+    font-size: 0.78rem;
     font-weight: 600;
     cursor: pointer;
-    padding: 3px 6px;
-    border-radius: 4px;
-    transition: background 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+    padding: 4px 8px;
+    border-radius: 8px;
+    transition: all 0.2s ease;
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: 5px;
+    white-space: nowrap;
 }
 
 .translation-toggle-btn:hover {
-    background: rgba(245, 158, 11, 0.18);
+    background: rgba(245, 158, 11, 0.24);
+    border-color: #fbbf24;
     color: #fef08a;
-    text-decoration: underline;
+    text-decoration: none;
 }
 
 .translation-copy-btn {
@@ -3265,15 +3297,20 @@
 }
 
 .translation-original-hint {
-    margin-top: 5px;
-    font-size: 0.78rem;
-    opacity: 0.9;
+    margin-top: 8px;
+    padding: 6px 10px;
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.16);
+    border: 1px dashed rgba(251, 191, 36, 0.25);
+    font-size: 0.82rem;
+    line-height: 1.45;
     color: inherit;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    line-height: 1.4;
     word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: normal;
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
 }
 
 .translation-speak-btn {
@@ -3443,29 +3480,55 @@
 .quick-translate-trigger {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    font-size: 0.76rem;
+    gap: 6px;
+    font-size: 0.86rem;
     color: #fbbf24;
-    background: rgba(245, 158, 11, 0.14);
-    border: 1px solid rgba(251, 191, 36, 0.4);
-    border-radius: 12px;
-    padding: 3px 10px;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1.5px solid rgba(251, 191, 36, 0.5);
+    border-radius: 16px;
+    padding: 5px 12px;
     cursor: pointer;
     margin-top: 6px;
     font-weight: 600;
-    transition: all 0.2s ease;
+    line-height: 1.2;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
 }
 
-.quick-translate-trigger:hover {
-    background: rgba(245, 158, 11, 0.24);
+.quick-translate-trigger:hover:not(:disabled) {
+    background: rgba(245, 158, 11, 0.26);
     border-color: #fbbf24;
-    box-shadow: 0 0 12px rgba(245, 158, 11, 0.3);
-    transform: scale(1.02);
+    box-shadow: 0 4px 14px rgba(245, 158, 11, 0.35);
+    transform: translateY(-1px) scale(1.03);
+}
+
+.quick-translate-trigger:active:not(:disabled) {
+    transform: scale(0.96);
 }
 
 .quick-translate-trigger:disabled {
-    opacity: 0.6;
+    opacity: 0.7;
     cursor: default;
+}
+
+.quick-translate-trigger .trans-globe-icon {
+    font-size: 0.95rem;
+    line-height: 1;
+}
+
+.quick-translate-trigger .trans-btn-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.quick-translate-trigger .trans-target-chip {
+    font-size: 0.72rem;
+    font-weight: 700;
+    padding: 1px 6px;
+    border-radius: 6px;
+    background: rgba(251, 191, 36, 0.25);
+    color: #fef3c7;
+    letter-spacing: 0.5px;
 }
 
 /* ========================================================

@@ -52,7 +52,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
   };
 
   return (
-    <nav className={`navbar fb-navbar ${isChatOpen ? 'hide-on-mobile-chat' : ''}`}>
+    <nav className="navbar fb-navbar">
       {/* 1. Facebook Left: Logo & Search */}
       <div className="fb-nav-left">
         <Link to="/home" className="fb-brand" title="Giochat Home">

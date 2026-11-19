@@ -14,6 +14,7 @@ import MediaLightbox from '../components/MediaLightbox';
 import FriendContextMenu from '../components/FriendContextMenu';
 import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LiveFootballAndNews from '../components/LiveFootballAndNews';
+import SidebarAiWidget from '../components/SidebarAiWidget';
 import HomeNewsFeed from '../components/HomeNewsFeed';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
@@ -391,6 +392,19 @@ export default function CommunityHome({ user }) {
     const replyContext = replyingTo[postId];
 
     try {
+      // If comments were not loaded yet, fetch them first so the full thread is visible
+      let currentList = commentsState[postId]?.list;
+      if (!commentsState[postId]?.open && currentList === undefined) {
+        try {
+          const fetched = await getPostComments(postId);
+          currentList = Array.isArray(fetched) ? fetched : [];
+        } catch {
+          currentList = [];
+        }
+      } else {
+        currentList = currentList || [];
+      }
+
       const newComment = await addComment(postId, {
         content: text,
         parentCommentId: replyContext?.commentId || null,
@@ -400,12 +414,13 @@ export default function CommunityHome({ user }) {
       setCommentsState((prev) => ({
         ...prev,
         [postId]: {
-          ...prev[postId],
-          list: [...(prev[postId]?.list || []), newComment],
+          open: true,
+          loading: false,
+          list: [...(currentList || []), newComment],
         },
       }));
       setPosts((prev) =>
-        prev.map((p) => (p.id === postId ? { ...p, commentsCount: p.commentsCount + 1 } : p))
+        prev.map((p) => (p.id === postId ? { ...p, commentsCount: (p.commentsCount || 0) + 1 } : p))
       );
       setCommentInputs((prev) => ({ ...prev, [postId]: '' }));
       setReplyingTo((prev) => ({ ...prev, [postId]: null }));
@@ -1312,178 +1327,175 @@ export default function CommunityHome({ user }) {
                   </button>
                 </footer>
 
-                {/* Comments Section (X / Twitter Style) */}
+                {/* Comments Section (Toggled Open / Hide when clicking Comment button) */}
                 {commentsInfo.open && (
                   <div className="x-comments-section">
                     <div className="x-comments-divider"></div>
 
-                    {/* Comments List */}
-                    <div className="x-comments-list">
-                      {commentsInfo.loading ? (
-                        <div className="x-comments-loading">
-                          <i className="fa-solid fa-circle-notch fa-spin"></i>
-                          <span>Loading replies...</span>
+                    {/* Active Reply Banner if replying to a specific user */}
+                    {replyingTo[post.id] && (
+                      <div className="x-reply-active-banner">
+                        <div className="x-reply-badge">
+                          <i className="fa-solid fa-reply"></i>
+                          <span>Replying to <strong>@{replyingTo[post.id].username}</strong></span>
                         </div>
-                      ) : commentsInfo.list.length === 0 ? (
-                        <div className="x-no-comments">
-                          <i className="fa-regular fa-comments x-empty-icon"></i>
-                          <p>No replies yet. Be the first to start the conversation!</p>
-                        </div>
-                      ) : (
-                        commentsInfo.list.map((c, idx) => {
-                          const isLast = idx === commentsInfo.list.length - 1;
-                          return (
-                            <div key={c.id} className="x-comment-row">
-                              {/* Left Avatar & Connecting Thread Line */}
-                              <div className="x-avatar-col">
-                                <div className="x-author-avatar">
-                                  {c.avatarUrl ? (
-                                    <img src={resolveBackendUrl(c.avatarUrl)} alt={c.username} />
-                                  ) : (
-                                    <div className="x-avatar-fallback">
-                                      {(c.displayName || c.username || 'U')[0].toUpperCase()}
+                        <button
+                          type="button"
+                          className="x-reply-cancel-btn"
+                          onClick={() => handleCancelReply(post.id)}
+                          title="Cancel reply"
+                        >
+                          <i className="fa-solid fa-xmark"></i>
+                        </button>
+                      </div>
+                    )}
+
+                    {/* Active Comment Input to make comments */}
+                    <form
+                      className="quick-comment-form"
+                      onSubmit={(e) => {
+                        e.preventDefault();
+                        handleAddComment(post.id);
+                      }}
+                    >
+                      <div className="quick-comment-avatar">
+                        {user?.avatarUrl ? (
+                          <img src={resolveBackendUrl(user.avatarUrl)} alt={user.username} />
+                        ) : (
+                          <div className="quick-comment-avatar-fallback">
+                            {(user?.displayName || user?.username || 'U')[0].toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="quick-comment-input-wrap">
+                        <input
+                          type="text"
+                          ref={(el) => {
+                            commentInputRefs.current[post.id] = el;
+                          }}
+                          className="quick-comment-input"
+                          placeholder={
+                            replyingTo[post.id]
+                              ? `Reply to @${replyingTo[post.id].username}...`
+                              : "Write a comment..."
+                          }
+                          value={commentInputs[post.id] || ''}
+                          onChange={(e) =>
+                            setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
+                          }
+                          autoFocus
+                        />
+                      </div>
+
+                      <button
+                        type="submit"
+                        className="quick-comment-submit-btn"
+                        disabled={!commentInputs[post.id]?.trim()}
+                        title={replyingTo[post.id] ? 'Reply' : 'Post comment'}
+                      >
+                        <i className="fa-solid fa-paper-plane"></i>
+                      </button>
+                    </form>
+
+                    {/* Written Comments List (hidden if no comments have been written yet) */}
+                    {commentsInfo.loading ? (
+                      <div className="x-comments-loading">
+                        <i className="fa-solid fa-circle-notch fa-spin"></i>
+                        <span>Loading comments...</span>
+                      </div>
+                    ) : (
+                      commentsInfo.list && commentsInfo.list.length > 0 && (
+                        <div className="x-comments-list">
+                          {commentsInfo.list.map((c, idx) => {
+                            const isLast = idx === commentsInfo.list.length - 1;
+                            return (
+                              <div key={c.id} className="x-comment-row">
+                                {/* Left Avatar & Connecting Thread Line */}
+                                <div className="x-avatar-col">
+                                  <div className="x-author-avatar">
+                                    {c.avatarUrl ? (
+                                      <img src={resolveBackendUrl(c.avatarUrl)} alt={c.username} />
+                                    ) : (
+                                      <div className="x-avatar-fallback">
+                                        {(c.displayName || c.username || 'U')[0].toUpperCase()}
+                                      </div>
+                                    )}
+                                  </div>
+                                  {!isLast && <div className="x-thread-line"></div>}
+                                </div>
+
+                                {/* Right Content */}
+                                <div className="x-comment-body">
+                                  <div className="x-comment-header">
+                                    {c.displayName && c.displayName.trim().toLowerCase() !== c.username.trim().toLowerCase() ? (
+                                      <>
+                                        <span className="x-author-name">{c.displayName}</span>
+                                        <span className="x-author-handle">@{c.username}</span>
+                                      </>
+                                    ) : (
+                                      <span className="x-author-name">@{c.username}</span>
+                                    )}
+                                    <span className="x-dot-sep">·</span>
+                                    <span className="x-comment-time">{formatTimeAgo(c.createdAt)}</span>
+                                  </div>
+
+                                  {/* Replying to handle indicator */}
+                                  {c.replyToUsername && (
+                                    <div className="x-replying-indicator">
+                                      <span>Replying to</span>
+                                      <span className="x-reply-target">@{c.replyToUsername}</span>
                                     </div>
                                   )}
-                                </div>
-                                {!isLast && <div className="x-thread-line"></div>}
-                              </div>
 
-                              {/* Right Content */}
-                              <div className="x-comment-body">
-                                <div className="x-comment-header">
-                                  {c.displayName && c.displayName.trim().toLowerCase() !== c.username.trim().toLowerCase() ? (
-                                    <>
-                                      <span className="x-author-name">{c.displayName}</span>
-                                      <span className="x-author-handle">@{c.username}</span>
-                                    </>
-                                  ) : (
-                                    <span className="x-author-name">@{c.username}</span>
-                                  )}
-                                  <span className="x-dot-sep">·</span>
-                                  <span className="x-comment-time">{formatTimeAgo(c.createdAt)}</span>
-                                </div>
+                                  <p className="x-comment-text">{c.content}</p>
 
-                                {/* Replying to handle indicator (like on X) */}
-                                {c.replyToUsername && (
-                                  <div className="x-replying-indicator">
-                                    <span>Replying to</span>
-                                    <span className="x-reply-target">@{c.replyToUsername}</span>
+                                  {/* Action Row */}
+                                  <div className="x-action-row">
+                                    {/* Reply Button */}
+                                    <button
+                                      type="button"
+                                      className="x-action-btn x-reply-btn"
+                                      onClick={() => handleStartReply(post.id, c)}
+                                      title={`Reply to @${c.username}`}
+                                    >
+                                      <i className="fa-regular fa-comment"></i>
+                                      <span className="x-action-label">Reply</span>
+                                    </button>
+
+                                    {/* Like Button */}
+                                    <button
+                                      type="button"
+                                      className={`x-action-btn x-like-btn ${c.likedByMe ? 'liked' : ''}`}
+                                      onClick={() => handleToggleCommentLike(post.id, c.id)}
+                                      title={c.likedByMe ? 'Unlike' : 'Like'}
+                                    >
+                                      <i className={`fa-${c.likedByMe ? 'solid' : 'regular'} fa-heart x-heart-icon`}></i>
+                                      {(c.likeCount > 0 || c.likedByMe) && (
+                                        <span className="x-action-count">{c.likeCount || 0}</span>
+                                      )}
+                                    </button>
+
+                                    {/* Copy / Share Button */}
+                                    <button
+                                      type="button"
+                                      className="x-action-btn x-share-btn"
+                                      onClick={() => {
+                                        navigator.clipboard?.writeText(c.content);
+                                        alert('Comment text copied!');
+                                      }}
+                                      title="Copy text"
+                                    >
+                                      <i className="fa-regular fa-copy"></i>
+                                    </button>
                                   </div>
-                                )}
-
-                                <p className="x-comment-text">{c.content}</p>
-
-                                {/* X-Style Action Row */}
-                                <div className="x-action-row">
-                                  {/* Reply Button */}
-                                  <button
-                                    type="button"
-                                    className="x-action-btn x-reply-btn"
-                                    onClick={() => handleStartReply(post.id, c)}
-                                    title={`Reply to @${c.username}`}
-                                  >
-                                    <i className="fa-regular fa-comment"></i>
-                                    <span className="x-action-label">Reply</span>
-                                  </button>
-
-                                  {/* Like Button */}
-                                  <button
-                                    type="button"
-                                    className={`x-action-btn x-like-btn ${c.likedByMe ? 'liked' : ''}`}
-                                    onClick={() => handleToggleCommentLike(post.id, c.id)}
-                                    title={c.likedByMe ? 'Unlike' : 'Like'}
-                                  >
-                                    <i className={`fa-${c.likedByMe ? 'solid' : 'regular'} fa-heart x-heart-icon`}></i>
-                                    {(c.likeCount > 0 || c.likedByMe) && (
-                                      <span className="x-action-count">{c.likeCount || 0}</span>
-                                    )}
-                                  </button>
-
-                                  {/* Copy / Share Button */}
-                                  <button
-                                    type="button"
-                                    className="x-action-btn x-share-btn"
-                                    onClick={() => {
-                                      navigator.clipboard?.writeText(c.content);
-                                      alert('Comment text copied!');
-                                    }}
-                                    title="Copy text"
-                                  >
-                                    <i className="fa-regular fa-copy"></i>
-                                  </button>
                                 </div>
                               </div>
-                            </div>
-                          );
-                        })
-                      )}
-                    </div>
-
-                    {/* X-Style Reply Composer */}
-                    <div className="x-composer-wrapper">
-                      {/* Replying-to Active Capsule Banner */}
-                      {replyingTo[post.id] && (
-                        <div className="x-reply-active-banner">
-                          <div className="x-reply-badge">
-                            <i className="fa-solid fa-reply"></i>
-                            <span>Replying to <strong>@{replyingTo[post.id].username}</strong></span>
-                          </div>
-                          <button
-                            type="button"
-                            className="x-reply-cancel-btn"
-                            onClick={() => handleCancelReply(post.id)}
-                            title="Cancel reply"
-                          >
-                            <i className="fa-solid fa-xmark"></i>
-                          </button>
+                            );
+                          })}
                         </div>
-                      )}
-
-                      <form
-                        className="x-reply-form"
-                        onSubmit={(e) => {
-                          e.preventDefault();
-                          handleAddComment(post.id);
-                        }}
-                      >
-                        <div className="x-form-avatar">
-                          {user?.avatarUrl ? (
-                            <img src={resolveBackendUrl(user.avatarUrl)} alt={user.username} />
-                          ) : (
-                            <div className="x-form-avatar-fallback">
-                              {(user?.displayName || user?.username || 'U')[0].toUpperCase()}
-                            </div>
-                          )}
-                        </div>
-
-                        <div className="x-form-input-col">
-                          <input
-                            type="text"
-                            ref={(el) => {
-                              commentInputRefs.current[post.id] = el;
-                            }}
-                            className="x-reply-input"
-                            placeholder={
-                              replyingTo[post.id]
-                                ? `Post your reply to @${replyingTo[post.id].username}...`
-                                : "Post your reply..."
-                            }
-                            value={commentInputs[post.id] || ''}
-                            onChange={(e) =>
-                              setCommentInputs((prev) => ({ ...prev, [post.id]: e.target.value }))
-                            }
-                          />
-                        </div>
-
-                        <button
-                          type="submit"
-                          className="x-reply-submit-btn"
-                          disabled={!commentInputs[post.id]?.trim()}
-                        >
-                          <span>{replyingTo[post.id] ? 'Reply' : 'Post'}</span>
-                        </button>
-                      </form>
-                    </div>
+                      )
+                    )}
                   </div>
                 )}
               </article>
@@ -1628,6 +1640,9 @@ export default function CommunityHome({ user }) {
 
         {/* Card 3: Real World News & Live Football Scores Hub */}
         <LiveFootballAndNews />
+
+        {/* Card 4: Interactive GioAI Assistant at Bottom of Right Sidebar */}
+        <SidebarAiWidget />
 
         {/* Footer */}
         <div className="sidebar-footer">

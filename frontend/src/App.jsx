@@ -59,7 +59,7 @@ function IncomingCallManager({ user }) {
 export default function App() {
   const { user, loginUser, logout, updateStoredUser, isAuthenticated } = useAuth();
   const location = useLocation();
-  const isChatOpen = location.pathname.startsWith('/chat/');
+  const isChatOpen = location.pathname.startsWith('/chat');
 
   // Pre-warm backend on initial mount (wakes up Render free instance)
   useEffect(() => {
@@ -97,8 +97,8 @@ export default function App() {
             <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} replace />} />
           </Routes>
         </main>
-        {isAuthenticated && <MobileBottomNav user={user} onLogout={logout} />}
-        <Footer />
+        {isAuthenticated && !isChatOpen && <MobileBottomNav user={user} onLogout={logout} />}
+        {!isChatOpen && <Footer />}
         <PWAInstallPrompt />
       </div>
     </LanguageProvider>

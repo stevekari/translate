@@ -33,6 +33,7 @@ import PronunciationModal from '../components/PronunciationModal';
 import FamilyDictionaryModal from '../components/FamilyDictionaryModal';
 import FamilyProfileModal from '../components/FamilyProfileModal';
 import VoiceTranslateModal from '../components/VoiceTranslateModal';
+import AiAssistantModal from '../components/AiAssistantModal';
 import { getFriendFamilyProfile } from '../utils/familyProfiles';
 import { getFadingModeConfig, saveFadingModeConfig } from '../utils/fadingTranslation';
 import { useDispatch, useSelector } from 'react-redux';
@@ -234,11 +235,58 @@ export default function Chat({ currentUserId, currentUser }) {
   const chatLangInfo = getLanguageInfo(chatLanguage);
 
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
+  const chatInputRef = useRef(null);
   const [showScrollBottom, setShowScrollBottom] = useState(false);
 
-  const scrollToBottom = useCallback((behavior = 'smooth') => {
-    messagesEndRef.current?.scrollIntoView({ behavior });
+  // 🤖 GioAI Assistant State & Handlers
+  const [showAiModal, setShowAiModal] = useState(false);
+  const [aiContextText, setAiContextText] = useState('');
+
+  const handleOpenAiAssistant = useCallback((contextMessage = '') => {
+    setAiContextText(contextMessage || '');
+    setShowAiModal(true);
   }, []);
+
+  const handleAiInsertIntoChat = useCallback((text) => {
+    if (chatInputRef.current?.insertText) {
+      chatInputRef.current.insertText(text);
+    }
+  }, []);
+
+  const scrollToBottom = useCallback((behavior = 'smooth') => {
+    if (messagesContainerRef.current) {
+      const el = messagesContainerRef.current;
+      if (behavior === 'auto') {
+        el.scrollTop = el.scrollHeight;
+      } else {
+        el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' });
+      }
+    } else {
+      messagesEndRef.current?.scrollIntoView({ behavior });
+    }
+  }, []);
+
+  // When opening or switching chat, keep window pinned to top so navbar is visible
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+    const timer = setTimeout(() => {
+      scrollToBottom('auto');
+    }, 50);
+    return () => clearTimeout(timer);
+  }, [conversationId, scrollToBottom]);
+
+  // Mobile virtual keyboard handling: keep messages pinned to bottom when keyboard opens/resizes
+  useEffect(() => {
+    if (typeof window === 'undefined' || !window.visualViewport) return;
+    const handleViewportChange = () => {
+      scrollToBottom('auto');
+    };
+    window.visualViewport.addEventListener('resize', handleViewportChange);
+    return () => {
+      window.visualViewport?.removeEventListener('resize', handleViewportChange);
+    };
+  }, [scrollToBottom]);
 
   const handleMessagesScroll = useCallback((e) => {
     const { scrollTop, scrollHeight, clientHeight } = e.currentTarget;
@@ -399,6 +447,12 @@ export default function Chat({ currentUserId, currentUser }) {
     },
     [conversationId, sendMessage]
   );
+
+  const handleAiSendDirectly = useCallback((text) => {
+    if (text && text.trim()) {
+      handleSend({ type: 'text', text: text.trim() });
+    }
+  }, [handleSend]);
 
   const handleSaveEdit = useCallback(
     (messageId, newContent) => {
@@ -841,15 +895,27 @@ export default function Chat({ currentUserId, currentUser }) {
                         type="button"
                         className="chat-header-translate-pill"
                         onClick={() => setShowChatLangModal(true)}
-                        title="Change translation target language"
+                        title={`Target Language: ${chatLangInfo.name} (${(chatLangInfo.code || 'ES').toUpperCase()})`}
                       >
                         <span className="lang-pill-icon">🌍</span>
                         <span className="lang-pill-flag">{chatLangInfo.flag}</span>
-                        <span className="lang-pill-name">{chatLangInfo.name}</span>
+                        <span className="lang-pill-name">{(chatLangInfo.code || 'ES').toUpperCase()}</span>
                         <i className="fa-solid fa-chevron-down lang-pill-arrow"></i>
                       </button>
                     </div>
                   )}
+
+                  {/* 🤖 Ask AI Assistant Button in Header */}
+                  <button
+                    type="button"
+                    className="chat-ai-header-btn"
+                    onClick={() => handleOpenAiAssistant()}
+                    title="Ask GioAI Assistant - Question & Answer, Explanations, Draft Replies"
+                    aria-label="Ask AI Assistant"
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles" />
+                    <span className="chat-ai-label">Ask AI</span>
+                  </button>
 
                   {isAccepted && (
                     <button
@@ -914,7 +980,7 @@ export default function Chat({ currentUserId, currentUser }) {
           )}
         </div>
 
-        <div className="chat-messages" onScroll={handleMessagesScroll}>
+        <div className="chat-messages" ref={messagesContainerRef} onScroll={handleMessagesScroll}>
           {loading && <div className="page-loading">{t('loadingConversation')}</div>}
           {!loading && safeMessages.length === 0 && friend && (
             <div className="chat-person-hero-card">
@@ -1050,6 +1116,7 @@ export default function Chat({ currentUserId, currentUser }) {
               onPronounce={(text, lang) => setPronunciationTarget({ text, lang: lang || chatLanguage || 'en' })}
               fadingModeEnabled={fadingMode}
               immersionLang={chatLanguage}
+              onAskAi={(text) => handleOpenAiAssistant(text)}
             />
           ))}
 
@@ -1207,6 +1274,7 @@ export default function Chat({ currentUserId, currentUser }) {
           </div>
         ) : (
           <ChatInput
+            ref={chatInputRef}
             onSend={handleSend}
             onTyping={sendTyping}
             replyingTo={replyingTo}
@@ -1223,6 +1291,7 @@ export default function Chat({ currentUserId, currentUser }) {
                 : ''
             }
             onOpenVoiceTranslate={() => setShowVoiceTranslateModal(true)}
+            onOpenAiAssistant={() => handleOpenAiAssistant()}
           />
         )}
       </section>
@@ -1420,7 +1489,7 @@ export default function Chat({ currentUserId, currentUser }) {
                   <div className="fb-tools-lang-info">
                     <span className="fb-tools-lang-flag">{chatLangInfo.flag}</span>
                     <div className="fb-tools-lang-text">
-                      <strong>{chatLangInfo.name}</strong>
+                      <strong>{(chatLangInfo.code || 'ES').toUpperCase()} - {chatLangInfo.name}</strong>
                       <span>Tap to change language</span>
                     </div>
                   </div>
@@ -1432,6 +1501,24 @@ export default function Chat({ currentUserId, currentUser }) {
               <div className="fb-tools-section">
                 <span className="fb-tools-section-title">Chat & Learning Tools</span>
                 <div className="fb-tools-list">
+                  <button
+                    type="button"
+                    className="fb-tools-item"
+                    onClick={() => {
+                      setShowMessengerToolsModal(false);
+                      handleOpenAiAssistant();
+                    }}
+                  >
+                    <div className="fb-tools-item-icon" style={{ background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24' }}>
+                      <i className="fa-solid fa-wand-magic-sparkles"></i>
+                    </div>
+                    <div className="fb-tools-item-text">
+                      <strong>Ask GioAI Assistant</strong>
+                      <span>Ask questions, explain messages & draft replies</span>
+                    </div>
+                    <i className="fa-solid fa-chevron-right arrow"></i>
+                  </button>
+
                   <button
                     type="button"
                     className="fb-tools-item"
@@ -1588,6 +1675,17 @@ export default function Chat({ currentUserId, currentUser }) {
           </div>
         </div>
       )}
+
+      {/* 🤖 GioAI Assistant Q&A Modal */}
+      <AiAssistantModal
+        isOpen={showAiModal}
+        onClose={() => setShowAiModal(false)}
+        initialContext={aiContextText}
+        chatPartnerName={friendDisplayName}
+        preferredLanguage={chatLanguage}
+        onInsertIntoChat={handleAiInsertIntoChat}
+        onSendDirectly={handleAiSendDirectly}
+      />
     </div>
   );
 }

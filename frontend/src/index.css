@@ -202,6 +202,40 @@ a {
   flex: 1;
 }
 
+/* Chat Viewport Lockdown: ensures top navbar is sticky & bottom chat input is 100% visible on all devices */
+body.is-chat-active {
+  overflow: hidden !important;
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100% !important;
+}
+
+.app-shell.is-chat-active {
+  height: 100dvh !important;
+  max-height: 100dvh !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+
+.app-shell.is-chat-active .app-main {
+  flex: 1 1 0% !important;
+  min-height: 0 !important;
+  height: calc(100dvh - 56px) !important;
+  max-height: calc(100dvh - 56px) !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+@media (max-width: 768px) {
+  .app-shell.is-chat-active .app-main {
+    height: calc(100dvh - 52px) !important;
+    max-height: calc(100dvh - 52px) !important;
+  }
+}
+
 .img-round {
   width: 80px;
   height: 80px;

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback } from 'react';
+import { useEffect, useRef, useState, useCallback, forwardRef, useImperativeHandle } from 'react';
 import { uploadMediaFile } from '../api/conversationApi';
 import { useLanguage } from '../contexts/LanguageContext';
 import { createSpeechRecognizer } from '../utils/speechUtils';
@@ -27,7 +27,7 @@ function formatTime(sec) {
 
 const draftWaveBars = [6, 12, 20, 9, 24, 15, 18, 8, 14, 22, 11, 16, 25, 13, 19, 8, 15, 23, 12, 17, 9, 21, 14, 7];
 
-export default function ChatInput({
+const ChatInput = forwardRef(function ChatInput({
   onSend,
   onTyping,
   replyingTo,
@@ -38,8 +38,16 @@ export default function ChatInput({
   disabled = false,
   disabledPlaceholder = '',
   onOpenVoiceTranslate,
-}) {
+  onOpenAiAssistant,
+}, ref) {
   const [text, setText] = useState('');
+
+  useImperativeHandle(ref, () => ({
+    insertText: (newText) => {
+      setText((prev) => (prev && prev.trim() ? `${prev.trim()} ${newText}` : newText));
+      setTimeout(() => inputRef.current?.focus(), 50);
+    },
+  }));
   const [recording, setRecording] = useState(false);
   const [recordingSeconds, setRecordingSeconds] = useState(0);
   const [uploadingVoice, setUploadingVoice] = useState(false);
@@ -824,6 +832,19 @@ export default function ChatInput({
                       <span>Live Voice Translate</span>
                     </button>
                   )}
+                  {onOpenAiAssistant && (
+                    <button
+                      type="button"
+                      className="attach-menu-item"
+                      onClick={() => {
+                        setShowAttachMenu(false);
+                        onOpenAiAssistant();
+                      }}
+                    >
+                      <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#fbbf24' }}></i>
+                      <span>Ask AI Assistant</span>
+                    </button>
+                  )}
                 </div>
               )}
             </div>
@@ -999,4 +1020,6 @@ export default function ChatInput({
       />
     </div>
   );
-}
+});
+
+export default ChatInput;

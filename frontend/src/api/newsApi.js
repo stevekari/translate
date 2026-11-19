@@ -1,166 +1,134 @@
 /**
- * News API Service
- * Fetches free real-world news for Spain, World, Football, and Tech.
- * Uses public RSS-to-JSON (zero API key required) and GNews (if VITE_GNEWS_API_KEY is present).
- * Formats every article into a clean, short X/Twitter-style micro-card with original website links.
+ * News API Service - Real-time, Country-specific Breaking News
+ * Fetches current, live news from Spring Boot backend and Google News RSS feeds.
+ * Supports country-based filtering (US, ES, GB, GH, FR, DE, IT, BR, NG, NL, MX, CA, Global).
  */
+
+import api from './axios.js';
+
+export const NEWS_COUNTRIES = [
+  { code: 'WORLD', name: 'Global', flag: '🌍' },
+  { code: 'US', name: 'United States', flag: '🇺🇸' },
+  { code: 'GB', name: 'United Kingdom', flag: '🇬🇧' },
+  { code: 'ES', name: 'Spain', flag: '🇪🇸' },
+  { code: 'GH', name: 'Ghana', flag: '🇬🇭' },
+  { code: 'NG', name: 'Nigeria', flag: '🇳🇬' },
+  { code: 'FR', name: 'France', flag: '🇫🇷' },
+  { code: 'DE', name: 'Germany', flag: '🇩🇪' },
+  { code: 'IT', name: 'Italy', flag: '🇮🇹' },
+  { code: 'BR', name: 'Brazil', flag: '🇧🇷' },
+  { code: 'NL', name: 'Netherlands', flag: '🇳🇱' },
+  { code: 'MX', name: 'Mexico', flag: '🇲🇽' },
+  { code: 'CA', name: 'Canada', flag: '🇨🇦' },
+];
+
+export const NEWS_CATEGORIES = [
+  { id: 'all', label: 'Top News ⚡' },
+  { id: 'Football', label: 'Football & Sports ⚽' },
+  { id: 'Tech', label: 'Technology 🚀' },
+  { id: 'World', label: 'World Affairs 🌍' },
+];
 
 const RSS2JSON_BASE = 'https://api.rss2json.com/v1/api.json?rss_url=';
 
-// Curated live feed sources
-const FEED_SOURCES = {
-  spain: [
-    {
-      source: 'El País',
-      handle: '@elpais',
-      logo: '🇪🇸',
-      category: 'Spain',
-      url: 'https://feeds.elpais.com/mrss-s/pages/ep/site/elpais.com/portada',
-    },
-    {
-      source: 'RTVE Noticias',
-      handle: '@rtvenoticias',
-      logo: '🔴',
-      category: 'Spain',
-      url: 'https://www.rtve.es/noticias/rss/',
-    },
-  ],
-  world: [
-    {
-      source: 'BBC News World',
-      handle: '@bbcworld',
-      logo: '🌍',
-      category: 'World',
-      url: 'https://feeds.bbci.co.uk/news/world/rss.xml',
-    },
-    {
-      source: 'BBC Mundo',
-      handle: '@bbcmundo',
-      logo: '🌎',
-      category: 'World',
-      url: 'https://feeds.bbci.co.uk/mundo/rss.xml',
-    },
-  ],
-  football: [
-    {
-      source: 'Marca',
-      handle: '@marca',
-      logo: '⚽',
-      category: 'Football',
-      url: 'https://e00-marca.uecdn.es/rss/portada.xml',
-    },
-  ],
-};
-
-// High-quality fallback articles (with real links to original websites)
+// High-quality dynamic fallback articles
 export const FALLBACK_NEWS = [
   {
-    id: 'fallback-spain-1',
+    id: 'live-news-1',
+    source: 'Global Breaking Wire',
+    handle: '@globalwire',
+    sourceLogo: '🌍',
+    verified: true,
+    category: 'World',
+    title: 'Historic Multilateral Agreement Accelerates Renewable Power Grids Worldwide',
+    summary: 'International ministers and energy partners sign major climate infrastructure framework to connect continents.',
+    url: 'https://news.google.com',
+    timeAgo: 'Just now',
+    readTime: '2 min',
+    imageUrl: null,
+    likes: 840,
+    reposts: 215,
+  },
+  {
+    id: 'live-news-2',
     source: 'El País',
     handle: '@elpais',
     sourceLogo: '🇪🇸',
     verified: true,
     category: 'Spain',
-    title: 'España lidera la inversión europea en energías renovables y alta velocidad',
-    summary: 'El país consolida su transición energética con nuevos parques eólicos y récord en conexiones ferroviarias sostenibles.',
+    title: 'España lidera la inversión europea en energías limpias y alta velocidad ferroviaria',
+    summary: 'El país consolida su transformación energética y modernización digital con nuevos corredores sostenibles.',
     url: 'https://elpais.com',
-    timeAgo: '18m',
-    readTime: '2 min',
+    timeAgo: '15m',
+    readTime: '3 min',
     imageUrl: null,
-    likes: 642,
-    reposts: 118,
+    likes: 620,
+    reposts: 110,
   },
   {
-    id: 'fallback-spain-2',
-    source: 'Marca',
-    handle: '@marca',
+    id: 'live-news-3',
+    source: 'Sports World',
+    handle: '@sportsworld',
     sourceLogo: '⚽',
     verified: true,
     category: 'Football',
-    title: 'LaLiga al rojo vivo: Real Madrid y Barcelona luchan por la cima del campeonato',
-    summary: 'Los dos gigantes de España mantienen una intensa batalla por el título a pocas jornadas del final de la temporada.',
+    title: 'Champions League Drama: Thrilling Quarter-Final Showdown Captivates Millions',
+    summary: 'Late drama and breathtaking goals set up an unforgettable European football tournament finale.',
     url: 'https://www.marca.com',
-    timeAgo: '32m',
-    readTime: '3 min',
-    imageUrl: null,
-    likes: 1420,
-    reposts: 380,
-  },
-  {
-    id: 'fallback-world-1',
-    source: 'BBC World News',
-    handle: '@bbcworld',
-    sourceLogo: '🌍',
-    verified: true,
-    category: 'World',
-    title: 'Historic Green Transition Accord Signed Across 80 Nations at Global Summit',
-    summary: 'World leaders and energy ministers finalized a multilateral framework to accelerate global clean electricity and continental power grids.',
-    url: 'https://www.bbc.com/news/world',
-    timeAgo: '45m',
-    readTime: '3 min',
-    imageUrl: null,
-    likes: 890,
-    reposts: 215,
-  },
-  {
-    id: 'fallback-world-2',
-    source: 'BBC Mundo',
-    handle: '@bbcmundo',
-    sourceLogo: '🌎',
-    verified: true,
-    category: 'World',
-    title: 'Avance histórico en inteligencia artificial para la traducción de dialectos en tiempo real',
-    summary: 'Nuevos modelos neuronales permiten a las familias comunicarse sin barreras idiomáticas entre generaciones y culturas.',
-    url: 'https://www.bbc.com/mundo',
-    timeAgo: '1h',
+    timeAgo: '24m',
     readTime: '2 min',
     imageUrl: null,
-    likes: 530,
-    reposts: 94,
+    likes: 1540,
+    reposts: 420,
   },
   {
-    id: 'fallback-tech-1',
+    id: 'live-news-4',
     source: 'Reuters Tech',
     handle: '@reuterstech',
     sourceLogo: '🚀',
     verified: true,
     category: 'Tech',
-    title: 'Next-Generation Neural Voice Models Achieve Near-Zero Latency on Mobile Devices',
-    summary: 'Breakthrough on-device synthesis translates regional accents and colloquial speech instantly with ultra-low battery consumption.',
-    url: 'https://www.reuters.com/technology',
-    timeAgo: '2h',
+    title: 'Breakthrough On-Device AI Models Deliver Real-Time Multilingual Speech Translation',
+    summary: 'New low-latency neural architectures enable instant voice dubbing and communication across hundreds of native dialects.',
+    url: 'https://www.reuters.com',
+    timeAgo: '42m',
     readTime: '3 min',
     imageUrl: null,
-    likes: 712,
-    reposts: 164,
+    likes: 920,
+    reposts: 280,
   },
 ];
 
 /**
- * Strip HTML tags and clean up string for concise X-style reading
+ * Clean HTML strings
  */
-function cleanText(htmlOrText = '', maxLength = 160) {
+function cleanText(htmlOrText = '', maxLength = 180) {
   if (!htmlOrText) return '';
-  const div = document.createElement('div');
-  div.innerHTML = htmlOrText;
-  let text = div.textContent || div.innerText || '';
-  text = text.replace(/\s+/g, ' ').trim();
-  if (text.length > maxLength) {
-    return text.substring(0, maxLength).trim() + '...';
+  try {
+    const div = document.createElement('div');
+    div.innerHTML = htmlOrText;
+    let text = div.textContent || div.innerText || '';
+    text = text.replace(/\s+/g, ' ').trim();
+    if (text.length > maxLength) {
+      return text.substring(0, maxLength).trim() + '...';
+    }
+    return text;
+  } catch {
+    return String(htmlOrText).substring(0, maxLength);
   }
-  return text;
 }
 
 /**
- * Calculate human friendly time ago (e.g., '14m', '2h')
+ * Format relative time
  */
 function formatTimeAgo(pubDate) {
-  if (!pubDate) return 'Recent';
+  if (!pubDate) return 'Just now';
   try {
     const diffMs = Date.now() - new Date(pubDate).getTime();
     if (diffMs < 0) return 'Just now';
     const mins = Math.floor(diffMs / 60000);
-    if (mins < 60) return `${Math.max(1, mins)}m`;
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins}m`;
     const hours = Math.floor(mins / 60);
     if (hours < 24) return `${hours}h`;
     const days = Math.floor(hours / 24);
@@ -170,161 +138,136 @@ function formatTimeAgo(pubDate) {
   }
 }
 
-/**
- * Extract image URL from item
- */
-function extractImage(item) {
-  if (item.thumbnail && item.thumbnail.startsWith('http')) return item.thumbnail;
-  if (item.enclosure?.link && item.enclosure.link.startsWith('http')) return item.enclosure.link;
-  if (item.description && typeof item.description === 'string') {
-    const match = item.description.match(/<img[^>]+src=["'](https?:\/\/[^"']+)["']/i);
-    if (match && match[1]) return match[1];
+function getCountryGoogleFeedUrl(country = 'WORLD', category = 'all') {
+  const cat = category.toLowerCase();
+  if (cat === 'football' || cat === 'sports') {
+    return 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNREpxYW5RU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en';
   }
-  return null;
-}
+  if (cat === 'tech' || cat === 'technology') {
+    return 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en';
+  }
 
-/**
- * Fetch news from GNews if API key is provided
- */
-async function fetchGNews(category = 'all') {
-  const apiKey = import.meta.env?.VITE_GNEWS_API_KEY;
-  if (!apiKey) return null;
-
-  try {
-    let endpoint = `https://gnews.io/api/v4/top-headlines?category=general&apikey=${apiKey}`;
-    if (category === 'Spain') {
-      endpoint = `https://gnews.io/api/v4/top-headlines?country=es&category=general&apikey=${apiKey}`;
-    } else if (category === 'World') {
-      endpoint = `https://gnews.io/api/v4/top-headlines?topic=world&lang=en&apikey=${apiKey}`;
-    } else if (category === 'Football') {
-      endpoint = `https://gnews.io/api/v4/top-headlines?topic=sports&apikey=${apiKey}`;
-    }
-
-    const res = await fetch(endpoint);
-    if (!res.ok) return null;
-    const data = await res.json();
-    if (!data.articles?.length) return null;
-
-    return data.articles.map((a, idx) => ({
-      id: `gnews-${idx}-${Date.now()}`,
-      source: a.source?.name || 'News',
-      handle: `@${(a.source?.name || 'news').toLowerCase().replace(/\s+/g, '')}`,
-      sourceLogo: category === 'Spain' ? '🇪🇸' : category === 'Football' ? '⚽' : '🌍',
-      verified: true,
-      category: category === 'all' ? 'World' : category,
-      title: a.title,
-      summary: cleanText(a.description || a.content),
-      url: a.url,
-      timeAgo: formatTimeAgo(a.publishedAt),
-      imageUrl: a.image || null,
-      likes: Math.floor(Math.random() * 500) + 80,
-      reposts: Math.floor(Math.random() * 150) + 20,
-    }));
-  } catch (err) {
-    console.warn('GNews fetch failed, falling back:', err);
-    return null;
+  const c = country.toUpperCase();
+  switch (c) {
+    case 'ES': return 'https://news.google.com/rss?hl=es-ES&gl=ES&ceid=ES:es';
+    case 'US': return 'https://news.google.com/rss?hl=en-US&gl=US&ceid=US:en';
+    case 'GB': return 'https://news.google.com/rss?hl=en-GB&gl=GB&ceid=GB:en';
+    case 'GH': return 'https://news.google.com/rss?hl=en-GH&gl=GH&ceid=GH:en';
+    case 'FR': return 'https://news.google.com/rss?hl=fr&gl=FR&ceid=FR:fr';
+    case 'DE': return 'https://news.google.com/rss?hl=de&gl=DE&ceid=DE:de';
+    case 'IT': return 'https://news.google.com/rss?hl=it&gl=IT&ceid=IT:it';
+    case 'BR': return 'https://news.google.com/rss?hl=pt-BR&gl=BR&ceid=BR:pt-419';
+    case 'NG': return 'https://news.google.com/rss?hl=en-NG&gl=NG&ceid=NG:en';
+    case 'NL': return 'https://news.google.com/rss?hl=nl&gl=NL&ceid=NL:nl';
+    case 'MX': return 'https://news.google.com/rss?hl=es-419&gl=MX&ceid=MX:es-419';
+    case 'CA': return 'https://news.google.com/rss?hl=en-CA&gl=CA&ceid=CA:en';
+    default: return 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0FtVnVHZ0pWVXlnQVAB?hl=en-US&gl=US&ceid=US:en';
   }
 }
 
+function getFlag(code) {
+  const c = NEWS_COUNTRIES.find((x) => x.code === code);
+  return c ? c.flag : '🌍';
+}
+
 /**
- * Fetch from RSS-to-JSON (Zero API key needed)
+ * Fetch from direct RSS proxy (client-side fallback if backend is restarting)
  */
-async function fetchRssFeed(feedSource) {
+async function fetchClientRss(country, category) {
   try {
-    const encodedUrl = encodeURIComponent(feedSource.url);
-    const res = await fetch(`${RSS2JSON_BASE}${encodedUrl}`, {
-      headers: { Accept: 'application/json' },
-    });
+    const feedUrl = getCountryGoogleFeedUrl(country, category);
+    const proxyUrl = `${RSS2JSON_BASE}${encodeURIComponent(feedUrl)}`;
+    const res = await fetch(proxyUrl);
     if (!res.ok) return [];
     const data = await res.json();
-    if (data.status !== 'ok' || !Array.isArray(data.items)) return [];
+    if (!Array.isArray(data.items) || data.items.length === 0) return [];
 
-    return data.items.slice(0, 8).map((item, idx) => ({
-      id: `${feedSource.source}-${idx}-${Date.now()}`,
-      source: feedSource.source,
-      handle: feedSource.handle,
-      sourceLogo: feedSource.logo,
-      verified: true,
-      category: feedSource.category,
-      title: item.title?.replace(/&amp;/g, '&')?.replace(/&#39;/g, "'") || '',
-      summary: cleanText(item.description),
-      url: item.link || item.guid || 'https://google.com',
-      timeAgo: formatTimeAgo(item.pubDate),
-      imageUrl: extractImage(item),
-      likes: Math.floor(Math.random() * 600) + 120,
-      reposts: Math.floor(Math.random() * 200) + 30,
-    }));
+    const flag = getFlag(country);
+    return data.items.slice(0, 16).map((item, idx) => {
+      let title = item.title?.replace(/&amp;/g, '&')?.replace(/&#39;/g, "'") || '';
+      let sourceName = item.author || (country + ' News');
+      if (title.includes(' - ')) {
+        const parts = title.split(' - ');
+        sourceName = parts[parts.length - 1].trim();
+        title = parts.slice(0, parts.length - 1).join(' - ').trim();
+      }
+
+      return {
+        id: `client-news-${country}-${idx}-${Date.now()}`,
+        source: sourceName,
+        handle: `@${sourceName.toLowerCase().replace(/[^a-z0-9]/g, '')}`,
+        sourceLogo: flag,
+        verified: true,
+        category: category === 'all' ? (country === 'WORLD' ? 'World' : country) : category,
+        country,
+        title,
+        summary: cleanText(item.description) || title,
+        url: item.link || item.guid || 'https://news.google.com',
+        timeAgo: formatTimeAgo(item.pubDate),
+        imageUrl: item.thumbnail || item.enclosure?.link || null,
+        likes: Math.floor(Math.random() * 600) + 120,
+        reposts: Math.floor(Math.random() * 180) + 30,
+      };
+    });
   } catch (err) {
-    console.warn(`Feed fetch failed for ${feedSource.source}:`, err);
+    console.warn('Client RSS fallback failed:', err);
     return [];
   }
 }
 
 /**
- * Main export: Get news articles by category
- * Category can be: 'all', 'Spain', 'World', 'Football', 'Tech'
+ * Main function: Get live, country-specific breaking news
+ * @param {string} category e.g. 'all', 'Football', 'Tech', 'World'
+ * @param {string} country e.g. 'ES', 'US', 'GB', 'GH', 'FR', 'WORLD'
+ * @param {boolean} forceRefresh whether to bypass cache
  */
-export async function getLiveNews(category = 'all') {
-  // 1. Check Session Storage cache first (5-minute cache)
-  const cacheKey = `gio_news_cache_${category}`;
-  try {
-    const cached = sessionStorage.getItem(cacheKey);
-    if (cached) {
-      const parsed = JSON.parse(cached);
-      if (Date.now() - parsed.timestamp < 5 * 60 * 1000 && parsed.articles?.length > 0) {
-        return parsed.articles;
-      }
-    }
-  } catch {
-    // ignore sessionStorage errors
-  }
+export async function getLiveNews(category = 'all', country = 'WORLD', forceRefresh = false) {
+  const cacheKey = `gio_news_${country}_${category}`;
 
-  // 2. Try GNews if configured
-  const gNewsArticles = await fetchGNews(category);
-  if (gNewsArticles && gNewsArticles.length > 0) {
+  // 1. Check in-memory session cache (60 seconds)
+  if (!forceRefresh) {
     try {
-      sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), articles: gNewsArticles }));
-    } catch {}
-    return gNewsArticles;
-  }
-
-  // 3. Fetch from free public RSS feeds
-  const targets = [];
-  if (category === 'all') {
-    targets.push(FEED_SOURCES.spain[0], FEED_SOURCES.world[0], FEED_SOURCES.football[0]);
-  } else if (category === 'Spain') {
-    targets.push(...FEED_SOURCES.spain);
-  } else if (category === 'World') {
-    targets.push(...FEED_SOURCES.world);
-  } else if (category === 'Football') {
-    targets.push(...FEED_SOURCES.football);
-  } else {
-    targets.push(FEED_SOURCES.world[0]);
-  }
-
-  try {
-    const results = await Promise.allSettled(targets.map((src) => fetchRssFeed(src)));
-    const merged = [];
-    results.forEach((res) => {
-      if (res.status === 'fulfilled' && Array.isArray(res.value)) {
-        merged.push(...res.value);
+      const cached = sessionStorage.getItem(cacheKey);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Date.now() - parsed.timestamp < 60 * 1000 && Array.isArray(parsed.articles) && parsed.articles.length > 0) {
+          return parsed.articles;
+        }
       }
-    });
-
-    if (merged.length > 0) {
-      // Interleave or sort by latest
-      const finalArticles = merged.slice(0, 15);
-      try {
-        sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), articles: finalArticles }));
-      } catch {}
-      return finalArticles;
-    }
-  } catch (err) {
-    console.warn('RSS fetching error:', err);
+    } catch {}
   }
 
-  // 4. Clean Fallback if all network calls fail (e.g. offline)
-  if (category === 'all') return FALLBACK_NEWS;
-  const filteredFallback = FALLBACK_NEWS.filter((n) => n.category.toLowerCase() === category.toLowerCase());
-  return filteredFallback.length > 0 ? filteredFallback : FALLBACK_NEWS;
+  // 2. First attempt: Spring Boot live backend endpoint (/api/news)
+  try {
+    const res = await api.get('/api/news', {
+      params: { country, category },
+      timeout: 5000,
+    });
+    if (res.data && Array.isArray(res.data) && res.data.length > 0) {
+      try {
+        sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), articles: res.data }));
+      } catch {}
+      return res.data;
+    }
+  } catch (backendErr) {
+    console.warn('Backend /api/news unavailable, trying direct RSS:', backendErr?.message);
+  }
+
+  // 3. Second attempt: Client-side Google News RSS fetch via public proxy
+  const clientArticles = await fetchClientRss(country, category);
+  if (clientArticles.length > 0) {
+    try {
+      sessionStorage.setItem(cacheKey, JSON.stringify({ timestamp: Date.now(), articles: clientArticles }));
+    } catch {}
+    return clientArticles;
+  }
+
+  // 4. Third attempt: Dynamic fallback news with fresh timestamps
+  const flag = getFlag(country);
+  return FALLBACK_NEWS.map((art) => ({
+    ...art,
+    sourceLogo: flag,
+    country,
+    timeAgo: 'Just now',
+  }));
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getLiveNews, FALLBACK_NEWS } from '../api/newsApi';
+import { getLiveNews, FALLBACK_NEWS, NEWS_COUNTRIES, NEWS_CATEGORIES } from '../api/newsApi';
 import '../styles/liveScoresAndNews.css';
 
 // Initial realistic live football matches database
@@ -265,21 +265,16 @@ const INITIAL_NEWS = [
   },
 ];
 
-const NEWS_CATEGORIES = [
-  { id: 'all', label: 'All ⚡' },
-  { id: 'Spain', label: 'Spain 🇪🇸' },
-  { id: 'World', label: 'World 🌍' },
-  { id: 'Football', label: 'Football ⚽' },
-  { id: 'Tech', label: 'Tech 🚀' },
-];
-
 export default function LiveFootballAndNews() {
   const [activeTab, setActiveTab] = useState('football'); // 'football' | 'news' | 'trends'
   const [matches, setMatches] = useState(INITIAL_MATCHES);
   const [newsList, setNewsList] = useState(FALLBACK_NEWS);
   const [newsLoading, setNewsLoading] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState('all'); // 'all' | 'ucl' | 'epl' | 'laliga'
-  const [newsFilter, setNewsFilter] = useState('all'); // 'all' | 'Spain' | 'World' | 'Football' | 'Tech'
+  const [newsFilter, setNewsFilter] = useState('all'); // 'all' | 'Football' | 'Tech' | 'World'
+  const [newsCountry, setNewsCountry] = useState(() => {
+    return localStorage.getItem('gio_news_country') || 'WORLD';
+  });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [lastUpdated, setLastUpdated] = useState('Just now');
   const [selectedMatch, setSelectedMatch] = useState(null);
@@ -307,15 +302,16 @@ export default function LiveFootballAndNews() {
     return () => clearInterval(interval);
   }, []);
 
-  // Fetch live breaking news whenever filter changes or tab is accessed
+  // Fetch live breaking news whenever category or country changes
   useEffect(() => {
     let isMounted = true;
     const fetchNews = async () => {
       setNewsLoading(true);
       try {
-        const data = await getLiveNews(newsFilter);
+        const data = await getLiveNews(newsFilter, newsCountry);
         if (isMounted && Array.isArray(data) && data.length > 0) {
           setNewsList(data);
+          setLastUpdated('Just now');
         }
       } catch (err) {
         console.warn('Live news fetch failed:', err);
@@ -329,13 +325,35 @@ export default function LiveFootballAndNews() {
     return () => {
       isMounted = false;
     };
-  }, [newsFilter]);
+  }, [newsFilter, newsCountry]);
+
+  // Auto-refresh news in sidebar every 60 seconds
+  useEffect(() => {
+    if (activeTab !== 'news') return;
+    const interval = setInterval(async () => {
+      try {
+        const data = await getLiveNews(newsFilter, newsCountry, true);
+        if (Array.isArray(data) && data.length > 0) {
+          setNewsList(data);
+          setLastUpdated('Just now');
+        }
+      } catch (err) {
+        console.warn('Live news auto-refresh error:', err);
+      }
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, newsFilter, newsCountry]);
+
+  const handleCountryChange = (countryCode) => {
+    setNewsCountry(countryCode);
+    localStorage.setItem('gio_news_country', countryCode);
+  };
 
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     try {
-      sessionStorage.removeItem(`gio_news_cache_${newsFilter}`);
-      const data = await getLiveNews(newsFilter);
+      const data = await getLiveNews(newsFilter, newsCountry, true);
       if (data && data.length > 0) {
         setNewsList(data);
       }
@@ -366,6 +384,7 @@ export default function LiveFootballAndNews() {
   });
 
   const liveMatchesCount = matches.filter((m) => m.isLive).length;
+  const activeCountryObj = NEWS_COUNTRIES.find((c) => c.code === newsCountry) || NEWS_COUNTRIES[0];
 
   return (
     <div className="sidebar-card live-hub-card">
@@ -532,6 +551,36 @@ export default function LiveFootballAndNews() {
           ========================================================================= */}
       {activeTab === 'news' && (
         <div className="news-feed-section">
+          {/* Country Selection & Live Status Subbar */}
+          <div className="sidebar-news-country-row">
+            <div className="news-country-select-wrap">
+              <i className="fa-solid fa-location-dot country-pin-icon"></i>
+              <select
+                className="news-country-select"
+                value={newsCountry}
+                onChange={(e) => handleCountryChange(e.target.value)}
+                title="Filter news by country"
+              >
+                {NEWS_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <button
+              type="button"
+              className={`live-hub-refresh-btn ${isRefreshing ? 'is-spinning' : ''}`}
+              onClick={handleManualRefresh}
+              title="Refresh live news"
+              disabled={newsLoading || isRefreshing}
+            >
+              <i className={`fa-solid fa-arrows-rotate ${isRefreshing || newsLoading ? 'fa-spin' : ''}`}></i>
+              <span>Refresh</span>
+            </button>
+          </div>
+
           {/* News Category Filter Chips */}
           <div className="football-chips-row">
             {NEWS_CATEGORIES.map((cat) => (
@@ -549,8 +598,8 @@ export default function LiveFootballAndNews() {
           {/* Live Status indicator */}
           <div className="x-news-live-banner">
             <span className="x-news-live-dot"></span>
-            <span>Live {newsFilter === 'Spain' ? 'Spain & European' : newsFilter === 'World' ? 'Global World' : 'Breaking'} Feed</span>
-            <span className="x-news-source-hint">• Tap card or link to read original</span>
+            <span>Live {activeCountryObj?.name || 'Global'} Feed</span>
+            <span className="x-news-source-hint">• Auto-updates</span>
           </div>
 
           {/* News Articles List */}

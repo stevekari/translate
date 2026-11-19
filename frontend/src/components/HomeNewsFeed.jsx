@@ -1,15 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
-import { getLiveNews, FALLBACK_NEWS } from '../api/newsApi';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { getLiveNews, FALLBACK_NEWS, NEWS_COUNTRIES, NEWS_CATEGORIES } from '../api/newsApi';
 import { quickTranslate } from '../api/conversationApi';
 import { useLanguage } from '../contexts/LanguageContext';
-
-const NEWS_CATEGORIES = [
-  { id: 'all', label: 'All ⚡' },
-  { id: 'Spain', label: 'Spain 🇪🇸' },
-  { id: 'World', label: 'World 🌍' },
-  { id: 'Football', label: 'Football ⚽' },
-  { id: 'Tech', label: 'Tech 🚀' },
-];
+import { resolveBackendUrl } from '../utils/apiBaseUrl';
 
 const GLOBAL_LANGUAGES = [
   { code: 'en', name: 'English', flag: '🇺🇸' },
@@ -31,6 +24,9 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   const defaultTarget = user?.preferredLanguage || currentAppLang || 'en';
 
   const [activeCategory, setActiveCategory] = useState('all');
+  const [activeCountry, setActiveCountry] = useState(() => {
+    return localStorage.getItem('gio_news_country') || 'WORLD';
+  });
   const [targetLang, setTargetLang] = useState(defaultTarget);
   const [autoTranslate, setAutoTranslate] = useState(() => {
     return localStorage.getItem('gio_news_auto_translate') === 'true';
@@ -38,6 +34,9 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
 
   const [newsList, setNewsList] = useState(FALLBACK_NEWS);
   const [loading, setLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [lastUpdatedText, setLastUpdatedText] = useState('Just now');
+  const [secondsSinceRefresh, setSecondsSinceRefresh] = useState(0);
 
   // Translations Map: { [articleId]: { title, summary, sourceLang, targetLang, isShowing } }
   const [translations, setTranslations] = useState({});
@@ -66,29 +65,66 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   const [selectedArticle, setSelectedArticle] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
 
-  // Fetch news when category changes
-  useEffect(() => {
-    let isMounted = true;
-    const fetchArticles = async () => {
-      setLoading(true);
-      try {
-        const data = await getLiveNews(activeCategory);
-        if (isMounted && Array.isArray(data) && data.length > 0) {
-          setNewsList(data);
-        }
-      } catch (err) {
-        console.warn('Error fetching homepage live news:', err);
-      } finally {
-        if (isMounted) setLoading(false);
+  // Reusable news fetcher
+  const fetchArticles = useCallback(async (cat = activeCategory, country = activeCountry, force = false) => {
+    setLoading(true);
+    try {
+      const data = await getLiveNews(cat, country, force);
+      if (Array.isArray(data) && data.length > 0) {
+        setNewsList(data);
+        setSecondsSinceRefresh(0);
+        setLastUpdatedText('Just now');
       }
-    };
+    } catch (err) {
+      console.warn('Error fetching homepage live news:', err);
+    } finally {
+      setLoading(false);
+      setIsRefreshing(false);
+    }
+  }, [activeCategory, activeCountry]);
 
-    fetchArticles();
+  // Fetch when category or country changes
+  useEffect(() => {
+    fetchArticles(activeCategory, activeCountry, false);
+  }, [activeCategory, activeCountry, fetchArticles]);
 
-    return () => {
-      isMounted = false;
-    };
-  }, [activeCategory]);
+  // Live auto-refresh: polls for current breaking news every 60 seconds
+  useEffect(() => {
+    const refreshInterval = setInterval(() => {
+      fetchArticles(activeCategory, activeCountry, true);
+    }, 60000);
+
+    return () => clearInterval(refreshInterval);
+  }, [activeCategory, activeCountry, fetchArticles]);
+
+  // Relative time counter (updates "Updated 10s ago", "20s ago", etc.)
+  useEffect(() => {
+    const ticker = setInterval(() => {
+      setSecondsSinceRefresh((prev) => {
+        const next = prev + 10;
+        if (next < 60) {
+          setLastUpdatedText(`${next}s ago`);
+        } else {
+          setLastUpdatedText(`${Math.floor(next / 60)}m ago`);
+        }
+        return next;
+      });
+    }, 10000);
+
+    return () => clearInterval(ticker);
+  }, [newsList]);
+
+  // Manual refresh handler
+  const handleManualRefresh = () => {
+    setIsRefreshing(true);
+    fetchArticles(activeCategory, activeCountry, true);
+  };
+
+  // Country selection change handler
+  const handleCountryChange = (newCountry) => {
+    setActiveCountry(newCountry);
+    localStorage.setItem('gio_news_country', newCountry);
+  };
 
   // Translate a single article (Headline + Summary)
   const handleTranslateArticle = async (article, forceTarget = targetLang) => {
@@ -236,6 +272,11 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
       return updated;
     });
 
+    setOpenComments((prev) => ({
+      ...prev,
+      [articleId]: true,
+    }));
+
     setCommentInputs((prev) => ({ ...prev, [articleId]: '' }));
   };
 
@@ -261,6 +302,7 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   };
 
   const activeLangObj = GLOBAL_LANGUAGES.find((l) => l.code === targetLang) || GLOBAL_LANGUAGES[0];
+  const activeCountryObj = NEWS_COUNTRIES.find((c) => c.code === activeCountry) || NEWS_COUNTRIES[0];
 
   return (
     <div className={`home-news-feed-container ${!hasCommunityPosts ? 'is-primary-feed' : ''}`}>
@@ -271,11 +313,28 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
             <span className="live-sparkle-pill">
               <span className="live-dot-green"></span> LIVE
             </span>
-            <h3>Global Breaking News</h3>
+            <h3>{activeCountryObj.flag} {activeCountryObj.name} Breaking News</h3>
           </div>
 
-          {/* AI Translation Toolbar */}
+          {/* Country + AI Translation + Live Refresh Toolbar */}
           <div className="news-ai-lang-toolbar">
+            {/* Country Selector */}
+            <div className="news-country-select-wrap" title="Select country for live local & breaking news">
+              <i className="fa-solid fa-location-dot country-pin-icon"></i>
+              <select
+                className="news-country-select"
+                value={activeCountry}
+                onChange={(e) => handleCountryChange(e.target.value)}
+              >
+                {NEWS_COUNTRIES.map((c) => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Translation Language Selector */}
             <div className="news-lang-select-wrap">
               <i className="fa-solid fa-globe lang-globe-icon"></i>
               <select
@@ -292,6 +351,7 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
               </select>
             </div>
 
+            {/* Auto Translate Toggle */}
             <button
               type="button"
               className={`news-auto-translate-toggle ${autoTranslate ? 'active' : ''}`}
@@ -301,11 +361,39 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
               <i className="fa-solid fa-wand-magic-sparkles"></i>
               <span>{autoTranslate ? 'Auto: ON' : 'Auto: OFF'}</span>
             </button>
+
+            {/* Live Refresh Button */}
+            <button
+              type="button"
+              className={`news-refresh-btn ${isRefreshing ? 'is-spinning' : ''}`}
+              onClick={handleManualRefresh}
+              title="Refresh breaking news feed now"
+              disabled={loading || isRefreshing}
+            >
+              <i className={`fa-solid fa-arrows-rotate ${isRefreshing || loading ? 'fa-spin' : ''}`}></i>
+              <span className="news-refresh-label">Live Refresh</span>
+            </button>
           </div>
         </div>
 
+        {/* Live Status Bar */}
+        <div className="home-news-status-bar">
+          <span className="news-status-item news-status-live">
+            <span className="live-dot-green"></span> Live Stream
+          </span>
+          <span className="news-status-item news-status-country">
+            {activeCountryObj.flag} {activeCountryObj.name}
+          </span>
+          <span className="news-status-item news-status-updated">
+            <i className="fa-regular fa-clock"></i> Updated {lastUpdatedText}
+          </span>
+          <span className="news-status-item news-status-auto">
+            <i className="fa-solid fa-bolt"></i> Auto-updates every 60s
+          </span>
+        </div>
+
         <p className="home-news-subtitle">
-          Real-time stories from Spain and around the world, auto-translated to {activeLangObj.flag} {activeLangObj.name} with original article links.
+          Real-time stories from {activeCountryObj.flag} {activeCountryObj.name} and global wire services, auto-translated to {activeLangObj.flag} {activeLangObj.name} with original source links.
         </p>
 
         {/* Category Filter Chips */}
@@ -505,30 +593,31 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
                 </button>
               </footer>
 
-              {/* Comments Section */}
+              {/* Comments Section (Toggled Open / Hide when clicking Comment button) */}
               {isCommentsOpen && (
                 <div className="x-comments-section news-comments-drawer">
                   <div className="x-comments-divider"></div>
 
-                  {/* Comment Composer */}
+                  {/* Active comment input to write comments */}
                   <form
-                    className="x-reply-composer"
+                    className="quick-comment-form"
                     onSubmit={(e) => handleAddComment(e, article.id)}
                   >
-                    <div className="x-composer-avatar">
+                    <div className="quick-comment-avatar">
                       {user?.avatarUrl ? (
-                        <img src={user.avatarUrl} alt={user.username || 'You'} />
+                        <img src={resolveBackendUrl(user.avatarUrl)} alt={user.username || 'You'} />
                       ) : (
-                        <div className="x-avatar-fallback">
+                        <div className="quick-comment-avatar-fallback">
                           {(user?.displayName || user?.username || 'Y')[0].toUpperCase()}
                         </div>
                       )}
                     </div>
-                    <div className="x-form-input-col">
+
+                    <div className="quick-comment-input-wrap">
                       <input
                         type="text"
-                        className="x-reply-input"
-                        placeholder="Leave a comment on this story..."
+                        className="quick-comment-input"
+                        placeholder="Write a comment on this story..."
                         value={commentInputs[article.id] || ''}
                         onChange={(e) =>
                           setCommentInputs((prev) => ({
@@ -536,26 +625,24 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
                             [article.id]: e.target.value,
                           }))
                         }
+                        autoFocus
                       />
                     </div>
+
                     <button
                       type="submit"
-                      className="x-reply-submit-btn"
+                      className="quick-comment-submit-btn"
                       disabled={!commentInputs[article.id]?.trim()}
+                      title="Post comment"
                     >
-                      Post
+                      <i className="fa-solid fa-paper-plane"></i>
                     </button>
                   </form>
 
-                  {/* Existing Comments List */}
-                  <div className="x-comments-list" style={{ marginTop: '12px' }}>
-                    {articleComments.length === 0 ? (
-                      <div className="x-no-comments">
-                        <i className="fa-regular fa-comments x-empty-icon"></i>
-                        <p>No comments yet. Share your thoughts on this story!</p>
-                      </div>
-                    ) : (
-                      articleComments.map((c) => (
+                  {/* Written Comments List (hidden if no comments have been written yet) */}
+                  {articleComments && articleComments.length > 0 && (
+                    <div className="x-comments-list" style={{ marginTop: '8px' }}>
+                      {articleComments.map((c) => (
                         <div key={c.id} className="x-comment-row">
                           <div className="x-avatar-col">
                             <div className="x-author-avatar">
@@ -578,9 +665,9 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
                             <p className="x-comment-text">{c.text}</p>
                           </div>
                         </div>
-                      ))
-                    )}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </article>

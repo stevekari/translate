@@ -47,16 +47,37 @@ iframe {
 
 /* ---------- Tablet & Mobile Viewports (<= 900px) ---------- */
 @media (max-width: 900px) {
-    /* Fullscreen Messenger Experience on Mobile */
+    /* Chat Viewport Structure on Mobile: Navbar at top, Messages scroll, Input pinned at bottom */
+    body.is-chat-active,
+    .app-shell.is-chat-active {
+        height: 100dvh !important;
+        max-height: 100dvh !important;
+        overflow: hidden !important;
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100% !important;
+    }
+
+    .is-chat-active .app-main {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        height: calc(100dvh - 52px) !important;
+        max-height: calc(100dvh - 52px) !important;
+        overflow: hidden !important;
+        display: flex !important;
+        flex-direction: column !important;
+    }
+
     .chat-layout-page {
         display: flex !important;
         flex-direction: column !important;
         grid-template-columns: none !important;
         width: 100% !important;
         max-width: 100vw !important;
-        height: 100dvh !important;
-        height: -webkit-fill-available !important;
-        max-height: 100dvh !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
+        flex: 1 1 0% !important;
         padding: 0 !important;
         margin: 0 !important;
         gap: 0 !important;
@@ -74,17 +95,31 @@ iframe {
     .chat-layout-page .chat-page {
         display: flex !important;
         flex-direction: column !important;
-        flex: 1 1 100% !important;
+        flex: 1 1 0% !important;
         width: 100% !important;
         max-width: 100vw !important;
-        height: 100dvh !important;
-        height: -webkit-fill-available !important;
-        max-height: 100dvh !important;
+        height: 100% !important;
+        max-height: 100% !important;
+        min-height: 0 !important;
         border-radius: 0 !important;
         border: none !important;
         margin: 0 !important;
         padding: 0 !important;
         overflow: hidden !important;
+    }
+
+    .chat-messages {
+        flex: 1 1 0% !important;
+        min-height: 0 !important;
+        overflow-y: auto !important;
+        -webkit-overflow-scrolling: touch !important;
+    }
+
+    .chat-input-container {
+        flex-shrink: 0 !important;
+        width: 100% !important;
+        position: relative !important;
+        z-index: 25 !important;
     }
 
     .chat-back-btn {
@@ -137,6 +172,10 @@ iframe {
         width: 100%;
         box-sizing: border-box;
         overflow: hidden;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        background: var(--surface);
     }
 
     .chat-header-desktop-tools {
@@ -195,10 +234,20 @@ iframe {
         font-size: 0.92rem;
     }
 
-    /* Chat Input Bar */
+    .message-bubble.has-translation {
+        min-width: min(300px, 92vw) !important;
+        max-width: 94% !important;
+    }
+
+    /* Chat Input Bar - Guaranteed Visible & Docked at Bottom */
     .chat-input {
         gap: 6px;
-        padding: 8px 10px calc(8px + env(safe-area-inset-bottom, 0px));
+        padding: 6px 10px max(8px, env(safe-area-inset-bottom, 8px)) !important;
+        flex-shrink: 0 !important;
+        position: relative !important;
+        bottom: auto !important;
+        width: 100% !important;
+        box-sizing: border-box !important;
     }
 
     .chat-input .chat-action,
@@ -214,10 +263,11 @@ iframe {
         display: none;
     }
 
-    .chat-input input {
+    .chat-input input,
+    .wa-input-field {
         height: 38px;
-        padding: 8px 12px;
-        font-size: 15px;
+        padding: 6px 10px;
+        font-size: 16px !important; /* 16px prevents iOS Safari auto-zoom on mobile typing */
     }
 
     /* Voice recording UI */

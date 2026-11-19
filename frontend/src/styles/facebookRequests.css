@@ -78,6 +78,9 @@
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   transition: transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 .fb-request-card:hover {
@@ -212,27 +215,39 @@
   background: rgba(239, 68, 68, 0.08);
 }
 
-/* Post-Action State Message */
+/* Post-Action State Message: Fills card cleanly without overflowing */
 .fb-request-status-banner {
   display: flex;
   align-items: center;
   justify-content: space-between;
   width: 100%;
   gap: 10px;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.22);
+  border-radius: 10px;
+  margin-top: 6px;
 }
 
 .fb-status-msg-accepted {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.88rem;
+  font-size: 0.86rem;
   font-weight: 600;
   color: #10b981;
+  min-width: 0;
+  flex: 1 1 auto;
+  white-space: normal;
+  word-break: break-word;
 }
 
 .fb-btn-jump-chat {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 6px;
   padding: 6px 14px;
   background: #1877f2;
@@ -242,12 +257,21 @@
   font-size: 0.82rem;
   font-weight: 700;
   cursor: pointer;
+  flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(24, 119, 242, 0.3);
+  transition: all 0.15s ease;
+}
+
+.fb-btn-jump-chat:hover {
+  background: #166fe5;
+  transform: translateY(-1px);
 }
 
 .fb-status-msg-deleted {
   font-size: 0.85rem;
   color: var(--text-muted, #94a3b8);
   font-style: italic;
+  flex: 1 1 auto;
 }
 
 /* 3. Facebook Messenger Style Chat Request & Block Banners */

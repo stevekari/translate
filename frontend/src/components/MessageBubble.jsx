@@ -22,6 +22,11 @@ function getLangName(code) {
   return info.name || code.toUpperCase();
 }
 
+function getLangInitial(code) {
+  if (!code) return '';
+  return code.trim().toUpperCase();
+}
+
 function formatMessageTime(timestamp) {
   const value = Array.isArray(timestamp)
     ? new Date(
@@ -82,6 +87,7 @@ export default function MessageBubble({
   onPronounce,
   fadingModeEnabled,
   immersionLang,
+  onAskAi,
 }) {
   const { t, language } = useLanguage();
   const [showFullImage, setShowFullImage] = useState(false);
@@ -298,6 +304,10 @@ export default function MessageBubble({
 
   const validTranslation = translation && !isCorruptedText(translation.translatedText) ? translation : null;
 
+  const detectedSourceCode = (validTranslation?.sourceLanguage || detectClientLang(rawTranslatableText) || friend?.preferredLanguage || 'es').toUpperCase();
+  const targetCode = (validTranslation?.targetLanguage || immersionLang || userPreferredLang || 'en').toUpperCase();
+  const langPairInitials = `${detectedSourceCode} - ${targetCode}`;
+
   const handleCopyTranslation = () => {
     if (validTranslation?.translatedText) {
       navigator.clipboard?.writeText(validTranslation.translatedText);
@@ -341,7 +351,7 @@ export default function MessageBubble({
       className={`message-row ${isMine ? 'mine' : 'theirs'} ${isDeleted ? 'deleted-row' : ''} ${distinctReactions.length > 0 ? 'has-reactions' : ''}`}
     >
       <div
-        className={`message-bubble ${isMine ? 'mine' : 'theirs'} ${parsed.type === 'audio' ? 'audio-bubble' : ''} ${isDeleted ? 'deleted-bubble' : ''} ${distinctReactions.length > 0 ? 'has-reactions' : ''}`}
+        className={`message-bubble ${isMine ? 'mine' : 'theirs'} ${parsed.type === 'audio' ? 'audio-bubble' : ''} ${isDeleted ? 'deleted-bubble' : ''} ${distinctReactions.length > 0 ? 'has-reactions' : ''} ${validTranslation ? 'has-translation' : ''}`}
         onDoubleClick={handleDoubleClick}
         title={!isDeleted ? "Double-click to like ❤️" : undefined}
       >
@@ -427,6 +437,19 @@ export default function MessageBubble({
                     disabled={isTranslating}
                   >
                     <i className="fa-solid fa-earth-americas"></i> {isTranslating ? t('translating') : `🌍 ${t('gioTranslate')}`}
+                  </button>
+                )}
+
+                {/* 🤖 Ask AI About this Message */}
+                {parsed.text && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowMenu(false);
+                      onAskAi?.(parsed.text);
+                    }}
+                  >
+                    <i className="fa-solid fa-wand-magic-sparkles" style={{ color: '#fbbf24' }}></i> Ask AI about this
                   </button>
                 )}
 
@@ -584,11 +607,11 @@ export default function MessageBubble({
                       title="Click to translate into any language"
                     >
                       <span className="source-lang-tag">
-                        {getLangFlag(validTranslation.sourceLanguage)} {getLangName(validTranslation.sourceLanguage)}
+                        {getLangFlag(validTranslation.sourceLanguage)} {getLangInitial(validTranslation.sourceLanguage)}
                       </span>
                       <i className="fa-solid fa-arrow-right lang-arrow"></i>
                       <span className="target-lang-tag">
-                        {getLangFlag(validTranslation.targetLanguage)} {getLangName(validTranslation.targetLanguage)}
+                        {getLangFlag(validTranslation.targetLanguage)} {getLangInitial(validTranslation.targetLanguage)}
                       </span>
                       <i className="fa-solid fa-chevron-down lang-chevron"></i>
                     </button>
@@ -682,25 +705,28 @@ export default function MessageBubble({
                 {/* Subtext showing the other version */}
                 <div className="translation-original-hint">
                   {showOriginal ? (
-                    <span><strong style={{ color: '#fbbf24' }}>🌍 {getLangName(validTranslation.targetLanguage)}:</strong> {validTranslation.translatedText}</span>
+                    <span><strong style={{ color: '#fbbf24' }}>🌍 {targetCode}:</strong> {validTranslation.translatedText}</span>
                   ) : (
-                    <span><strong>Original ({getLangName(validTranslation.sourceLanguage)}):</strong> {parsed.text}</span>
+                    <span><strong>Original ({detectedSourceCode}):</strong> {parsed.text}</span>
                   )}
                 </div>
               </div>
             )}
 
-            {/* Quick Translate Button if not yet translated */}
+            {/* Quick Translate Button: Clear, legible with readable label & target initial chip */}
             {!validTranslation && !isMine && (
               <button
                 type="button"
                 className="quick-translate-trigger"
                 onClick={handleQuickTranslateClick}
                 disabled={isTranslating}
-                title="Translate with Giochat"
+                title={`Translate into ${getLangName(targetCode)}. Click to translate.`}
               >
-                <span>🌍</span>
-                <span>{isTranslating ? t('translating') : t('translate')}</span>
+                <span className="trans-globe-icon">🌍</span>
+                <span className="trans-btn-label">
+                  {isTranslating ? (t('translating') || 'Translating...') : (t('translate') || 'Translate')}
+                </span>
+                <span className="trans-target-chip">{targetCode}</span>
               </button>
             )}
 
@@ -812,11 +838,11 @@ export default function MessageBubble({
                       title="Click to translate voice note into any language"
                     >
                       <span className="source-lang-tag">
-                        {getLangFlag(validTranslation.sourceLanguage)} {getLangName(validTranslation.sourceLanguage)}
+                        {getLangFlag(validTranslation.sourceLanguage)} {getLangInitial(validTranslation.sourceLanguage)}
                       </span>
                       <i className="fa-solid fa-arrow-right lang-arrow"></i>
                       <span className="target-lang-tag">
-                        {getLangFlag(validTranslation.targetLanguage)} {getLangName(validTranslation.targetLanguage)}
+                        {getLangFlag(validTranslation.targetLanguage)} {getLangInitial(validTranslation.targetLanguage)}
                       </span>
                       <i className="fa-solid fa-chevron-down lang-chevron"></i>
                     </button>
@@ -887,10 +913,13 @@ export default function MessageBubble({
                   className="quick-translate-trigger quick-voice-translate"
                   onClick={handleQuickTranslateClick}
                   disabled={isTranslating}
-                  title="Translate voice message into your language"
+                  title={`Translate voice note into ${getLangName(targetCode)}. Click to translate.`}
                 >
-                  <i className="fa-solid fa-ear-listen" style={{ fontSize: '0.85rem' }}></i>
-                  <span>{isTranslating ? t('translating') : '🌍 Translate Voice & Listen'}</span>
+                  <i className="fa-solid fa-ear-listen" style={{ fontSize: '0.88rem' }}></i>
+                  <span className="trans-btn-label">
+                    {isTranslating ? (t('translating') || 'Translating...') : (t('translate') || 'Translate')}
+                  </span>
+                  <span className="trans-target-chip">{targetCode}</span>
                 </button>
               )
             )}

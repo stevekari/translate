@@ -10,6 +10,7 @@ export default function CallPanel({
   remoteStream,
   error,
   friend,
+  currentUser,
   isMutedAudio = false,
   isMutedVideo = false,
   toggleMuteAudio,
@@ -20,10 +21,12 @@ export default function CallPanel({
 }) {
   const { t } = useLanguage();
   const [durationSec, setDurationSec] = useState(0);
+  const [isSwapped, setIsSwapped] = useState(false);
+  const [hasRemoteVideo, setHasRemoteVideo] = useState(false);
 
-  const remoteVideoRef = useRef(null);
   const remoteAudioRef = useRef(null);
-  const localVideoRef = useRef(null);
+  const mainVideoRef = useRef(null);
+  const pipVideoRef = useRef(null);
 
   const connected = callState === 'connected';
   const incoming = callState === 'incoming';
@@ -48,19 +51,42 @@ export default function CallPanel({
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Attach remote video callback
-  const attachRemoteVideo = useCallback(
-    (node) => {
-      remoteVideoRef.current = node;
-      if (node && remoteStream) {
-        node.srcObject = remoteStream;
-        node.play().catch(() => {});
-      }
-    },
-    [remoteStream]
-  );
+  // Detect whether remoteStream has an active video track
+  useEffect(() => {
+    if (!remoteStream) {
+      setHasRemoteVideo(false);
+      return undefined;
+    }
 
-  // Attach remote audio callback
+    const checkVideo = () => {
+      const vTracks = remoteStream.getVideoTracks();
+      const active = vTracks.some((t) => t.enabled && t.readyState === 'live');
+      setHasRemoteVideo(active);
+    };
+
+    checkVideo();
+    remoteStream.addEventListener('addtrack', checkVideo);
+    remoteStream.addEventListener('removetrack', checkVideo);
+
+    const vTracks = remoteStream.getVideoTracks();
+    vTracks.forEach((track) => {
+      track.addEventListener('mute', checkVideo);
+      track.addEventListener('unmute', checkVideo);
+      track.addEventListener('ended', checkVideo);
+    });
+
+    return () => {
+      remoteStream.removeEventListener('addtrack', checkVideo);
+      remoteStream.removeEventListener('removetrack', checkVideo);
+      vTracks.forEach((track) => {
+        track.removeEventListener('mute', checkVideo);
+        track.removeEventListener('unmute', checkVideo);
+        track.removeEventListener('ended', checkVideo);
+      });
+    };
+  }, [remoteStream]);
+
+  // Keep remote audio track playing
   const attachRemoteAudio = useCallback(
     (node) => {
       remoteAudioRef.current = node;
@@ -72,38 +98,38 @@ export default function CallPanel({
     [remoteStream]
   );
 
-  // Attach local video callback
-  const attachLocalVideo = useCallback(
-    (node) => {
-      localVideoRef.current = node;
-      if (node && localStream) {
-        node.srcObject = localStream;
-        node.play().catch(() => {});
-      }
-    },
-    [localStream]
-  );
-
-  // Sync streams whenever remoteStream or localStream change
   useEffect(() => {
-    if (remoteVideoRef.current && remoteStream) {
-      remoteVideoRef.current.srcObject = remoteStream;
-      remoteVideoRef.current.play().catch(() => {});
-    }
     if (remoteAudioRef.current && remoteStream) {
       remoteAudioRef.current.srcObject = remoteStream;
       remoteAudioRef.current.play().catch(() => {});
     }
   }, [remoteStream]);
 
+  // Attach streams to main and PiP video elements based on isSwapped
   useEffect(() => {
-    if (localVideoRef.current && localStream) {
-      localVideoRef.current.srcObject = localStream;
-      localVideoRef.current.play().catch(() => {});
-    }
-  }, [localStream]);
+    const mainStream = isSwapped ? localStream : remoteStream;
+    const pipStream = isSwapped ? remoteStream : localStream;
 
-  // Support keyboard answering in active chat panel when call is incoming
+    if (mainVideoRef.current) {
+      if (mainStream) {
+        mainVideoRef.current.srcObject = mainStream;
+        mainVideoRef.current.play().catch(() => {});
+      } else {
+        mainVideoRef.current.srcObject = null;
+      }
+    }
+
+    if (pipVideoRef.current) {
+      if (pipStream) {
+        pipVideoRef.current.srcObject = pipStream;
+        pipVideoRef.current.play().catch(() => {});
+      } else {
+        pipVideoRef.current.srcObject = null;
+      }
+    }
+  }, [isSwapped, localStream, remoteStream]);
+
+  // Keyboard answering when call is incoming
   useEffect(() => {
     if (!incoming) return undefined;
     const handleKeyDown = (e) => {
@@ -121,12 +147,31 @@ export default function CallPanel({
 
   if (callState === 'idle') return null;
 
-  const avatarSrc = resolveAvatarUrl(friend?.avatarUrl, friend?.username);
-  const friendName = friend?.username || 'Friend';
+  const friendAvatarSrc = resolveAvatarUrl(friend?.avatarUrl, friend?.username);
+  const friendDisplayName = friend?.displayName || friend?.username || 'Friend';
+
+  const myAvatarSrc = resolveAvatarUrl(currentUser?.avatarUrl, currentUser?.username);
+  const myDisplayName = currentUser?.displayName || currentUser?.username || 'You';
+
+  // Which user is currently in the big main view
+  const bigPersonAvatar = isSwapped ? myAvatarSrc : friendAvatarSrc;
+  const bigPersonName = isSwapped ? myDisplayName : friendDisplayName;
+
+  // Which user is currently in the small PiP view
+  const pipPersonAvatar = isSwapped ? friendAvatarSrc : myAvatarSrc;
+  const pipPersonName = isSwapped ? friendDisplayName : myDisplayName;
+
+  const isMainVideoActive = isSwapped
+    ? Boolean(localStream && !isMutedVideo)
+    : Boolean(connected && hasRemoteVideo);
+
+  const isPipVideoActive = isSwapped
+    ? Boolean(connected && hasRemoteVideo)
+    : Boolean(localStream && !isMutedVideo);
 
   return (
-    <div className={`call-panel ${videoCall ? 'video-call-active' : 'voice-call-active'} state-${callState}`}>
-      {/* Remote Audio Track for voice & video call audio */}
+    <div className={`whatsapp-call-overlay ${videoCall ? 'video-mode' : 'voice-mode'} state-${callState}`}>
+      {/* Remote Audio Track */}
       <audio
         ref={attachRemoteAudio}
         autoPlay
@@ -134,166 +179,217 @@ export default function CallPanel({
         onLoadedMetadata={(e) => e.target.play().catch(() => {})}
       />
 
-      {videoCall && (
-        <div className="video-streams-container">
-          {/* Remote Video element - always in DOM, displayed when stream active */}
-          <video
-            ref={attachRemoteVideo}
-            className={`remote-video ${connected && remoteStream ? 'video-ready' : 'video-hidden'}`}
-            autoPlay
-            playsInline
-            onLoadedMetadata={(e) => e.target.play().catch(() => {})}
-          />
+      {/* 1. Full-Screen Ambient Blurred Photo Backdrop (WhatsApp Luxury Look) */}
+      <div
+        className="whatsapp-call-ambient-backdrop"
+        style={friendAvatarSrc ? { backgroundImage: `url(${friendAvatarSrc})` } : undefined}
+      />
 
-          {/* Placeholder while connecting or when video is loading */}
-          {(!connected || !remoteStream) && (
-            <div className="video-connecting-placeholder">
-              <div className="video-avatar-pulse">
-                {friend?.avatarUrl ? (
-                  <img
-                    src={avatarSrc}
-                    alt={friendName}
-                    className="call-friend-avatar"
-                    onError={(e) => handleAvatarError(e, friendName)}
-                  />
-                ) : (
-                  <div className="call-friend-initial">{getInitials(friendName)}</div>
-                )}
-                <span className="pulse-ring"></span>
-              </div>
-              <p className="connecting-text">
-                {calling ? t(isRinging ? 'ringing' : 'calling') : incoming ? t('incomingVideoCall') : t('videoCall')}
-              </p>
-            </div>
-          )}
-
-          {/* Local Video Picture-in-Picture */}
-          <video
-            ref={attachLocalVideo}
-            className={`local-video ${isMutedVideo ? 'camera-off' : ''}`}
-            autoPlay
-            muted
-            playsInline
-            onLoadedMetadata={(e) => e.target.play().catch(() => {})}
-          />
-
-          {/* Connected Call Duration Header for Video */}
-          {connected && (
-            <div className="video-call-header-overlay">
-              <span className="video-peer-name">{friendName}</span>
-              <span className="video-call-duration">{formatDuration(durationSec)}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {!videoCall && (
-        <div className="voice-call-container">
-          <div className="voice-avatar-wrapper">
-            {friend?.avatarUrl ? (
-              <img
-                src={avatarSrc}
-                alt={friendName}
-                className="voice-friend-avatar"
-                onError={(e) => handleAvatarError(e, friendName)}
-              />
-            ) : (
-              <div className="voice-friend-initial">{getInitials(friendName)}</div>
-            )}
-            <span className={`voice-pulse-ring ${connected ? 'connected-pulse' : 'calling-pulse'}`}></span>
+      {/* 2. Top Header Overlay: Name, Encryption Lock & Duration */}
+      <header className="whatsapp-call-top-bar">
+        <div className="whatsapp-top-info">
+          <div className="whatsapp-encrypted-pill">
+            <i className="fa-solid fa-lock" />
+            <span>End-to-end encrypted</span>
           </div>
-
-          <strong className="voice-caller-name">{friendName}</strong>
-          <span className="voice-call-status">
-            {connected
-              ? formatDuration(durationSec)
-              : incoming
-                ? t('incomingVoiceCall')
-                : calling
-                  ? t(isRinging ? 'ringing' : 'calling')
-                  : t('voiceCall')}
+          <h2 className="whatsapp-call-peer-name">{friendDisplayName}</h2>
+          <span className="whatsapp-call-status-pill">
+            {connected ? (
+              <>
+                <span className="live-call-dot" />
+                <span>{formatDuration(durationSec)}</span>
+              </>
+            ) : calling ? (
+              <span>{t(isRinging ? 'ringing' : 'calling')}...</span>
+            ) : incoming ? (
+              <span>{t(videoCall ? 'incomingVideoCall' : 'incomingVoiceCall')}</span>
+            ) : (
+              <span>Connecting...</span>
+            )}
           </span>
         </div>
-      )}
+      </header>
 
-      {error && <div className="call-error-banner">{error}</div>}
+      {/* 3. Main Center View: Full-Screen Remote Video OR Large Photo of Person */}
+      <div className="whatsapp-main-viewport">
+        {videoCall && (
+          <video
+            ref={mainVideoRef}
+            className={`whatsapp-main-video ${isMainVideoActive ? 'is-visible' : 'is-hidden'}`}
+            autoPlay
+            playsInline
+            muted={isSwapped}
+            onLoadedMetadata={(e) => e.target.play().catch(() => {})}
+          />
+        )}
 
-      {/* Action and Control Bar */}
-      <div className="call-control-bar">
+        {/* When video is not yet streaming, camera is off, or voice call: Show BIG Photo */}
+        {(!videoCall || !isMainVideoActive) && (
+          <div className="whatsapp-big-photo-card">
+            <div className="whatsapp-big-avatar-wrapper">
+              {bigPersonAvatar ? (
+                <img
+                  src={bigPersonAvatar}
+                  alt={bigPersonName}
+                  className="whatsapp-big-avatar-img"
+                  onError={(e) => handleAvatarError(e, bigPersonName)}
+                />
+              ) : (
+                <div className="whatsapp-big-avatar-fallback">
+                  {getInitials(bigPersonName)}
+                </div>
+              )}
+              {/* WhatsApp Pulsing Emerald Wave Rings */}
+              <span className={`whatsapp-pulse-ring ring-1 ${connected ? 'connected-glow' : ''}`} />
+              <span className={`whatsapp-pulse-ring ring-2 ${connected ? 'connected-glow' : ''}`} />
+            </div>
+
+            <h3 className="whatsapp-photo-name">{bigPersonName}</h3>
+            <p className="whatsapp-photo-subtext">
+              {connected
+                ? (videoCall ? 'Video is connecting / camera paused' : `${formatDuration(durationSec)} • Voice Call`)
+                : calling
+                  ? t(isRinging ? 'ringing' : 'calling')
+                  : incoming
+                    ? (videoCall ? 'Incoming WhatsApp Video Call...' : 'Incoming WhatsApp Voice Call...')
+                    : 'Connecting call...'}
+            </p>
+          </div>
+        )}
+
+        {/* 4. Small Picture-in-Picture (PiP) Window (WhatsApp Floating Corner Card) */}
+        {videoCall && (
+          <div
+            className="whatsapp-pip-container"
+            onClick={() => setIsSwapped((prev) => !prev)}
+            title="Tap to swap view"
+            role="button"
+            tabIndex={0}
+          >
+            <video
+              ref={pipVideoRef}
+              className={`whatsapp-pip-video ${isPipVideoActive ? 'is-visible' : 'is-hidden'}`}
+              autoPlay
+              playsInline
+              muted={!isSwapped}
+              onLoadedMetadata={(e) => e.target.play().catch(() => {})}
+            />
+
+            {!isPipVideoActive && (
+              <div className="whatsapp-pip-placeholder">
+                {pipPersonAvatar ? (
+                  <img
+                    src={pipPersonAvatar}
+                    alt={pipPersonName}
+                    className="whatsapp-pip-avatar"
+                    onError={(e) => handleAvatarError(e, pipPersonName)}
+                  />
+                ) : (
+                  <div className="whatsapp-pip-initial">
+                    {getInitials(pipPersonName)}
+                  </div>
+                )}
+                <span className="whatsapp-pip-cam-off-icon">
+                  <i className="fa-solid fa-video-slash" />
+                </span>
+              </div>
+            )}
+
+            <div className="whatsapp-pip-swap-badge">
+              <i className="fa-solid fa-arrows-rotate" />
+              <span>Swap</span>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {error && <div className="whatsapp-call-error-toast">{error}</div>}
+
+      {/* 5. Floating Bottom Control Dock (WhatsApp Style) */}
+      <footer className="whatsapp-call-bottom-dock">
         {incoming ? (
-          <div className="incoming-actions">
+          <div className="whatsapp-incoming-actions">
             <button
               type="button"
-              className="btn-call-action btn-accept pulse-accept"
-              onClick={() => onAccept && onAccept()}
-              title={`${t('accept')} (Press Enter or Space)`}
+              className="whatsapp-ctrl-btn btn-accept-call pulse-accept"
+              onClick={onAccept}
+              title={`${t('accept')} (Enter / Space)`}
               aria-label={t('accept')}
               autoFocus
             >
-              <i className={`fa-solid ${videoCall ? 'fa-video' : 'fa-phone'}`}></i>
-              <span>{t('accept')}</span>
+              <i className={`fa-solid ${videoCall ? 'fa-video' : 'fa-phone'}`} />
+              <span className="btn-label">{t('accept')}</span>
             </button>
+
             <button
               type="button"
-              className="btn-call-action btn-hangup"
-              onClick={() => onEnd && onEnd()}
-              title={`${t('decline')} (Press Esc)`}
+              className="whatsapp-ctrl-btn btn-decline-call"
+              onClick={onEnd}
+              title={`${t('decline')} (Esc)`}
               aria-label={t('decline')}
             >
-              <i className="fa-solid fa-phone-slash"></i>
-              <span>{t('decline')}</span>
+              <i className="fa-solid fa-phone-slash" />
+              <span className="btn-label">{t('decline')}</span>
             </button>
           </div>
         ) : (
-          <div className="active-call-controls">
-            {connected && toggleMuteAudio && (
+          <div className="whatsapp-active-controls">
+            {/* Audio Mute Button */}
+            {toggleMuteAudio && (
               <button
                 type="button"
-                className={`btn-call-ctrl ${isMutedAudio ? 'active-mute' : ''}`}
+                className={`whatsapp-ctrl-btn ${isMutedAudio ? 'is-muted' : ''}`}
                 onClick={toggleMuteAudio}
                 title={isMutedAudio ? t('unmute') : t('mute')}
                 aria-label={isMutedAudio ? t('unmute') : t('mute')}
               >
-                <i className={`fa-solid ${isMutedAudio ? 'fa-microphone-slash' : 'fa-microphone'}`}></i>
+                <i className={`fa-solid ${isMutedAudio ? 'fa-microphone-slash' : 'fa-microphone'}`} />
+                <span className="btn-hint">{isMutedAudio ? 'Muted' : 'Mute'}</span>
               </button>
             )}
 
-            {videoCall && connected && toggleMuteVideo && (
+            {/* Video Camera Toggle */}
+            {videoCall && toggleMuteVideo && (
               <button
                 type="button"
-                className={`btn-call-ctrl ${isMutedVideo ? 'active-mute' : ''}`}
+                className={`whatsapp-ctrl-btn ${isMutedVideo ? 'is-muted' : ''}`}
                 onClick={toggleMuteVideo}
                 title={isMutedVideo ? t('turnCameraOn') : t('turnCameraOff')}
                 aria-label={isMutedVideo ? t('turnCameraOn') : t('turnCameraOff')}
               >
-                <i className={`fa-solid ${isMutedVideo ? 'fa-video-slash' : 'fa-video'}`}></i>
+                <i className={`fa-solid ${isMutedVideo ? 'fa-video-slash' : 'fa-video'}`} />
+                <span className="btn-hint">{isMutedVideo ? 'Cam Off' : 'Cam On'}</span>
               </button>
             )}
 
-            {videoCall && connected && switchCamera && (
+            {/* Flip / Switch Camera Button */}
+            {videoCall && switchCamera && (
               <button
                 type="button"
-                className="btn-call-ctrl"
+                className="whatsapp-ctrl-btn btn-flip"
                 onClick={switchCamera}
                 title={t('switchCamera')}
                 aria-label={t('switchCamera')}
               >
-                <i className="fa-solid fa-camera-rotate"></i>
+                <i className="fa-solid fa-camera-rotate" />
+                <span className="btn-hint">Flip</span>
               </button>
             )}
 
+            {/* End Call Button (Big Red WhatsApp Hangup) */}
             <button
               type="button"
-              className="btn-call-ctrl btn-hangup"
+              className="whatsapp-ctrl-btn btn-hangup-call"
               onClick={onEnd}
               title={t('endCall')}
               aria-label={t('endCall')}
             >
-              <i className="fa-solid fa-phone-slash"></i>
+              <i className="fa-solid fa-phone-slash" />
+              <span className="btn-hint">End</span>
             </button>
           </div>
         )}
-      </div>
+      </footer>
     </div>
   );
 }

@@ -1246,6 +1246,7 @@ export default function Chat({ currentUserId, currentUser }) {
           remoteStream={call.remoteStream}
           error={call.error}
           friend={friend}
+          currentUser={currentUser}
           isMutedAudio={call.isMutedAudio}
           isMutedVideo={call.isMutedVideo}
           toggleMuteAudio={call.toggleMuteAudio}

@@ -3,6 +3,7 @@ import {
   fetchWeather,
   getUserCoordinates,
   reverseGeocode,
+  detectCurrentLivingCity,
   loadSavedCities,
   saveCityToStorage,
   removeCityFromStorage,
@@ -75,23 +76,24 @@ export function WeatherProvider({ children }) {
     }
   }, []);
 
-  // Detect location using browser Geolocation
+  // Detect location using GPS or instant IP location
   const detectLocation = useCallback(async () => {
     setIsDetecting(true);
     setError(null);
     try {
-      const coords = await getUserCoordinates();
-      const geo = await reverseGeocode(coords.latitude, coords.longitude);
-      const res = await loadWeatherForCoords(
-        coords.latitude,
-        coords.longitude,
-        geo.city,
-        geo.country,
-        true
-      );
-      return res;
+      const detected = await detectCurrentLivingCity();
+      if (detected) {
+        const res = await loadWeatherForCoords(
+          detected.latitude,
+          detected.longitude,
+          detected.cityName,
+          detected.country,
+          true
+        );
+        return res;
+      }
     } catch (err) {
-      console.warn('Geolocation failed or denied:', err);
+      console.warn('Geolocation detection failed:', err);
       setError('Could not access your location. You can search for your city above.');
       return null;
     } finally {
@@ -151,21 +153,40 @@ export function WeatherProvider({ children }) {
   }, []);
 
   // Initialize weather on first load:
-  // 1. Check last location from localStorage
-  // 2. Or try to auto-detect location
-  // 3. Or default to a prominent city (e.g., London / Accra)
+  // Automatically detects and defaults to the user's current city living!
   useEffect(() => {
-    const last = loadLastLocation();
-    if (last && last.latitude && last.longitude) {
-      loadWeatherForCoords(last.latitude, last.longitude, last.cityName, last.country, last.isDetected);
-    } else {
-      // Try soft detection, or fallback
-      detectLocation().catch(() => {
-        // Fallback default city (Accra / London)
-        loadWeatherForCoords(5.6037, -0.187, 'Accra', 'Ghana', false);
-      });
+    let isMounted = true;
+
+    async function initWeather() {
+      // First, if there's a previously detected location, load it quickly
+      const last = loadLastLocation();
+      if (last && last.latitude && last.longitude && last.isDetected) {
+        await loadWeatherForCoords(last.latitude, last.longitude, last.cityName, last.country, true);
+      }
+
+      // Automatically detect and update to user's current city living
+      try {
+        const currentLiving = await detectCurrentLivingCity();
+        if (isMounted && currentLiving) {
+          await loadWeatherForCoords(
+            currentLiving.latitude,
+            currentLiving.longitude,
+            currentLiving.cityName,
+            currentLiving.country,
+            true
+          );
+        }
+      } catch (e) {
+        console.warn('Could not auto-detect living city on mount:', e);
+      }
     }
-  }, [loadWeatherForCoords, detectLocation]);
+
+    initWeather();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [loadWeatherForCoords]);
 
   return (
     <WeatherContext.Provider

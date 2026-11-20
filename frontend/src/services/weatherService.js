@@ -237,9 +237,96 @@ export function getUserCoordinates() {
       (error) => {
         reject(error);
       },
-      { timeout: 10000, enableHighAccuracy: false }
+      { timeout: 8000, enableHighAccuracy: true }
     );
   });
+}
+
+// Automatically detect user's current city living via GPS or instant IP Geolocation
+export async function detectCurrentLivingCity() {
+  // Strategy 1: Browser GPS geolocation
+  try {
+    const coords = await getUserCoordinates();
+    const geo = await reverseGeocode(coords.latitude, coords.longitude);
+    if (geo.city && geo.city !== 'My Location') {
+      return {
+        cityName: geo.city,
+        country: geo.country,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
+        isDetected: true,
+      };
+    }
+  } catch (gpsError) {
+    // GPS denied or timed out, seamlessly proceed to IP geolocation
+  }
+
+  // Strategy 2: BigDataCloud client IP geolocation (free, instant, no prompt needed)
+  try {
+    const res = await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=en');
+    if (res.ok) {
+      const data = await res.json();
+      const city = data.city || data.locality || data.principalSubdivision;
+      if (city && data.latitude && data.longitude) {
+        return {
+          cityName: city,
+          country: data.countryName || '',
+          latitude: data.latitude,
+          longitude: data.longitude,
+          isDetected: true,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('BigDataCloud IP detection failed:', e);
+  }
+
+  // Strategy 3: FreeIPApi fallback
+  try {
+    const res = await fetch('https://freeipapi.com/api/json');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.cityName && data.latitude && data.longitude) {
+        return {
+          cityName: data.cityName,
+          country: data.countryName || '',
+          latitude: data.latitude,
+          longitude: data.longitude,
+          isDetected: true,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('FreeIPApi fallback failed:', e);
+  }
+
+  // Strategy 4: ipapi.co fallback
+  try {
+    const res = await fetch('https://ipapi.co/json/');
+    if (res.ok) {
+      const data = await res.json();
+      if (data.city && data.latitude && data.longitude) {
+        return {
+          cityName: data.city,
+          country: data.country_name || '',
+          latitude: data.latitude,
+          longitude: data.longitude,
+          isDetected: true,
+        };
+      }
+    }
+  } catch (e) {
+    console.warn('ipapi.co fallback failed:', e);
+  }
+
+  // Fallback if offline
+  return {
+    cityName: 'Accra',
+    country: 'Ghana',
+    latitude: 5.6037,
+    longitude: -0.187,
+    isDetected: false,
+  };
 }
 
 // Manage Saved Cities in LocalStorage

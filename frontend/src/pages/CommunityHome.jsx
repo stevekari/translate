@@ -1123,6 +1123,65 @@ export default function CommunityHome({ user }) {
         </div>
       </section>
 
+      {/* Mobile-Only 5-Day Weather & Rain Prediction Capsule (Shown on mobile when left sidebar is hidden) */}
+      {weather && fiveDaysWeather.length > 0 && (
+        <div className="mobile-feed-weather-card">
+          <div className="mobile-feed-weather-top" onClick={openWeatherModal} role="button" tabIndex={0}>
+            <div className="mobile-weather-left">
+              <span className="mobile-weather-city">
+                <i className="fa-solid fa-location-dot"></i> {weather.cityName}
+              </span>
+              <span className="mobile-weather-type">{weather.conditionText}</span>
+            </div>
+            <div className="mobile-weather-right">
+              <i className={weather.conditionIcon} style={{ color: weather.conditionColor }} />
+              <span className="mobile-weather-temp">{formatTemp(weather.temperature)}</span>
+            </div>
+          </div>
+
+          {rainForecastSummary && (
+            <div className={`shortcuts-rain-alert ${rainForecastSummary.willRain ? 'has-rain' : 'no-rain'}`}>
+              <i className={`fa-solid ${rainForecastSummary.willRain ? 'fa-cloud-showers-heavy' : 'fa-sun'}`} />
+              <span>{rainForecastSummary.message}</span>
+            </div>
+          )}
+
+          {/* Horizontal swipeable 5-day forecast cards for mobile */}
+          <div className="mobile-5days-scroll">
+            {fiveDaysWeather.map((day) => {
+              const willRain =
+                day.precipitationProb >= 35 ||
+                [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(day.weatherCode);
+
+              return (
+                <div
+                  key={day.date}
+                  className={`mobile-day-card ${day.dayName === 'Today' ? 'is-today' : ''}`}
+                  onClick={openWeatherModal}
+                >
+                  <span className="mobile-day-name">{day.dayName}</span>
+                  <i className={`${day.icon} mobile-day-icon`} style={{ color: day.color }} />
+                  <span className="mobile-day-type">{day.label}</span>
+                  {willRain ? (
+                    <span className="mobile-rain-badge will-rain">
+                      <i className="fa-solid fa-droplet"></i> {day.precipitationProb}%
+                    </span>
+                  ) : (
+                    <span className="mobile-rain-badge no-rain">
+                      <i className="fa-solid fa-sun"></i> 0%
+                    </span>
+                  )}
+                  <div className="mobile-day-temps">
+                    <span className="temp-max">{formatTemp(day.maxTemp)}</span>
+                    <span className="temp-min">{formatTemp(day.minTemp)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* 3. Feed Navigation / Filter Tabs */}
       <div className="community-filter-tabs">
         <button

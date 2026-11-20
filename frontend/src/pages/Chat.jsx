@@ -26,6 +26,7 @@ import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import { formatTimeAgo, getUserActivitySummary } from '../utils/timeAgo';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useWeather } from '../contexts/WeatherContext';
 import { useWebRTCCall } from '../hooks/useWebRTCCall';
 import CallPanel from '../components/CallPanel';
 import QRRoomModal from '../components/QRRoomModal';
@@ -97,6 +98,7 @@ export default function Chat({ currentUserId, currentUser }) {
   const [showMessengerToolsModal, setShowMessengerToolsModal] = useState(false);
   const [familyProfile, setFamilyProfile] = useState(null);
   const [blockConfirmTarget, setBlockConfirmTarget] = useState(null);
+  const { weather, formatTemp, openWeatherModal } = useWeather();
 
   useEffect(() => {
     const fId = friend?.id || friend?.userId || friend?._id;
@@ -965,6 +967,17 @@ export default function Chat({ currentUserId, currentUser }) {
                     title={isFriendBlocked ? 'Unblock user to make video calls' : !isAccepted ? 'Calls available once request is accepted' : 'Start video call'}
                   >
                     <i className="fa-solid fa-video"></i>
+                  </button>
+
+                  {/* Weather - positioned at top right after video call */}
+                  <button
+                    type="button"
+                    className="chat-call-btn weather-call-btn"
+                    onClick={openWeatherModal}
+                    title={weather ? `Weather: ${weather.cityName} (${formatTemp(weather.temperature)})` : 'Check Weather & Forecast'}
+                    aria-label="Weather & Forecast"
+                  >
+                    <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
                   </button>
 
                   {/* Facebook Messenger More / Chat Details & Tools button */}

@@ -6,6 +6,7 @@ import './index.css';
 import './styles/passwordMeter.css';
 import { LanguageProvider } from './contexts/LanguageContext.jsx';
 import { ThemeProvider } from './contexts/ThemeContext.jsx';
+import { WeatherProvider } from './contexts/WeatherContext.jsx';
 import { Provider } from 'react-redux';
 import { store } from './store/store.js';
 import { registerServiceWorker } from './utils/registerServiceWorker.js';
@@ -35,7 +36,9 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         <BrowserRouter>
           <ThemeProvider>
             <LanguageProvider>
-              <App />
+              <WeatherProvider>
+                <App />
+              </WeatherProvider>
             </LanguageProvider>
           </ThemeProvider>
         </BrowserRouter>

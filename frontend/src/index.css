@@ -15,6 +15,7 @@
 @import './styles/facebookRequests.css';
 @import './styles/voiceTranslate.css';
 @import './styles/liveScoresAndNews.css';
+@import './styles/weather.css';
 
 /* LIGHT THEME - default */
 :root {

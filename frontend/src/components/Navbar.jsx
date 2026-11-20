@@ -9,6 +9,7 @@ import { setMyStatus } from '../store/slices/presenceSlice';
 import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import QRRoomModal from './QRRoomModal';
 import VoiceTranslateModal from './VoiceTranslateModal';
+import { useWeather } from '../contexts/WeatherContext';
 
 export default function Navbar({ user, onLogout, isChatOpen }) {
   const navigate = useNavigate();
@@ -23,6 +24,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showQRModal, setShowQRModal] = useState(false);
   const [showVoiceTranslateModal, setShowVoiceTranslateModal] = useState(false);
+  const { weather, formatTemp, showWeatherModal, openWeatherModal } = useWeather();
 
   const totalUnread = useMemo(() => {
     return Object.values(conversations).reduce((sum, conv) => sum + (conv.unread || 0), 0);
@@ -112,6 +114,22 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               <i className="fa-solid fa-video" />
             </div>
           </Link>
+
+          {/* Weather Tab - positioned at the top right after video call */}
+          <button
+            type="button"
+            className={`fb-tab weather-nav-tab ${showWeatherModal ? 'active' : ''}`}
+            onClick={openWeatherModal}
+            title={weather ? `Weather: ${weather.cityName} (${formatTemp(weather.temperature)}) - Click for details` : 'Weather & Forecast'}
+            aria-label="Weather & Forecast"
+          >
+            <div className="fb-tab-icon-wrap weather-tab-icon-wrap">
+              <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
+              {weather?.temperature != null && (
+                <span className="weather-mini-temp">{formatTemp(weather.temperature)}</span>
+              )}
+            </div>
+          </button>
         </div>
       )}
 
@@ -120,6 +138,17 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         <div className="fb-nav-right">
           {/* Settings & Toggle placed right next to each other */}
           <div className="fb-nav-toggle-group">
+            {/* Live Weather Quick Button */}
+            <button
+              type="button"
+              onClick={openWeatherModal}
+              className="fb-circle-btn weather-circle-btn"
+              title={weather ? `Weather: ${weather.cityName} (${formatTemp(weather.temperature)})` : 'Weather & Forecast'}
+              aria-label="Weather"
+            >
+              <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
+            </button>
+
             {/* Live Voice Translator */}
             <button
               type="button"

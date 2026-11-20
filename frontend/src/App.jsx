@@ -21,6 +21,7 @@ import { LanguageProvider } from './contexts/LanguageContext';
 import { useIncomingCallNotifications } from './hooks/useIncomingCallNotifications';
 import IncomingCallPopup from './components/IncomingCallPopup';
 import TopNotificationToast from './components/TopNotificationToast';
+import WeatherModal from './components/WeatherModal';
 
 function RequireAuth({ isAuthenticated, children }) {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -83,6 +84,7 @@ export default function App() {
       <div className={`app-shell ${isChatOpen ? 'is-chat-active' : ''} ${isAuthenticated ? 'is-authenticated' : ''}`}>
         <Navbar user={user} onLogout={logout} isChatOpen={isChatOpen} />
         <TopNotificationToast />
+        <WeatherModal />
         <IncomingCallManager user={user} />
         <main className="app-main">
           <Routes>

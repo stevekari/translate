@@ -16,12 +16,14 @@ import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LiveFootballAndNews from '../components/LiveFootballAndNews';
 import SidebarAiWidget from '../components/SidebarAiWidget';
 import HomeNewsFeed from '../components/HomeNewsFeed';
+import { useWeather } from '../contexts/WeatherContext';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
 
 export default function CommunityHome({ user }) {
   const navigate = useNavigate();
   const { language: currentLang, languageOptions, t } = useLanguage();
+  const { weather, formatTemp, openWeatherModal } = useWeather();
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -58,6 +60,30 @@ export default function CommunityHome({ user }) {
     };
     return map[targetLangCode.toLowerCase()] || targetLangCode.toUpperCase();
   }, [targetLangCode]);
+
+  // 5-Day Weather & Rain Forecast calculation for the left sidebar shortcuts card
+  const fiveDaysWeather = useMemo(() => {
+    if (!weather?.forecast || weather.forecast.length === 0) return [];
+    return weather.forecast.slice(0, 5);
+  }, [weather?.forecast]);
+
+  const rainForecastSummary = useMemo(() => {
+    if (!fiveDaysWeather || fiveDaysWeather.length === 0) return null;
+    const rainyDays = fiveDaysWeather.filter(
+      (d) =>
+        d.precipitationProb >= 35 ||
+        [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(d.weatherCode)
+    );
+    if (rainyDays.length === 0) {
+      return { willRain: false, message: 'Sunny & dry for the next 5 days ☀️' };
+    }
+    const daysStr = rainyDays.map((d) => d.dayName).join(', ');
+    const maxChance = Math.max(...rainyDays.map((d) => d.precipitationProb || 50));
+    return {
+      willRain: true,
+      message: `Rain expected on ${daysStr} (${maxChance}% chance) 🌧️`,
+    };
+  }, [fiveDaysWeather]);
 
   // Active comments accordion: { [postId]: { open: boolean, loading: boolean, list: [] } }
   const [commentsState, setCommentsState] = useState({});
@@ -801,6 +827,94 @@ export default function CommunityHome({ user }) {
               <span>GioTranslate Settings</span>
             </button>
           </div>
+
+          {/* 5-Day Weather & Rain Forecast (At the bottom of shortcuts) */}
+          {weather && fiveDaysWeather.length > 0 && (
+            <div className="shortcuts-weather-section">
+              <div className="shortcuts-weather-divider" />
+              <div
+                className="shortcuts-weather-header"
+                onClick={openWeatherModal}
+                role="button"
+                tabIndex={0}
+                title="Click for full 7-day forecast & city search"
+              >
+                <div className="shortcuts-weather-title-group">
+                  <span className="shortcuts-weather-label">
+                    <i className="fa-solid fa-cloud-sun"></i> 5-Day Weather
+                  </span>
+                  <span className="shortcuts-weather-city">
+                    <i className="fa-solid fa-location-dot"></i> {weather.cityName}
+                  </span>
+                </div>
+                <div className="shortcuts-weather-temp-badge">
+                  <i className={weather.conditionIcon} style={{ color: weather.conditionColor }} />
+                  <span>{formatTemp(weather.temperature)}</span>
+                </div>
+              </div>
+
+              {/* Rain Prediction Summary */}
+              {rainForecastSummary && (
+                <div className={`shortcuts-rain-alert ${rainForecastSummary.willRain ? 'has-rain' : 'no-rain'}`}>
+                  <i className={`fa-solid ${rainForecastSummary.willRain ? 'fa-cloud-showers-heavy' : 'fa-sun'}`} />
+                  <span>{rainForecastSummary.message}</span>
+                </div>
+              )}
+
+              {/* 5 Days Weather & Rain Forecast Rows */}
+              <div className="shortcuts-weather-5days-list">
+                {fiveDaysWeather.map((day) => {
+                  const willRain =
+                    day.precipitationProb >= 35 ||
+                    [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(day.weatherCode);
+
+                  return (
+                    <div
+                      key={day.date}
+                      className={`shortcuts-weather-row ${day.dayName === 'Today' ? 'is-today' : ''}`}
+                      onClick={openWeatherModal}
+                      title={`${day.dayName}: ${day.label}, High: ${formatTemp(day.maxTemp)}, Low: ${formatTemp(day.minTemp)}, Rain: ${day.precipitationProb}%`}
+                    >
+                      <div className="sc-day-name-col">
+                        <strong className="sc-day-name">{day.dayName}</strong>
+                        <span className="sc-day-label">{day.label}</span>
+                      </div>
+
+                      <div className="sc-day-icon-col">
+                        <i className={day.icon} style={{ color: day.color }} />
+                      </div>
+
+                      <div className="sc-day-rain-col">
+                        {willRain ? (
+                          <span className="sc-rain-pill will-rain" title={`${day.precipitationProb}% rain chance`}>
+                            <i className="fa-solid fa-droplet"></i> {day.precipitationProb}%
+                          </span>
+                        ) : (
+                          <span className="sc-rain-pill no-rain" title="0% rain">
+                            <i className="fa-solid fa-sun"></i> 0%
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="sc-day-temp-col">
+                        <span className="sc-temp-max">{formatTemp(day.maxTemp)}</span>
+                        <span className="sc-temp-min">{formatTemp(day.minTemp)}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              <button
+                type="button"
+                className="shortcuts-weather-see-all-btn"
+                onClick={openWeatherModal}
+              >
+                <span>Full Forecast & City Search</span>
+                <i className="fa-solid fa-arrow-right"></i>
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 

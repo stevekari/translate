@@ -30,9 +30,40 @@
 .weather-tab-icon-wrap {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: 7px;
     font-size: 1.15rem;
     position: relative;
+}
+
+.weather-mini-city {
+    font-size: 0.84rem;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    white-space: nowrap;
+    max-width: 110px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.2px;
+}
+
+.fb-circle-btn.weather-circle-btn {
+    width: auto;
+    min-width: 40px;
+    padding: 0 10px;
+    border-radius: 20px;
+    gap: 6px;
+    display: inline-flex;
+    align-items: center;
+}
+
+.weather-right-city {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    white-space: nowrap;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .weather-circle-btn i {
@@ -58,15 +89,42 @@
 
 /* Chat Header Weather Button (Positioned after video-call-btn in chat header) */
 .chat-call-btn.weather-call-btn {
+    width: auto;
+    min-width: 38px;
+    padding: 0 10px;
+    border-radius: 18px;
+    gap: 6px;
+    display: inline-flex;
+    align-items: center;
     background: rgba(16, 185, 129, 0.12);
     color: #10b981;
-    border-color: rgba(16, 185, 129, 0.25);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    transition: all 0.2s ease;
 }
 
 .chat-call-btn.weather-call-btn:hover {
     background: rgba(16, 185, 129, 0.25);
     color: #34d399;
-    transform: translateY(-1px) scale(1.05);
+    border-color: rgba(16, 185, 129, 0.45);
+    transform: translateY(-1px) scale(1.02);
+}
+
+.weather-btn-city {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary, #f1f5f9);
+    white-space: nowrap;
+    max-width: 85px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    line-height: 1;
+}
+
+.weather-btn-temp {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: #f59e0b;
+    line-height: 1;
 }
 
 /* Modal Overlay & Backdrop */

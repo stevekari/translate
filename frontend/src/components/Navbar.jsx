@@ -125,6 +125,9 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           >
             <div className="fb-tab-icon-wrap weather-tab-icon-wrap">
               <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
+              {weather?.cityName && (
+                <span className="weather-mini-city">{weather.cityName}</span>
+              )}
               {weather?.temperature != null && (
                 <span className="weather-mini-temp">{formatTemp(weather.temperature)}</span>
               )}
@@ -147,6 +150,9 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               aria-label="Weather"
             >
               <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
+              {weather?.cityName && (
+                <span className="weather-right-city">{weather.cityName}</span>
+              )}
             </button>
 
             {/* Live Voice Translator */}

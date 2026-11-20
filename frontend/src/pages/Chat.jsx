@@ -978,6 +978,12 @@ export default function Chat({ currentUserId, currentUser }) {
                     aria-label="Weather & Forecast"
                   >
                     <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
+                    {weather?.cityName && (
+                      <span className="weather-btn-city">{weather.cityName}</span>
+                    )}
+                    {weather?.temperature != null && (
+                      <span className="weather-btn-temp">{formatTemp(weather.temperature)}</span>
+                    )}
                   </button>
 
                   {/* Facebook Messenger More / Chat Details & Tools button */}

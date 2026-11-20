@@ -18,6 +18,17 @@ export default function QRRoomModal({ user, onClose }) {
   // Generate SVG QR Code
   const qrSvg = generateQRCodeSVG(roomUrl, 240);
 
+  // Keyboard shortcut: Esc to close modal
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const handleCopy = () => {
     navigator.clipboard?.writeText(roomUrl);
     setCopied(true);
@@ -117,7 +128,13 @@ export default function QRRoomModal({ user, onClose }) {
               <p className="unique-modal-sub">Scan or share to chat with instant auto-translation</p>
             </div>
           </div>
-          <button type="button" className="unique-modal-close" onClick={onClose}>
+          <button
+            type="button"
+            className="unique-modal-close"
+            onClick={onClose}
+            title="Close QR Room (Esc)"
+            aria-label="Close"
+          >
             <i className="fa-solid fa-xmark" />
           </button>
         </div>
@@ -159,6 +176,10 @@ export default function QRRoomModal({ user, onClose }) {
                 <i className={`fa-solid ${copied ? 'fa-check' : 'fa-link'}`} />
                 <span>{copied ? 'Link Copied!' : 'Copy Room Link'}</span>
               </button>
+              <button type="button" className="qr-action-btn secondary qr-close-action-btn" onClick={onClose}>
+                <i className="fa-solid fa-xmark" />
+                <span>Close</span>
+              </button>
             </div>
           </div>
         )}
@@ -191,6 +212,13 @@ export default function QRRoomModal({ user, onClose }) {
                 Join
               </button>
             </form>
+
+            <div className="qr-actions scan-actions">
+              <button type="button" className="qr-action-btn secondary qr-close-action-btn" onClick={onClose}>
+                <i className="fa-solid fa-xmark" />
+                <span>Close Scanner</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

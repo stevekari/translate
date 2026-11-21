@@ -268,32 +268,52 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
             ========================================================================= */}
         <div className="sofascore-subbar">
           <div className="sofascore-quick-toggles">
-            {/* Sofascore Signature LIVE Toggle Button */}
+            {/* All Matches (Normal View) */}
             <button
               type="button"
-              className={`sofascore-live-toggle ${liveOnly ? 'is-active' : ''}`}
-              onClick={() => setLiveOnly((prev) => !prev)}
-              title="Toggle Live-only matches"
+              className={`sofascore-view-tab ${!liveOnly && !favoritesOnly ? 'active' : ''}`}
+              onClick={() => {
+                setLiveOnly(false);
+                setFavoritesOnly(false);
+              }}
+              title="Return to normal: show all scheduled and finished matches"
             >
-              <span className="live-toggle-indicator">
-                <span className="status-live-dot" />
-              </span>
-              <span className="live-toggle-label">LIVE</span>
-              <span className="live-toggle-count">{totalLiveMatches}</span>
+              <i className="fa-solid fa-list-ul"></i>
+              <span>All Matches</span>
+              <span className="view-tab-count">{matches.length}</span>
+            </button>
+
+            {/* LIVE Matches Filter */}
+            <button
+              type="button"
+              className={`sofascore-view-tab live-tab ${liveOnly ? 'active' : ''}`}
+              onClick={() => {
+                setLiveOnly(true);
+                setFavoritesOnly(false);
+              }}
+              title="Show only currently live matches"
+            >
+              <span className="status-live-dot" />
+              <span>LIVE</span>
+              <span className="view-tab-count live-count">{totalLiveMatches}</span>
             </button>
 
             {/* Favorites Filter */}
             <button
               type="button"
-              className={`sofascore-filter-pill ${favoritesOnly ? 'active' : ''}`}
-              onClick={() => setFavoritesOnly((prev) => !prev)}
+              className={`sofascore-view-tab ${favoritesOnly ? 'active' : ''}`}
+              onClick={() => {
+                setFavoritesOnly(true);
+                setLiveOnly(false);
+              }}
               title="Filter by bookmarked matches"
             >
               <i className={`fa-${favoritesOnly ? 'solid' : 'regular'} fa-star`}></i>
-              <span>Favorites ({favorites.length})</span>
+              <span>Favorites</span>
+              <span className="view-tab-count">{favorites.length}</span>
             </button>
 
-            {/* Clear Filters (if active) */}
+            {/* Return to Normal / Clear Filters */}
             {(liveOnly || favoritesOnly || selectedLeague !== 'all' || searchQuery) && (
               <button
                 type="button"
@@ -304,8 +324,10 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                   setSelectedLeague('all');
                   setSearchQuery('');
                 }}
+                title="Return to normal: clear all filters"
               >
-                Reset All
+                <i className="fa-solid fa-rotate-left"></i>
+                <span>Return to Normal</span>
               </button>
             )}
           </div>
@@ -380,7 +402,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                   setSearchQuery('');
                 }}
               >
-                View All Matches ({matches.length})
+                <i className="fa-solid fa-rotate-left"></i> Return to Normal Matches ({matches.length})
               </button>
             </div>
           ) : (

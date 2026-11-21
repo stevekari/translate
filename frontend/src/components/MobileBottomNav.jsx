@@ -43,7 +43,31 @@ export default function MobileBottomNav() {
         <span className="mobile-nav-label">Feed</span>
       </button>
 
-      {/* 2. Chats */}
+      {/* 2. Reels / 5h Statuses (Instagram & Facebook Style) */}
+      <button
+        type="button"
+        className="mobile-nav-item"
+        onClick={() => {
+          if (location.pathname !== '/home') {
+            navigate('/home');
+            setTimeout(() => {
+              window.dispatchEvent(new CustomEvent('open-reels-viewer', { detail: { index: 0 } }));
+            }, 350);
+          } else {
+            window.dispatchEvent(new CustomEvent('open-reels-viewer', { detail: { index: 0 } }));
+          }
+        }}
+        aria-label="Reels"
+        title="Watch 5-hour reels & statuses"
+      >
+        <div className="mobile-nav-icon-wrap reels-nav-icon">
+          <i className="fa-solid fa-clapperboard" />
+          <span className="mobile-nav-reels-dot" />
+        </div>
+        <span className="mobile-nav-label">Reels</span>
+      </button>
+
+      {/* 3. Chats */}
       <button
         type="button"
         className={`mobile-nav-item ${isFriendsActive ? 'active' : ''}`}

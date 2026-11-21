@@ -1,0 +1,939 @@
+/* ========================================================
+   📸 INSTAGRAM REELS & FACEBOOK STORIES DESIGN SYSTEM
+   ======================================================== */
+
+/* Stories & Reels Tray (Placed at top of Community Home Feed) */
+.stories-reels-tray {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 12px 14px;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  border-radius: 18px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+  width: 100%;
+  box-sizing: border-box;
+  scroll-snap-type: x mandatory;
+}
+
+:root[data-theme='light'] .stories-reels-tray {
+  background: #ffffff;
+  border-color: #e2e8f0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.stories-reels-tray::-webkit-scrollbar {
+  display: none;
+}
+
+/* 1. Add Story / Reel Card */
+.create-story-card {
+  position: relative;
+  width: 105px;
+  height: 160px;
+  border-radius: 14px;
+  background: var(--surface-hi, rgba(255, 255, 255, 0.04));
+  border: 1.5px dashed var(--primary, #1877f2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 6px;
+  cursor: pointer;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.create-story-card:hover {
+  transform: translateY(-2px);
+  border-color: #38bdf8;
+  background: rgba(24, 119, 242, 0.08);
+}
+
+.create-story-user-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--primary, #1877f2);
+  margin-top: 6px;
+}
+
+.create-story-plus-badge {
+  position: absolute;
+  top: 48px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--primary, #1877f2);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  font-weight: 900;
+  border: 2.5px solid var(--surface, #1e293b);
+  box-shadow: 0 2px 6px rgba(24, 119, 242, 0.4);
+}
+
+.create-story-text-group {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 2px;
+  width: 100%;
+}
+
+.create-story-title {
+  font-size: 0.76rem;
+  font-weight: 800;
+  color: var(--text-primary, #f8fafc);
+  line-height: 1.2;
+}
+
+.create-story-badge {
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  padding: 1px 5px;
+  border-radius: 4px;
+}
+
+/* 2. Story / Reel Item Cards */
+.story-reel-card {
+  position: relative;
+  width: 105px;
+  height: 160px;
+  border-radius: 14px;
+  overflow: hidden;
+  cursor: pointer;
+  flex-shrink: 0;
+  scroll-snap-align: start;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  box-sizing: border-box;
+}
+
+.story-reel-card:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.story-reel-bg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  transition: transform 0.35s ease;
+}
+
+.story-reel-card:hover .story-reel-bg {
+  transform: scale(1.06);
+}
+
+.story-reel-gradient-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.45) 0%, transparent 40%, rgba(0, 0, 0, 0.85) 100%);
+  pointer-events: none;
+}
+
+/* Instagram Signature Rainbow Gradient Ring */
+.story-reel-avatar-wrap {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+}
+
+.story-reel-avatar {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid #000000;
+}
+
+/* 5h Expiry Badge */
+.reel-expiry-pill {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #f8fafc;
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.reel-expiry-pill i {
+  color: #f59e0b;
+}
+
+/* Multi-photo or Video Indicators */
+.reel-type-badge {
+  position: absolute;
+  bottom: 30px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.65);
+  color: #ffffff;
+  font-size: 0.64rem;
+  font-weight: 700;
+  padding: 2px 5px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.story-reel-username {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  color: #ffffff;
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+/* ========================================================
+   ✨ FULLSCREEN INSTAGRAM REELS & STORIES VIEWER MODAL
+   ======================================================== */
+
+.instagram-reels-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.92);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.instagram-reels-container {
+  position: relative;
+  width: min(440px, 100vw);
+  height: min(840px, 100dvh);
+  background: #000000;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8), 0 0 35px rgba(24, 119, 242, 0.2);
+  user-select: none;
+}
+
+@media (max-width: 600px) {
+  .instagram-reels-container {
+    width: 100vw;
+    height: 100dvh;
+    border-radius: 0;
+  }
+}
+
+/* Top Progress Bars (Segmented) */
+.reels-progress-bar-container {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 8px) + 8px);
+  left: 10px;
+  right: 10px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reels-progress-segment {
+  flex: 1;
+  height: 2.5px;
+  background: rgba(255, 255, 255, 0.35);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.reels-progress-fill {
+  height: 100%;
+  background: #ffffff;
+  width: 0%;
+  transition: width 0.08s linear;
+}
+
+/* Top User Header Bar */
+.reels-header-bar {
+  position: absolute;
+  top: calc(env(safe-area-inset-top, 8px) + 20px);
+  left: 12px;
+  right: 12px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.reels-user-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reels-header-avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid #ffffff;
+}
+
+.reels-user-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.reels-username {
+  font-size: 0.86rem;
+  font-weight: 800;
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.reels-time-left-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  color: #f59e0b;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.reels-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.reels-control-icon-btn {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reels-control-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.08);
+}
+
+/* Media Viewport & Tap Zones */
+.reels-media-viewport {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000000;
+}
+
+.reels-media-image,
+.reels-media-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+}
+
+/* Left & Right Tap Zones to navigate slides */
+.reels-tap-zone {
+  position: absolute;
+  top: 80px;
+  bottom: 120px;
+  width: 35%;
+  z-index: 20;
+  cursor: pointer;
+}
+
+.reels-tap-left {
+  left: 0;
+}
+
+.reels-tap-right {
+  right: 0;
+}
+
+/* Paused Overlay Indicator */
+.reels-paused-badge {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(10px);
+  border-radius: 50%;
+  width: 60px;
+  height: 60px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #ffffff;
+  font-size: 1.5rem;
+  z-index: 25;
+  pointer-events: none;
+  animation: pulse 1s infinite;
+}
+
+/* Bottom Interaction Bar (Caption, Like, Quick Reactions) */
+.reels-bottom-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.85) 40%, rgba(0, 0, 0, 0.95) 100%);
+  padding: 16px 14px calc(env(safe-area-inset-bottom, 12px) + 12px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reels-caption-box {
+  color: #ffffff;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+}
+
+.reels-caption-box strong {
+  margin-right: 6px;
+  color: #38bdf8;
+}
+
+/* Quick Emojis */
+.reels-quick-emojis {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.reels-quick-emojis::-webkit-scrollbar {
+  display: none;
+}
+
+.reel-emoji-btn {
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 16px;
+  padding: 4px 9px;
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: transform 0.15s ease;
+}
+
+.reel-emoji-btn:hover {
+  transform: scale(1.2);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Reply Input & Heart Reaction */
+.reels-reply-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.reels-reply-input-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.reels-reply-input {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  border-radius: 24px;
+  padding: 9px 40px 9px 14px;
+  color: #ffffff;
+  font-size: 0.82rem;
+  outline: none;
+  backdrop-filter: blur(8px);
+}
+
+.reels-reply-input::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.reels-send-reply-btn {
+  position: absolute;
+  right: 6px;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--primary, #1877f2);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+}
+
+.reels-heart-btn {
+  background: transparent;
+  border: none;
+  color: #ffffff;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 1.4rem;
+  transition: transform 0.15s ease;
+}
+
+.reels-heart-btn.is-liked {
+  color: #ef4444;
+}
+
+.reels-heart-btn:active {
+  transform: scale(1.3);
+}
+
+.reels-heart-count {
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: #ffffff;
+}
+
+/* ========================================================
+   ✏️ CREATE REEL / STATUS MODAL (Strict 30s Video Limit & Multi-photo)
+   ======================================================== */
+
+.create-reel-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  background: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  overflow-y: auto;
+  animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.create-reel-modal-container {
+  width: min(540px, 100%);
+  max-height: 92dvh;
+  margin: auto;
+  background: var(--surface, #1e293b);
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  border-radius: 20px;
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+:root[data-theme='light'] .create-reel-modal-container {
+  background: #ffffff;
+  border-color: #cbd5e1;
+}
+
+.create-reel-header {
+  padding: 14px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+}
+
+.create-reel-title-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.create-reel-icon-badge {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #f09433, #dc2743);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+}
+
+.create-reel-title-text h3 {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--text-primary, #f8fafc);
+}
+
+.create-reel-title-text span {
+  font-size: 0.72rem;
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.create-reel-close-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  background: var(--surface-hi, rgba(255, 255, 255, 0.05));
+  color: var(--text-muted, #94a3b8);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.create-reel-close-btn:hover {
+  color: #ffffff;
+  background: rgba(239, 68, 68, 0.2);
+}
+
+/* Modal Body */
+.create-reel-body {
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+}
+
+/* 5h Notice Alert */
+.create-reel-5h-notice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  background: rgba(245, 158, 11, 0.12);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+  border-radius: 10px;
+  color: #f59e0b;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+/* Mode Tabs: Photos vs Short Video */
+.create-reel-mode-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.reel-mode-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--surface-hi, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reel-mode-tab.active {
+  background: var(--primary, #1877f2);
+  border-color: var(--primary, #1877f2);
+  color: #ffffff;
+}
+
+/* Upload Dropzone */
+.create-reel-dropzone {
+  border: 2px dashed var(--border, rgba(255, 255, 255, 0.2));
+  border-radius: 14px;
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+  text-align: center;
+  background: rgba(255, 255, 255, 0.02);
+  transition: all 0.2s ease;
+}
+
+.create-reel-dropzone:hover {
+  border-color: var(--primary, #1877f2);
+  background: rgba(24, 119, 242, 0.05);
+}
+
+.create-reel-dropzone i {
+  font-size: 2rem;
+  color: var(--primary, #1877f2);
+}
+
+.create-reel-dropzone h4 {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 800;
+  color: var(--text-primary, #f8fafc);
+}
+
+.create-reel-dropzone p {
+  margin: 0;
+  font-size: 0.74rem;
+  color: var(--text-muted, #94a3b8);
+}
+
+/* Video 30s Limit Badge */
+.video-duration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 8px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  margin-top: 4px;
+}
+
+.video-duration-badge.valid {
+  background: rgba(16, 185, 129, 0.15);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  color: #10b981;
+}
+
+.video-duration-badge.invalid {
+  background: rgba(239, 68, 68, 0.15);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #ef4444;
+}
+
+/* Multi-photo Preview Grid */
+.photos-preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.photo-preview-item {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+}
+
+.photo-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.photo-remove-btn {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+}
+
+.photo-remove-btn:hover {
+  background: #ef4444;
+}
+
+/* Caption Input */
+.create-reel-caption-input {
+  width: 100%;
+  min-height: 60px;
+  background: var(--surface-hi, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  border-radius: 12px;
+  padding: 10px 14px;
+  color: var(--text-primary, #f8fafc);
+  font-size: 0.85rem;
+  outline: none;
+  font-family: inherit;
+  resize: vertical;
+  box-sizing: border-box;
+}
+
+/* Modal Footer */
+.create-reel-footer {
+  padding: 14px 18px;
+  border-top: 1px solid var(--border, rgba(255, 255, 255, 0.08));
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.create-reel-cancel-btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  background: transparent;
+  border: 1px solid var(--border, rgba(255, 255, 255, 0.15));
+  color: var(--text-muted, #94a3b8);
+  font-size: 0.82rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.create-reel-submit-btn {
+  padding: 8px 20px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1877f2, #38bdf8);
+  border: none;
+  color: #ffffff;
+  font-size: 0.85rem;
+  font-weight: 800;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  transition: all 0.18s ease;
+}
+
+.create-reel-submit-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.create-reel-submit-btn:not(:disabled):hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px rgba(24, 119, 242, 0.4);
+}
+
+/* Mobile Bottom Nav Reels Icon */
+.reels-nav-icon {
+  position: relative;
+}
+
+.mobile-nav-reels-dot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #f59e0b;
+  border: 1.5px solid var(--surface, #1e293b);
+}
+
+/* Facebook Mobile Sizing (< 480px) */
+@media (max-width: 480px) {
+  .stories-reels-tray {
+    padding: 8px 10px;
+    border-radius: 14px;
+    gap: 8px;
+  }
+
+  .create-story-card,
+  .story-reel-card {
+    width: 92px;
+    height: 142px;
+    border-radius: 12px;
+  }
+
+  .create-story-user-avatar {
+    width: 44px;
+    height: 44px;
+  }
+
+  .create-story-plus-badge {
+    top: 42px;
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+  }
+
+  .create-story-title {
+    font-size: 0.72rem;
+  }
+
+  .story-reel-avatar-wrap {
+    width: 34px;
+    height: 34px;
+    top: 6px;
+    left: 6px;
+  }
+
+  .reel-expiry-pill {
+    top: 6px;
+    right: 6px;
+    font-size: 0.55rem;
+    padding: 1px 5px;
+  }
+
+  .story-reel-username {
+    font-size: 0.68rem;
+    bottom: 6px;
+    left: 6px;
+    right: 6px;
+  }
+}

@@ -16,6 +16,10 @@ import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LiveFootballAndNews from '../components/LiveFootballAndNews';
 import LiveScoresModal from '../components/LiveScoresModal';
 import HomeNewsFeed from '../components/HomeNewsFeed';
+import StoriesReelsTray from '../components/StoriesReelsTray';
+import CreateReelModal from '../components/CreateReelModal';
+import InstagramReelsViewer from '../components/InstagramReelsViewer';
+import { getActiveReels, saveNewReel, toggleLikeReel } from '../utils/reelsData';
 import { useWeather } from '../contexts/WeatherContext';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
@@ -30,6 +34,27 @@ export default function CommunityHome({ user }) {
   const [filter, setFilter] = useState('all'); // 'all' | 'video' | 'image' | 'text'
   const [showMobileLiveHub, setShowMobileLiveHub] = useState(false);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
+
+  // Instagram / Facebook 5-Hour Reels & Status State
+  const [reels, setReels] = useState(() => getActiveReels());
+  const [isCreateReelOpen, setIsCreateReelOpen] = useState(false);
+  const [activeReelIndex, setActiveReelIndex] = useState(null);
+
+  useEffect(() => {
+    const handleOpenReels = (e) => {
+      const idx = typeof e.detail?.index === 'number' ? e.detail.index : 0;
+      setActiveReelIndex(idx);
+    };
+    const handleOpenCreate = () => {
+      setIsCreateReelOpen(true);
+    };
+    window.addEventListener('open-reels-viewer', handleOpenReels);
+    window.addEventListener('open-create-reel', handleOpenCreate);
+    return () => {
+      window.removeEventListener('open-reels-viewer', handleOpenReels);
+      window.removeEventListener('open-create-reel', handleOpenCreate);
+    };
+  }, []);
 
   // New Post Form State
   const [postText, setPostText] = useState('');
@@ -923,6 +948,14 @@ export default function CommunityHome({ user }) {
           CENTER COLUMN: Main Community Feed
           ========================================================================= */}
       <main className="community-feed-center">
+        {/* Instagram & Facebook Stories & Reels Tray (5 Hours Only) */}
+        <StoriesReelsTray
+          user={user}
+          reels={reels}
+          onOpenCreate={() => setIsCreateReelOpen(true)}
+          onSelectReel={(idx) => setActiveReelIndex(idx)}
+        />
+
         {/* 1. Top Hero & Invite Friends Banner */}
         <section className="community-hero-card">
         <div className="community-hero-content">
@@ -1746,6 +1779,31 @@ export default function CommunityHome({ user }) {
         onClose={() => !isDeletingUser && setUserToDelete(null)}
         onConfirm={handleConfirmDeleteSidebarUser}
       />
+
+      {/* 📸 Create 5h Reel Modal */}
+      <CreateReelModal
+        isOpen={isCreateReelOpen}
+        user={user}
+        onClose={() => setIsCreateReelOpen(false)}
+        onReelCreated={(newReel) => {
+          const updated = saveNewReel(newReel);
+          setReels(updated);
+        }}
+      />
+
+      {/* ✨ Fullscreen Instagram Reels Viewer */}
+      {activeReelIndex !== null && (
+        <InstagramReelsViewer
+          isOpen={activeReelIndex !== null}
+          reels={reels}
+          initialReelIndex={activeReelIndex}
+          onClose={() => setActiveReelIndex(null)}
+          onToggleLike={(reelId) => {
+            const updated = toggleLikeReel(reelId);
+            setReels(updated);
+          }}
+        />
+      )}
 
       {/* ⚽ Fullscreen Live Scores Popup Screen */}
       {showLiveScoresModal && (

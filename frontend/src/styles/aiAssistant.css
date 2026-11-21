@@ -123,24 +123,38 @@
 }
 
 .ai-modal-close {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    border: 1px solid var(--border, rgba(255, 255, 255, 0.1));
-    background: var(--surface, #18191a);
-    color: var(--text-muted, #94a3b8);
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    justify-content: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    background: rgba(255, 255, 255, 0.06);
+    color: var(--text, #ffffff);
+    font-size: 0.84rem;
+    font-weight: 700;
     cursor: pointer;
-    font-size: 1rem;
     transition: all 0.18s ease;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+:root[data-theme='light'] .ai-modal-close {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #334155;
 }
 
 .ai-modal-close:hover {
-    background: rgba(255, 255, 255, 0.12);
-    color: var(--text, #ffffff);
-    transform: scale(1.05);
+    background: rgba(239, 68, 68, 0.18);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.45);
+    transform: scale(1.04);
+}
+
+.ai-close-label {
+    font-size: 0.82rem;
+    font-weight: 700;
 }
 
 /* Modal Body */
@@ -459,6 +473,39 @@
     display: flex;
     align-items: center;
     gap: 6px;
+}
+
+.ai-input-buttons-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ai-footer-close-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: var(--text-muted, #94a3b8);
+    border-radius: 10px;
+    padding: 7px 14px;
+    font-weight: 700;
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+}
+
+:root[data-theme='light'] .ai-footer-close-btn {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    color: #475569;
+}
+
+.ai-footer-close-btn:hover {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+    border-color: rgba(239, 68, 68, 0.4);
 }
 
 .ai-submit-btn {

@@ -50,6 +50,18 @@ export default function AiAssistantModal({
     }
   }, [messages, loading]);
 
+  // Support closing with Escape key
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   const handleAsk = async (promptToUse = question) => {
@@ -156,10 +168,11 @@ export default function AiAssistantModal({
             type="button"
             className="ai-modal-close"
             onClick={onClose}
-            aria-label="Close AI Assistant"
-            title="Close"
+            aria-label="Close GioAI Assistant"
+            title="Close GioAI (Esc)"
           >
             <i className="fa-solid fa-xmark" />
+            <span className="ai-close-label">Close</span>
           </button>
         </div>
 
@@ -314,22 +327,32 @@ export default function AiAssistantModal({
               <span className="ai-input-hint">
                 <i className="fa-solid fa-globe" /> Language: <strong>{(preferredLanguage || 'en').toUpperCase()}</strong>
               </span>
-              <button
-                type="button"
-                className="ai-submit-btn"
-                onClick={() => handleAsk()}
-                disabled={loading || !question.trim()}
-              >
-                {loading ? (
-                  <>
-                    <i className="fa-solid fa-circle-notch fa-spin" /> Thinking...
-                  </>
-                ) : (
-                  <>
-                    <i className="fa-solid fa-arrow-up" /> Ask AI
-                  </>
-                )}
-              </button>
+              <div className="ai-input-buttons-group">
+                <button
+                  type="button"
+                  className="ai-footer-close-btn"
+                  onClick={onClose}
+                  title="Close GioAI Assistant"
+                >
+                  <i className="fa-solid fa-xmark" /> Close
+                </button>
+                <button
+                  type="button"
+                  className="ai-submit-btn"
+                  onClick={() => handleAsk()}
+                  disabled={loading || !question.trim()}
+                >
+                  {loading ? (
+                    <>
+                      <i className="fa-solid fa-circle-notch fa-spin" /> Thinking...
+                    </>
+                  ) : (
+                    <>
+                      <i className="fa-solid fa-arrow-up" /> Ask AI
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         </div>

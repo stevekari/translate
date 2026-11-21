@@ -14,6 +14,7 @@ import MediaLightbox from '../components/MediaLightbox';
 import FriendContextMenu from '../components/FriendContextMenu';
 import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LiveFootballAndNews from '../components/LiveFootballAndNews';
+import LiveScoresModal from '../components/LiveScoresModal';
 import SidebarAiWidget from '../components/SidebarAiWidget';
 import HomeNewsFeed from '../components/HomeNewsFeed';
 import { useWeather } from '../contexts/WeatherContext';
@@ -29,6 +30,7 @@ export default function CommunityHome({ user }) {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all'); // 'all' | 'video' | 'image' | 'text'
   const [showMobileLiveHub, setShowMobileLiveHub] = useState(false);
+  const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
 
   // New Post Form State
   const [postText, setPostText] = useState('');
@@ -1222,12 +1224,23 @@ export default function CommunityHome({ user }) {
 
         <button
           type="button"
-          className={`filter-tab mobile-live-filter-btn ${showMobileLiveHub ? 'active' : ''}`}
-          onClick={() => setShowMobileLiveHub((prev) => !prev)}
-          title="Toggle Live Football Scores & Real-World News"
+          className="filter-tab live-scores-tab-btn"
+          onClick={() => setShowLiveScoresModal(true)}
+          title="Pop up live scores on screen"
         >
           <span className="mobile-live-red-dot" />
-          <span>⚽ Scores & News</span>
+          <span>⚽ Live Scores</span>
+          <span className="live-pill-count">LIVE</span>
+        </button>
+
+        <button
+          type="button"
+          className={`filter-tab mobile-live-filter-btn ${showMobileLiveHub ? 'active' : ''}`}
+          onClick={() => setShowLiveScoresModal(true)}
+          title="Pop up Live Football Scores on screen"
+        >
+          <span className="mobile-live-red-dot" />
+          <span>⚽ Live Scores</span>
         </button>
 
         <button
@@ -1737,6 +1750,15 @@ export default function CommunityHome({ user }) {
         onClose={() => !isDeletingUser && setUserToDelete(null)}
         onConfirm={handleConfirmDeleteSidebarUser}
       />
+
+      {/* ⚽ Fullscreen Live Scores Popup Screen */}
+      {showLiveScoresModal && (
+        <LiveScoresModal
+          isOpen={showLiveScoresModal}
+          onClose={() => setShowLiveScoresModal(false)}
+          initialFilter="live"
+        />
+      )}
 
 
       {friendContextMenu.visible && (

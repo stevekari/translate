@@ -1,9 +1,14 @@
-import { useMemo } from 'react';
 import { formatReelTimeRemaining } from '../utils/reelsData';
 import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import '../styles/reels.css';
 
-export default function StoriesReelsTray({ user, reels = [], onOpenCreate, onSelectReel }) {
+export default function StoriesReelsTray({
+  user,
+  reels = [],
+  watchedReelIds = [],
+  onOpenCreate,
+  onSelectReel,
+}) {
   const userAvatar = resolveAvatarUrl(user?.avatarUrl, user?.displayName || user?.username || 'You');
 
   return (
@@ -31,7 +36,7 @@ export default function StoriesReelsTray({ user, reels = [], onOpenCreate, onSel
         </div>
       </div>
 
-      {/* 2. Active Reels Cards */}
+      {/* 2. Active Reels Cards from You & Followed Friends */}
       {reels.map((reel, index) => {
         const firstItem = reel.items?.[0] || {};
         const isVideo = firstItem.type === 'video' || reel.type === 'video';
@@ -39,15 +44,16 @@ export default function StoriesReelsTray({ user, reels = [], onOpenCreate, onSel
         const timeRemaining = formatReelTimeRemaining(reel.createdAt);
         const avatar = resolveAvatarUrl(reel.userAvatar, reel.displayName || reel.username);
         const bgThumbnail = firstItem.url || avatar;
+        const isWatched = Array.isArray(watchedReelIds) && watchedReelIds.includes(reel.id);
 
         return (
           <div
             key={reel.id}
-            className="story-reel-card"
+            className={`story-reel-card ${isWatched ? 'is-watched' : ''}`}
             onClick={() => onSelectReel(index)}
             role="button"
             tabIndex={0}
-            title={`${reel.displayName || reel.username}'s Status • ${timeRemaining}`}
+            title={`${reel.displayName || reel.username}'s Status • ${timeRemaining}${isWatched ? ' (Already viewed)' : ''}`}
           >
             {/* Background Thumbnail */}
             {isVideo ? (
@@ -69,7 +75,7 @@ export default function StoriesReelsTray({ user, reels = [], onOpenCreate, onSel
 
             <div className="story-reel-gradient-overlay" />
 
-            {/* User Avatar with Rainbow Gradient Ring */}
+            {/* User Avatar with Rainbow Gradient Ring (or muted faded ring when watched) */}
             <div className="story-reel-avatar-wrap">
               <img
                 src={avatar}
@@ -84,6 +90,14 @@ export default function StoriesReelsTray({ user, reels = [], onOpenCreate, onSel
               <i className="fa-regular fa-clock" />
               <span>5h</span>
             </div>
+
+            {/* Watched / Viewed Badge */}
+            {isWatched && (
+              <div className="reel-watched-indicator" title="Already watched">
+                <i className="fa-solid fa-check" />
+                <span>Seen</span>
+              </div>
+            )}
 
             {/* Multi-photo or Video Indicator */}
             {isVideo ? (
@@ -105,6 +119,23 @@ export default function StoriesReelsTray({ user, reels = [], onOpenCreate, onSel
           </div>
         );
       })}
+
+      {/* 3. Empty placeholder hint if no friend reels yet */}
+      {reels.length === 0 && (
+        <div
+          className="stories-empty-hint"
+          onClick={onOpenCreate}
+          role="button"
+          tabIndex={0}
+          title="Share a 5-hour reel with friends"
+        >
+          <i className="fa-regular fa-clock" />
+          <div className="empty-hint-text">
+            <strong>Friend Reels</strong>
+            <span>Tap + to share photos or video with friends!</span>
+          </div>
+        </div>
+      )}
     </section>
   );
 }

@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react';
 import { uploadMedia } from '../api/mediaApi';
+import { createPost } from '../api/postApi';
 import { REEL_MAX_DURATION_SECONDS, REEL_EXPIRY_MS } from '../utils/reelsData';
 import '../styles/reels.css';
 
@@ -127,8 +128,25 @@ export default function CreateReelModal({ isOpen, user, onClose, onReelCreated }
       }
 
       const now = Date.now();
+      let backendPostId = null;
+
+      // Sync to backend posts so followed friends can immediately see the 5-hour reel
+      try {
+        const postRes = await createPost({
+          content: caption.trim() ? caption.trim() : 'Shared a 5h status reel',
+          mediaUrl: reelItems[0]?.url || '',
+          mediaType: mode === 'video' ? 'video' : 'image',
+        });
+        if (postRes && postRes.id) {
+          backendPostId = postRes.id;
+        }
+      } catch (syncErr) {
+        console.warn('Backend post creation for reel status optional fallback:', syncErr);
+      }
+
       const newReel = {
-        id: `reel-${now}-${Math.random().toString(36).substring(2, 7)}`,
+        id: backendPostId ? `post-reel-${backendPostId}` : `reel-${now}-${Math.random().toString(36).substring(2, 7)}`,
+        postId: backendPostId,
         userId: user?.id || user?.userId || 'me',
         username: user?.username || 'me',
         displayName: user?.displayName || user?.username || 'You',

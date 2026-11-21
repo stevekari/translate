@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { formatReelTimeRemaining } from '../utils/reelsData';
+import { formatReelTimeRemaining, markReelAsWatched } from '../utils/reelsData';
 import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import { sendMessageRest, startConversation } from '../api/conversationApi';
 import '../styles/reels.css';
@@ -10,6 +10,7 @@ export default function InstagramReelsViewer({
   initialReelIndex = 0,
   onClose,
   onToggleLike,
+  onReelWatched,
 }) {
   const [currentReelIndex, setCurrentReelIndex] = useState(initialReelIndex);
   const [currentItemIndex, setCurrentItemIndex] = useState(0);
@@ -36,6 +37,16 @@ export default function InstagramReelsViewer({
   }, [isOpen, initialReelIndex]);
 
   const currentReel = reels[currentReelIndex];
+
+  // Mark current reel as watched as soon as viewed
+  useEffect(() => {
+    if (isOpen && currentReel?.id) {
+      markReelAsWatched(currentReel.id);
+      if (onReelWatched) {
+        onReelWatched(currentReel.id);
+      }
+    }
+  }, [isOpen, currentReelIndex, currentReel?.id, onReelWatched]);
   const items = currentReel?.items || [];
   const currentItem = items[currentItemIndex] || {};
   const isVideo = currentItem.type === 'video';

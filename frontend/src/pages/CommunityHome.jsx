@@ -19,7 +19,7 @@ import HomeNewsFeed from '../components/HomeNewsFeed';
 import StoriesReelsTray from '../components/StoriesReelsTray';
 import CreateReelModal from '../components/CreateReelModal';
 import InstagramReelsViewer from '../components/InstagramReelsViewer';
-import { getActiveReels, fetchRealReels, saveNewReel, toggleLikeReel } from '../utils/reelsData';
+import { getActiveReels, fetchRealReels, saveNewReel, toggleLikeReel, getWatchedReelIds } from '../utils/reelsData';
 import { useWeather } from '../contexts/WeatherContext';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
@@ -37,6 +37,7 @@ export default function CommunityHome({ user }) {
 
   // Instagram / Facebook 5-Hour Reels & Status State
   const [reels, setReels] = useState(() => getActiveReels());
+  const [watchedReelIds, setWatchedReelIds] = useState(() => getWatchedReelIds());
   const [isCreateReelOpen, setIsCreateReelOpen] = useState(false);
   const [activeReelIndex, setActiveReelIndex] = useState(null);
 
@@ -134,14 +135,11 @@ export default function CommunityHome({ user }) {
   const onlineIds = useSelector((state) => state.presence?.onlineIds || []);
   const userStatuses = useSelector((state) => state.presence?.userStatuses || {});
 
-  // Load real active 5-hour reels (combining user stories, followed friends & real live news)
+  // Load real active 5-hour reels (only you & followed friends, strictly no fake posts)
   useEffect(() => {
-    fetchRealReels(friendsList).then((realData) => {
-      if (Array.isArray(realData) && realData.length > 0) {
-        setReels(realData);
-      }
-    });
-  }, [friendsList]);
+    const realData = fetchRealReels(friendsList, posts, user);
+    setReels(realData);
+  }, [friendsList, posts, user]);
 
   // Right-click context menu for sidebar friends
   const [friendContextMenu, setFriendContextMenu] = useState({ visible: false, x: 0, y: 0, friend: null });
@@ -981,6 +979,7 @@ export default function CommunityHome({ user }) {
         <StoriesReelsTray
           user={user}
           reels={reels}
+          watchedReelIds={watchedReelIds}
           onOpenCreate={() => setIsCreateReelOpen(true)}
           onSelectReel={(idx) => setActiveReelIndex(idx)}
         />
@@ -1815,8 +1814,10 @@ export default function CommunityHome({ user }) {
         user={user}
         onClose={() => setIsCreateReelOpen(false)}
         onReelCreated={(newReel) => {
-          const updated = saveNewReel(newReel);
-          setReels(updated);
+          saveNewReel(newReel);
+          fetchPosts();
+          const refreshed = fetchRealReels(friendsList, posts, user);
+          setReels(refreshed);
         }}
       />
 
@@ -1830,6 +1831,9 @@ export default function CommunityHome({ user }) {
           onToggleLike={(reelId) => {
             const updated = toggleLikeReel(reelId);
             setReels(updated);
+          }}
+          onReelWatched={(reelId) => {
+            setWatchedReelIds((prev) => (prev.includes(reelId) ? prev : [...prev, reelId]));
           }}
         />
       )}

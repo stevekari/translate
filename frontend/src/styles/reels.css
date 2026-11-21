@@ -227,6 +227,126 @@
 }
 
 /* ========================================================
+   👀 WATCHED / VIEWED REEL FADED STATE
+   When the user has watched a reel, the card background fades,
+   the thumbnail dims, and the rainbow border turns to muted gray
+   so the user immediately knows it has already been watched!
+   ======================================================== */
+
+.story-reel-card.is-watched {
+  opacity: 0.58;
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.story-reel-card.is-watched:hover {
+  opacity: 0.9;
+  transform: translateY(-2px) scale(1.02);
+}
+
+.story-reel-card.is-watched .story-reel-bg {
+  filter: grayscale(35%) brightness(0.65);
+}
+
+.story-reel-card.is-watched .story-reel-gradient-overlay {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.72) 0%, rgba(15, 23, 42, 0.55) 45%, rgba(0, 0, 0, 0.95) 100%);
+}
+
+.story-reel-card.is-watched .story-reel-avatar-wrap {
+  background: #64748b; /* Faded muted ring instead of rainbow gradient */
+  box-shadow: none;
+}
+
+.story-reel-card.is-watched .story-reel-avatar {
+  border-color: #1e293b;
+  filter: brightness(0.9);
+}
+
+.story-reel-card.is-watched .story-reel-username {
+  color: #94a3b8;
+}
+
+.story-reel-card.is-watched .reel-expiry-pill {
+  background: rgba(30, 41, 59, 0.8);
+  color: #94a3b8;
+  border-color: rgba(148, 163, 184, 0.2);
+}
+
+.story-reel-card.is-watched .reel-type-badge {
+  background: rgba(30, 41, 59, 0.8);
+  color: #94a3b8;
+}
+
+.reel-watched-indicator {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  color: #cbd5e1;
+  font-size: 0.58rem;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  backdrop-filter: blur(4px);
+  z-index: 3;
+}
+
+.reel-watched-indicator i {
+  color: #38bdf8;
+  font-size: 0.55rem;
+}
+
+/* Empty hint placeholder in Reels tray */
+.stories-empty-hint {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px dashed rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  cursor: pointer;
+  height: 160px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  color: var(--text-secondary, #94a3b8);
+  transition: all 0.2s ease;
+}
+
+.stories-empty-hint:hover {
+  background: rgba(24, 119, 242, 0.05);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: var(--text-primary, #f8fafc);
+}
+
+.stories-empty-hint i {
+  font-size: 1.5rem;
+  color: #f59e0b;
+}
+
+.empty-hint-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  max-width: 140px;
+}
+
+.empty-hint-text strong {
+  font-size: 0.8rem;
+  color: var(--text-primary, #f8fafc);
+}
+
+.empty-hint-text span {
+  font-size: 0.68rem;
+  line-height: 1.3;
+}
+
+/* ========================================================
    ✨ FULLSCREEN INSTAGRAM REELS & STORIES VIEWER MODAL
    ======================================================== */
 

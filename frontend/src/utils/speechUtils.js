@@ -1,5 +1,6 @@
 /**
- * Utility for Text-to-Speech (TTS) and Speech-to-Text (STT) voice translations.
+ * Enhanced Utility for Text-to-Speech (TTS) and Speech-to-Text (STT) Voice Translations.
+ * High-quality voice ranking, natural pitch/rate controls, and cross-browser reliability.
  */
 
 // Language code to BCP 47 speech synthesis/recognition locale mapping
@@ -46,7 +47,24 @@ export const LANG_TO_LOCALE = {
   ms: 'ms-MY',
 };
 
+let cachedVoices = [];
 let currentUtterance = null;
+
+function loadVoices() {
+  if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+    const v = window.speechSynthesis.getVoices();
+    if (v && v.length > 0) {
+      cachedVoices = v;
+    }
+  }
+}
+
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  loadVoices();
+  window.speechSynthesis.onvoiceschanged = () => {
+    loadVoices();
+  };
+}
 
 export function isSpeechSynthesisSupported() {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
@@ -75,7 +93,74 @@ export function isSpeaking() {
   return false;
 }
 
-export function speakText(text, langCode = 'en', onStart, onEnd, onError, rate = 0.95) {
+/**
+ * Score voice naturalness:
+ * Higher score = more natural, human-sounding voice.
+ */
+function scoreVoiceQuality(voice) {
+  if (!voice) return 0;
+  const name = voice.name.toLowerCase();
+  let score = 10;
+
+  if (name.includes('natural') || name.includes('neural')) score += 50;
+  if (name.includes('google')) score += 40;
+  if (name.includes('siri') || name.includes('enhanced') || name.includes('premium')) score += 35;
+  if (name.includes('samantha') || name.includes('daniel') || name.includes('karen') || name.includes('luciana') || name.includes('thomas') || name.includes('anna')) score += 25;
+  if (voice.localService === false) score += 15; // Cloud-rendered natural voice in Chromium/Edge
+
+  return score;
+}
+
+/**
+ * Get all available browser voices for a given language code, sorted by naturalness.
+ */
+export function getAvailableVoicesForLanguage(langCode = 'en') {
+  if (!isSpeechSynthesisSupported()) return [];
+  loadVoices();
+  const voices = cachedVoices.length > 0 ? cachedVoices : (window.speechSynthesis.getVoices() || []);
+  if (!voices || voices.length === 0) return [];
+
+  const locale = (LANG_TO_LOCALE[langCode?.toLowerCase()] || langCode || 'en-US').toLowerCase();
+  const prefix = locale.slice(0, 2);
+
+  const matched = voices.filter((v) => {
+    const vLang = (v.lang || '').toLowerCase();
+    return vLang === locale || vLang.startsWith(prefix) || v.name.toLowerCase().includes(langCode?.toLowerCase());
+  });
+
+  return matched.sort((a, b) => scoreVoiceQuality(b) - scoreVoiceQuality(a));
+}
+
+/**
+ * Select the highest quality natural voice for a language.
+ */
+export function getBestVoiceForLanguage(langCode = 'en', preferredVoiceURI = null) {
+  const matchingVoices = getAvailableVoicesForLanguage(langCode);
+  if (!matchingVoices || matchingVoices.length === 0) {
+    // Fallback: any voice in browser
+    return cachedVoices[0] || null;
+  }
+
+  if (preferredVoiceURI) {
+    const selected = matchingVoices.find((v) => v.voiceURI === preferredVoiceURI);
+    if (selected) return selected;
+  }
+
+  return matchingVoices[0];
+}
+
+/**
+ * Speak text aloud with high quality natural voice synthesis.
+ */
+export function speakText(
+  text,
+  langCode = 'en',
+  onStart,
+  onEnd,
+  onError,
+  rate = 0.95,
+  preferredVoiceURI = null
+) {
   if (!isSpeechSynthesisSupported()) {
     onError?.('Speech synthesis not supported in this browser');
     return false;
@@ -85,8 +170,13 @@ export function speakText(text, langCode = 'en', onStart, onEnd, onError, rate =
     return false;
   }
 
-  // Cancel any ongoing speech first
+  // Cancel any ongoing utterance and wake up speech engine
   stopSpeaking();
+  if (typeof window.speechSynthesis.resume === 'function') {
+    try {
+      window.speechSynthesis.resume();
+    } catch {}
+  }
 
   try {
     const locale = LANG_TO_LOCALE[langCode?.toLowerCase()] || langCode || 'en-US';
@@ -94,16 +184,11 @@ export function speakText(text, langCode = 'en', onStart, onEnd, onError, rate =
     utterance.lang = locale;
     utterance.rate = typeof rate === 'number' ? rate : 0.95;
     utterance.pitch = 1.0;
+    utterance.volume = 1.0;
 
-    // Pick a matching voice if available
-    const voices = window.speechSynthesis.getVoices?.() || [];
-    if (voices.length > 0) {
-      const match = voices.find((v) => v.lang.toLowerCase() === locale.toLowerCase()) ||
-                    voices.find((v) => v.lang.toLowerCase().startsWith(locale.toLowerCase().slice(0, 2))) ||
-                    voices.find((v) => v.lang.toLowerCase().includes(langCode?.toLowerCase()));
-      if (match) {
-        utterance.voice = match;
-      }
+    const bestVoice = getBestVoiceForLanguage(langCode, preferredVoiceURI);
+    if (bestVoice) {
+      utterance.voice = bestVoice;
     }
 
     utterance.onstart = () => {
@@ -116,6 +201,12 @@ export function speakText(text, langCode = 'en', onStart, onEnd, onError, rate =
     };
 
     utterance.onerror = (err) => {
+      // Ignore canceled error if a new speech was triggered
+      if (err?.error === 'canceled' || err?.error === 'interrupted') {
+        currentUtterance = null;
+        return;
+      }
+      console.warn('Speech synthesis utterance error:', err);
       currentUtterance = null;
       onError?.(err);
     };
@@ -124,7 +215,7 @@ export function speakText(text, langCode = 'en', onStart, onEnd, onError, rate =
     window.speechSynthesis.speak(utterance);
     return true;
   } catch (err) {
-    console.warn('Speech synthesis failed:', err);
+    console.warn('Speech synthesis execution failed:', err);
     onError?.(err);
     return false;
   }
@@ -143,7 +234,7 @@ export function createSpeechRecognizer(langCode = 'en') {
     const recognizer = new SpeechRecognition();
     const locale = LANG_TO_LOCALE[langCode?.toLowerCase()] || langCode || 'en-US';
     recognizer.lang = locale;
-    recognizer.continuous = true;
+    recognizer.continuous = false; // true frequently stalls or auto-stops in Chrome/Safari; false gives instant reliable final results
     recognizer.interimResults = true;
     recognizer.maxAlternatives = 1;
     return recognizer;

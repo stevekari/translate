@@ -495,6 +495,128 @@
   color: #ffffff;
 }
 
+.voice-trans-mini-btn.active-audio {
+  background: #10b981;
+  color: #ffffff;
+}
+
+/* Quick Testing Phrase Chips */
+.voice-trans-quick-phrases {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.voice-trans-quick-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: #94a3b8;
+}
+
+.voice-trans-chips-scroll {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+
+.voice-trans-chips-scroll::-webkit-scrollbar {
+  height: 4px;
+}
+
+.voice-trans-chips-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+}
+
+.voice-trans-chip {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+  padding: 6px 12px;
+  border-radius: 9999px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+:root[data-theme="light"] .voice-trans-chip {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #334155;
+}
+
+.voice-trans-chip:hover {
+  background: rgba(24, 119, 242, 0.18);
+  border-color: #3b82f6;
+  color: #60a5fa;
+  transform: translateY(-1px);
+}
+
+:root[data-theme="light"] .voice-trans-chip:hover {
+  background: #e0f2fe;
+  color: #0284c7;
+}
+
+/* Voice Picker in Target Box */
+.voice-trans-voice-picker-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed rgba(255, 255, 255, 0.08);
+}
+
+.voice-picker-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #94a3b8;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+.voice-picker-select {
+  flex: 1;
+  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 5px 8px;
+  color: #f1f5f9;
+  font-size: 0.75rem;
+  outline: none;
+  cursor: pointer;
+}
+
+:root[data-theme="light"] .voice-picker-select {
+  background: #ffffff;
+  border-color: #cbd5e1;
+  color: #0f172a;
+}
+
+/* Auto-speak toggle checkbox */
+.voice-trans-auto-speak-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+.voice-trans-auto-speak-label input {
+  accent-color: #1877f2;
+  cursor: pointer;
+}
+
 /* Footer Actions */
 .voice-trans-footer {
   display: flex;

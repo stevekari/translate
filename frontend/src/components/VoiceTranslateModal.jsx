@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { WORLD_LANGUAGES, getLanguageInfo } from '../utils/languages';
 import {
   speakText,
@@ -6,37 +6,60 @@ import {
   createSpeechRecognizer,
   isSpeechRecognitionSupported,
   isSpeechSynthesisSupported,
+  getAvailableVoicesForLanguage,
 } from '../utils/speechUtils';
 import { quickTranslate } from '../api/conversationApi';
 import '../styles/voiceTranslate.css';
 
+// Quick phrase chips for instant 1-tap testing
+const QUICK_PHRASES = [
+  { label: 'Hello, how are you? 👋', text: 'Hello, how are you?' },
+  { label: 'Thank you very much! 🙏', text: 'Thank you very much!' },
+  { label: 'Nice to meet you! ✨', text: 'Nice to meet you!' },
+  { label: 'Where is the train station? 🚆', text: 'Where is the train station?' },
+  { label: 'How much does this cost? 🏷️', text: 'How much does this cost?' },
+  { label: 'Can you help me, please? 🤝', text: 'Can you help me, please?' },
+];
+
 export default function VoiceTranslateModal({
   isOpen = true,
   onClose,
-  initialSourceLang = 'auto',
-  initialTargetLang = 'en',
+  initialSourceLang = 'en',
+  initialTargetLang = 'es',
   onSendToChat,
   friendName,
 }) {
-  const [sourceLang, setSourceLang] = useState(initialSourceLang || 'auto');
-  const [targetLang, setTargetLang] = useState(initialTargetLang || 'en');
-  const [isListening, setIsListening] = useState(false);
-  const [spokenText, setSpokenText] = useState('');
-  const [interimText, setInterimText] = useState('');
+  const [sourceLang, setSourceLang] = useState(initialSourceLang || 'en');
+  const [targetLang, setTargetLang] = useState(initialTargetLang || 'es');
+  const [inputText, setInputText] = useState('');
   const [translatedText, setTranslatedText] = useState('');
   const [detectedSourceLang, setDetectedSourceLang] = useState('');
+  const [isListening, setIsListening] = useState(false);
   const [isTranslating, setIsTranslating] = useState(false);
   const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [speechSpeed, setSpeechSpeed] = useState(0.95); // 0.95 = natural, 0.8 = slow
-  const [statusMessage, setStatusMessage] = useState('Tap microphone to speak');
+  const [playingWhich, setPlayingWhich] = useState(null); // 'source' | 'target' | null
+  const [autoSpeak, setAutoSpeak] = useState(true); // Automatically speak translation
+  const [speechSpeed, setSpeechSpeed] = useState(0.95);
+  const [selectedVoiceURI, setSelectedVoiceURI] = useState('');
+  const [availableVoices, setAvailableVoices] = useState([]);
+  const [statusMessage, setStatusMessage] = useState('Speak or type to translate instantly');
   const [copied, setCopied] = useState(false);
-  const [manualMode, setManualMode] = useState(false);
 
   const recognizerRef = useRef(null);
+  const translateTimerRef = useRef(null);
   const recognitionSupported = isSpeechRecognitionSupported();
   const synthesisSupported = isSpeechSynthesisSupported();
 
-  // Reset or stop on close
+  // Load voices whenever targetLang changes
+  useEffect(() => {
+    const voices = getAvailableVoicesForLanguage(targetLang);
+    setAvailableVoices(voices);
+    if (voices.length > 0 && !selectedVoiceURI) {
+      setSelectedVoiceURI(voices[0].voiceURI);
+    }
+  }, [targetLang]);
+
+  // Clean up speech and recognizer on unmount
   useEffect(() => {
     return () => {
       stopSpeaking();
@@ -45,109 +68,115 @@ export default function VoiceTranslateModal({
           recognizerRef.current.stop();
         } catch (e) {}
       }
+      if (translateTimerRef.current) {
+        clearTimeout(translateTimerRef.current);
+      }
     };
   }, []);
 
   // Sync initial props
   useEffect(() => {
-    if (initialSourceLang) setSourceLang(initialSourceLang);
+    if (initialSourceLang) setSourceLang(initialSourceLang === 'auto' ? 'en' : initialSourceLang);
     if (initialTargetLang && initialTargetLang !== initialSourceLang) {
       setTargetLang(initialTargetLang);
     }
   }, [initialSourceLang, initialTargetLang]);
 
-  // Translate when spokenText changes
-  useEffect(() => {
-    const textToTranslate = spokenText.trim();
-    if (!textToTranslate) {
+  // Perform translation
+  const triggerTranslation = useCallback(async (text, sLang, tLang, shouldSpeak = false) => {
+    const trimmed = text.trim();
+    if (!trimmed) {
       setTranslatedText('');
+      setStatusMessage('Speak or type to translate instantly');
       return;
     }
 
-    let isSubscribed = true;
     setIsTranslating(true);
     setStatusMessage('Translating with GioTranslate AI...');
 
-    const timer = setTimeout(async () => {
-      try {
-        const res = await quickTranslate(textToTranslate, targetLang, sourceLang === 'auto' ? null : sourceLang);
-        if (!isSubscribed) return;
-        if (res && res.translatedText) {
-          setTranslatedText(res.translatedText);
-          if (res.sourceLanguage) {
-            setDetectedSourceLang(res.sourceLanguage);
-          }
-          setStatusMessage('Translation ready! Tap 🔊 to listen');
+    try {
+      const res = await quickTranslate(trimmed, tLang, sLang === 'auto' ? null : sLang);
+      if (res && res.translatedText) {
+        setTranslatedText(res.translatedText);
+        if (res.sourceLanguage) {
+          setDetectedSourceLang(res.sourceLanguage);
         }
-      } catch (err) {
-        if (!isSubscribed) return;
-        setStatusMessage('Translation failed. Please try again.');
-      } finally {
-        if (isSubscribed) setIsTranslating(false);
+        setStatusMessage('Translation ready! 🔊 Speaking aloud...');
+
+        if (shouldSpeak || autoSpeak) {
+          setTimeout(() => {
+            handleSpeak(res.translatedText, tLang, 'target');
+          }, 150);
+        } else {
+          setStatusMessage('Translation ready! Tap 🔊 to hear voice');
+        }
       }
-    }, 350);
+    } catch (err) {
+      console.warn('Voice translation request error:', err);
+      setStatusMessage('Translation failed. Please try again.');
+    } finally {
+      setIsTranslating(false);
+    }
+  }, [autoSpeak]);
 
-    return () => {
-      isSubscribed = false;
-      clearTimeout(timer);
-    };
-  }, [spokenText, targetLang, sourceLang]);
+  // Debounced translation as user types
+  const handleInputChange = (val) => {
+    setInputText(val);
+    if (translateTimerRef.current) clearTimeout(translateTimerRef.current);
+    if (!val.trim()) {
+      setTranslatedText('');
+      return;
+    }
+    translateTimerRef.current = setTimeout(() => {
+      triggerTranslation(val, sourceLang, targetLang, false);
+    }, 400);
+  };
 
+  // Start speech recognition
   const handleStartListening = () => {
     if (!recognitionSupported) {
-      setManualMode(true);
-      setStatusMessage('Voice recognition not supported in this browser. Type your text below.');
+      setStatusMessage('Speech recognition not supported in this browser. Please type text below.');
       return;
     }
 
     stopSpeaking();
     setIsPlayingAudio(false);
-    setSpokenText('');
-    setInterimText('');
-    setTranslatedText('');
-    setDetectedSourceLang('');
+    setPlayingWhich(null);
     setIsListening(true);
-    setStatusMessage('🎙️ Listening... Speak naturally in ' + getLanguageInfo(sourceLang).name);
+    setStatusMessage('🎙️ Listening... speak now in ' + getLanguageInfo(sourceLang).name);
 
     try {
-      const rec = createSpeechRecognizer(sourceLang === 'auto' ? 'en' : sourceLang);
+      const rec = createSpeechRecognizer(sourceLang);
       if (!rec) {
         setIsListening(false);
-        setManualMode(true);
-        setStatusMessage('Speech recognition failed to initialize. You can type below.');
+        setStatusMessage('Speech recognition could not be started. Type below.');
         return;
       }
 
       rec.onresult = (evt) => {
-        let interim = '';
-        let finalStr = '';
+        let transcript = '';
         for (let i = 0; i < evt.results.length; i++) {
-          const trans = evt.results[i][0].transcript;
-          if (evt.results[i].isFinal) {
-            finalStr += trans + ' ';
-          } else {
-            interim += trans;
-          }
+          transcript += evt.results[i][0].transcript + ' ';
         }
-        if (finalStr.trim()) {
-          setSpokenText((prev) => (prev ? prev + ' ' + finalStr.trim() : finalStr.trim()));
-          setInterimText('');
-        } else {
-          setInterimText(interim);
+        const clean = transcript.trim();
+        if (clean) {
+          setInputText(clean);
+          triggerTranslation(clean, sourceLang, targetLang, true);
         }
       };
 
       rec.onerror = (e) => {
+        setIsListening(false);
         if (e.error !== 'no-speech') {
           console.warn('Speech recognition error:', e.error);
-          setStatusMessage('Microphone stopped (' + (e.error || 'error') + '). Tap to try again.');
+          setStatusMessage('Microphone stopped (' + (e.error || 'error') + '). Type below or tap mic again.');
+        } else {
+          setStatusMessage('No speech detected. Tap microphone and speak clearly.');
         }
-        setIsListening(false);
       };
 
       rec.onend = () => {
         setIsListening(false);
-        setStatusMessage('Finished listening. Processing translation...');
       };
 
       rec.start();
@@ -155,7 +184,7 @@ export default function VoiceTranslateModal({
     } catch (err) {
       console.warn('Failed to start speech recognition:', err);
       setIsListening(false);
-      setStatusMessage('Microphone access denied or unavailable.');
+      setStatusMessage('Microphone access denied. Please grant mic permissions or type text below.');
     }
   };
 
@@ -166,41 +195,72 @@ export default function VoiceTranslateModal({
       } catch (e) {}
     }
     setIsListening(false);
+    setStatusMessage('Finished listening.');
   };
 
+  // Language Swap
   const handleSwapLanguages = () => {
     stopSpeaking();
     setIsPlayingAudio(false);
+    setPlayingWhich(null);
     const newSource = targetLang;
     const newTarget = sourceLang === 'auto' ? 'en' : sourceLang;
     setSourceLang(newSource);
     setTargetLang(newTarget);
-    setSpokenText(translatedText || '');
-    setTranslatedText(spokenText || '');
+    setInputText(translatedText || '');
+    setTranslatedText(inputText || '');
+    if (translatedText.trim()) {
+      triggerTranslation(translatedText, newSource, newTarget, false);
+    }
   };
 
-  const handleListenAloud = (text, lang) => {
+  // Speak text aloud
+  const handleSpeak = (text, lang, which = 'target') => {
     if (!text || !text.trim()) return;
 
-    if (isPlayingAudio) {
+    if (isPlayingAudio && playingWhich === which) {
       stopSpeaking();
       setIsPlayingAudio(false);
+      setPlayingWhich(null);
       return;
     }
 
     setIsPlayingAudio(true);
+    setPlayingWhich(which);
+    setStatusMessage(`🔊 Speaking in ${getLanguageInfo(lang).name}...`);
+
     speakText(
       text,
       lang,
-      () => setIsPlayingAudio(true),
-      () => setIsPlayingAudio(false),
-      () => setIsPlayingAudio(false),
-      speechSpeed
+      () => {
+        setIsPlayingAudio(true);
+        setPlayingWhich(which);
+      },
+      () => {
+        setIsPlayingAudio(false);
+        setPlayingWhich(null);
+        setStatusMessage('Speech finished.');
+      },
+      (err) => {
+        console.warn('Speech audio error:', err);
+        setIsPlayingAudio(false);
+        setPlayingWhich(null);
+        setStatusMessage('Audio playback error.');
+      },
+      speechSpeed,
+      which === 'target' ? selectedVoiceURI : null
     );
   };
 
+  // Quick phrase select
+  const handleSelectQuickPhrase = (phraseText) => {
+    setInputText(phraseText);
+    triggerTranslation(phraseText, sourceLang, targetLang, true);
+  };
+
+  // Copy translated text
   const handleCopy = () => {
-    const textToCopy = translatedText || spokenText;
+    const textToCopy = translatedText || inputText;
     if (!textToCopy) return;
     navigator.clipboard.writeText(textToCopy).then(() => {
       setCopied(true);
@@ -208,12 +268,13 @@ export default function VoiceTranslateModal({
     });
   };
 
+  // Send to chat
   const handleSendToChat = () => {
-    if (!translatedText.trim() && !spokenText.trim()) return;
+    if (!translatedText.trim() && !inputText.trim()) return;
     if (onSendToChat) {
       onSendToChat(
-        translatedText.trim() || spokenText.trim(),
-        spokenText.trim(),
+        translatedText.trim() || inputText.trim(),
+        inputText.trim(),
         sourceLang,
         targetLang
       );
@@ -224,16 +285,18 @@ export default function VoiceTranslateModal({
   const sourceInfo = getLanguageInfo(sourceLang);
   const targetInfo = getLanguageInfo(targetLang);
 
+  if (!isOpen) return null;
+
   return (
-    <div className="voice-trans-backdrop" onClick={onClose}>
+    <div className="voice-trans-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="voice-trans-card" onClick={(e) => e.stopPropagation()}>
         {/* Header */}
         <div className="voice-trans-header">
           <div className="voice-trans-title-wrap">
             <span className="voice-trans-badge">
-              <i className="fa-solid fa-microphone-lines"></i> Live Voice Translator
+              <i className="fa-solid fa-microphone-lines"></i> Live Voice & Speech Translator
             </span>
-            <h2 className="voice-trans-heading">Speak & Understand Any Language</h2>
+            <h2 className="voice-trans-heading">Speak & Translate With Natural Voice</h2>
           </div>
           <button
             type="button"
@@ -248,16 +311,21 @@ export default function VoiceTranslateModal({
         {/* Language Selector Bar with Quick Swap */}
         <div className="voice-trans-lang-bar">
           <div className="voice-trans-lang-select-wrap">
-            <span className="voice-trans-lang-label">I Speak</span>
+            <span className="voice-trans-lang-label">I Speak (Source)</span>
             <div className="voice-trans-select-pill">
               <span className="voice-trans-flag">{sourceInfo.flag || '🌐'}</span>
               <select
                 value={sourceLang}
-                onChange={(e) => setSourceLang(e.target.value)}
+                onChange={(e) => {
+                  const newSource = e.target.value;
+                  setSourceLang(newSource);
+                  if (inputText.trim()) {
+                    triggerTranslation(inputText, newSource, targetLang, false);
+                  }
+                }}
                 className="voice-trans-select"
                 aria-label="Spoken Language"
               >
-                <option value="auto">✨ Auto Detect</option>
                 {WORLD_LANGUAGES.map((l) => (
                   <option key={l.code} value={l.code}>
                     {l.flag} {l.name} ({l.nativeName})
@@ -279,12 +347,18 @@ export default function VoiceTranslateModal({
           </button>
 
           <div className="voice-trans-lang-select-wrap">
-            <span className="voice-trans-lang-label">Translate To</span>
+            <span className="voice-trans-lang-label">Translate & Hear (Target)</span>
             <div className="voice-trans-select-pill">
               <span className="voice-trans-flag">{targetInfo.flag || '🌐'}</span>
               <select
                 value={targetLang}
-                onChange={(e) => setTargetLang(e.target.value)}
+                onChange={(e) => {
+                  const newTarget = e.target.value;
+                  setTargetLang(newTarget);
+                  if (inputText.trim()) {
+                    triggerTranslation(inputText, sourceLang, newTarget, false);
+                  }
+                }}
                 className="voice-trans-select"
                 aria-label="Target Translation Language"
               >
@@ -298,7 +372,7 @@ export default function VoiceTranslateModal({
           </div>
         </div>
 
-        {/* Live Mic Animation & Central Control */}
+        {/* Live Mic Section & Status */}
         <div className="voice-trans-mic-section">
           <div className="voice-trans-mic-ring-container">
             {isListening && <div className="voice-trans-pulse-wave"></div>}
@@ -307,8 +381,8 @@ export default function VoiceTranslateModal({
               type="button"
               className={`voice-trans-mic-button ${isListening ? 'listening' : ''}`}
               onClick={isListening ? handleStopListening : handleStartListening}
-              title={isListening ? 'Tap to stop' : 'Tap to speak'}
-              aria-label={isListening ? 'Stop listening' : 'Start voice translation'}
+              title={isListening ? 'Tap to stop' : 'Tap to speak into microphone'}
+              aria-label={isListening ? 'Stop listening' : 'Start voice recording'}
             >
               <i className={`fa-solid ${isListening ? 'fa-stop' : 'fa-microphone'}`}></i>
             </button>
@@ -316,16 +390,16 @@ export default function VoiceTranslateModal({
 
           <p className="voice-trans-status-msg">{statusMessage}</p>
 
-          {/* Audio Waveform visualization during listening */}
-          {isListening && (
+          {/* Live audio waves when speaking or playing */}
+          {(isListening || isPlayingAudio) && (
             <div className="voice-trans-wave-bars">
-              {[4, 12, 22, 10, 26, 15, 8, 20, 28, 14, 18, 9, 24, 16, 7].map((h, i) => (
+              {[6, 16, 26, 12, 30, 18, 10, 24, 32, 16, 22, 11, 28, 19, 8].map((h, i) => (
                 <span
                   key={i}
                   className="voice-trans-wave-bar"
                   style={{
                     height: `${h}px`,
-                    animationDelay: `${(i % 5) * 0.12}s`,
+                    animationDelay: `${(i % 5) * 0.1}s`,
                   }}
                 />
               ))}
@@ -333,57 +407,59 @@ export default function VoiceTranslateModal({
           )}
         </div>
 
-        {/* Speech & Translation Display Cards */}
+        {/* Quick Testing Phrase Chips */}
+        <div className="voice-trans-quick-phrases">
+          <span className="voice-trans-quick-label">Try quick phrases:</span>
+          <div className="voice-trans-chips-scroll">
+            {QUICK_PHRASES.map((chip, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="voice-trans-chip"
+                onClick={() => handleSelectQuickPhrase(chip.text)}
+              >
+                {chip.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Dual Cards: Source Speech/Input & Target Translation */}
         <div className="voice-trans-cards-container">
-          {/* Card 1: What You Spoke */}
+          {/* 1. What You Say (Source) */}
           <div className="voice-trans-card-box source-box">
             <div className="voice-trans-card-header">
               <span className="voice-trans-card-title">
-                {sourceInfo.flag} You Spoke ({detectedSourceLang ? getLanguageInfo(detectedSourceLang).name : sourceInfo.name})
+                {sourceInfo.flag} {sourceInfo.name} (Your Voice / Input)
               </span>
-              {spokenText && (
+              {inputText.trim() && (
                 <button
                   type="button"
-                  className="voice-trans-mini-btn"
-                  onClick={() => handleListenAloud(spokenText, sourceLang === 'auto' ? detectedSourceLang || 'en' : sourceLang)}
+                  className={`voice-trans-mini-btn ${isPlayingAudio && playingWhich === 'source' ? 'active-audio' : ''}`}
+                  onClick={() => handleSpeak(inputText, sourceLang, 'source')}
                   title="Listen to original speech"
                 >
-                  <i className="fa-solid fa-volume-high"></i>
+                  <i className={`fa-solid ${isPlayingAudio && playingWhich === 'source' ? 'fa-volume-high fa-beat' : 'fa-volume-high'}`}></i>
                 </button>
               )}
             </div>
 
-            {manualMode ? (
-              <textarea
-                className="voice-trans-manual-input"
-                value={spokenText}
-                onChange={(e) => setSpokenText(e.target.value)}
-                placeholder="Type anything to speak and translate..."
-                rows={3}
-              />
-            ) : (
-              <div className="voice-trans-text-display">
-                {spokenText || interimText ? (
-                  <p className="voice-trans-speech-p">
-                    {spokenText}
-                    {interimText && <span className="voice-trans-interim">{interimText}</span>}
-                  </p>
-                ) : (
-                  <p className="voice-trans-placeholder">
-                    {isListening ? 'Listening to your voice...' : 'Tap the microphone above and start speaking...'}
-                  </p>
-                )}
-              </div>
-            )}
+            <textarea
+              className="voice-trans-manual-input"
+              value={inputText}
+              onChange={(e) => handleInputChange(e.target.value)}
+              placeholder="Speak with microphone above, or type anything here to translate..."
+              rows={3}
+            />
           </div>
 
-          {/* Card 2: Translated Result */}
+          {/* 2. Translation & Speech Playback (Target) */}
           <div className="voice-trans-card-box target-box">
             <div className="voice-trans-card-header">
               <span className="voice-trans-card-title">
-                {targetInfo.flag} Translated into {targetInfo.name}
+                {targetInfo.flag} {targetInfo.name} (Translation)
               </span>
-              {translatedText && (
+              {translatedText.trim() && (
                 <div className="voice-trans-header-actions">
                   <button
                     type="button"
@@ -401,37 +477,37 @@ export default function VoiceTranslateModal({
               {isTranslating ? (
                 <div className="voice-trans-loading">
                   <i className="fa-solid fa-spinner fa-spin"></i>
-                  <span>Translating voice...</span>
+                  <span>Translating voice to {targetInfo.name}...</span>
                 </div>
               ) : translatedText ? (
                 <p className="voice-trans-translated-p">{translatedText}</p>
               ) : (
                 <p className="voice-trans-placeholder">
-                  Translation will appear here in real time...
+                  Translated voice will appear here and speak aloud automatically...
                 </p>
               )}
             </div>
 
-            {/* Listen & Understand Controls */}
+            {/* Natural Voice Controls & Speak Aloud Button */}
             {translatedText && (
               <div className="voice-trans-listen-bar">
                 <button
                   type="button"
-                  className={`voice-trans-listen-btn ${isPlayingAudio ? 'playing' : ''}`}
-                  onClick={() => handleListenAloud(translatedText, targetLang)}
-                  title={isPlayingAudio ? 'Stop audio' : 'Listen voice aloud'}
+                  className={`voice-trans-listen-btn ${isPlayingAudio && playingWhich === 'target' ? 'playing' : ''}`}
+                  onClick={() => handleSpeak(translatedText, targetLang, 'target')}
+                  title={isPlayingAudio && playingWhich === 'target' ? 'Pause audio' : 'Speak translation aloud'}
                 >
-                  <i className={`fa-solid ${isPlayingAudio ? 'fa-pause' : 'fa-volume-high'}`}></i>
-                  <span>{isPlayingAudio ? 'Listening...' : '🔊 Listen & Understand'}</span>
+                  <i className={`fa-solid ${isPlayingAudio && playingWhich === 'target' ? 'fa-volume-high fa-beat' : 'fa-volume-high'}`}></i>
+                  <span>{isPlayingAudio && playingWhich === 'target' ? '🔊 Speaking...' : '🔊 Speak Translation Aloud'}</span>
                 </button>
 
-                {/* Speed toggle for learning */}
+                {/* Speed Toggle */}
                 <div className="voice-trans-speed-toggle">
                   <button
                     type="button"
                     className={`speed-btn ${speechSpeed === 0.95 ? 'active' : ''}`}
                     onClick={() => setSpeechSpeed(0.95)}
-                    title="Natural voice speed"
+                    title="Natural speed"
                   >
                     1.0x
                   </button>
@@ -439,29 +515,49 @@ export default function VoiceTranslateModal({
                     type="button"
                     className={`speed-btn ${speechSpeed === 0.8 ? 'active' : ''}`}
                     onClick={() => setSpeechSpeed(0.8)}
-                    title="Slow speed - helps you understand each word clearly"
+                    title="Slow & clear - easy to understand"
                   >
                     0.8x Slow
                   </button>
                 </div>
               </div>
             )}
+
+            {/* Voice Quality Selector */}
+            {availableVoices.length > 1 && (
+              <div className="voice-trans-voice-picker-row">
+                <span className="voice-picker-label">
+                  <i className="fa-solid fa-headphones"></i> Voice:
+                </span>
+                <select
+                  value={selectedVoiceURI}
+                  onChange={(e) => setSelectedVoiceURI(e.target.value)}
+                  className="voice-picker-select"
+                >
+                  {availableVoices.map((v) => (
+                    <option key={v.voiceURI} value={v.voiceURI}>
+                      {v.name} {v.name.toLowerCase().includes('natural') || v.name.toLowerCase().includes('google') ? '✨ (Natural)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Footer Actions */}
+        {/* Footer Options */}
         <div className="voice-trans-footer">
-          <button
-            type="button"
-            className="voice-trans-mode-toggle"
-            onClick={() => setManualMode(!manualMode)}
-          >
-            <i className={`fa-solid ${manualMode ? 'fa-microphone' : 'fa-keyboard'}`}></i>
-            <span>{manualMode ? 'Switch to Voice Mic' : 'Type Text Instead'}</span>
-          </button>
+          <label className="voice-trans-auto-speak-label" title="Automatically speak translation aloud">
+            <input
+              type="checkbox"
+              checked={autoSpeak}
+              onChange={(e) => setAutoSpeak(e.target.checked)}
+            />
+            <span>🔊 Auto-Speak Translation</span>
+          </label>
 
           <div className="voice-trans-right-actions">
-            {onSendToChat && (translatedText || spokenText) && (
+            {onSendToChat && (translatedText || inputText) && (
               <button
                 type="button"
                 className="voice-trans-send-chat-btn"

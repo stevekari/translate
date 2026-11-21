@@ -168,20 +168,6 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               <i className="fa-solid fa-wand-magic-sparkles" />
             </button>
 
-            {/* Live Weather Quick Button */}
-            <button
-              type="button"
-              onClick={openWeatherModal}
-              className="fb-circle-btn weather-circle-btn"
-              title={weather ? `Weather: ${weather.cityName} (${formatTemp(weather.temperature)})` : 'Weather & Forecast'}
-              aria-label="Weather"
-            >
-              <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
-              {weather?.cityName && (
-                <span className="weather-right-city">{weather.cityName}</span>
-              )}
-            </button>
-
             {/* Live Voice Translator */}
             <button
               type="button"

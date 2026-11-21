@@ -587,7 +587,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
     {
       id: 'appearance',
       title: t('appearance') || 'Appearance & Display',
-      subtitle: 'Dark mode, active status, Giochat PWA',
+      subtitle: 'Dark mode, active status, Giochat App',
       icon: 'fa-solid fa-palette',
       badgeClass: 'fb-nav-purple',
     },
@@ -1206,7 +1206,7 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
 
               <div className="fb-setting-row">
                 <div className="fb-setting-content">
-                  <h4>📱 Giochat App (PWA)</h4>
+                  <h4>📱 Giochat App</h4>
                   <p>Install Giochat on your desktop or mobile device for instant notifications and full-screen experience.</p>
                 </div>
                 <div className="fb-setting-action">

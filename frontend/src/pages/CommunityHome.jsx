@@ -13,7 +13,6 @@ import GioCameraModal from '../components/GioCameraModal';
 import MediaLightbox from '../components/MediaLightbox';
 import FriendContextMenu from '../components/FriendContextMenu';
 import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
-import LiveFootballAndNews from '../components/LiveFootballAndNews';
 import LiveScoresModal from '../components/LiveScoresModal';
 import HomeNewsFeed from '../components/HomeNewsFeed';
 import StoriesReelsTray from '../components/StoriesReelsTray';
@@ -1313,13 +1312,6 @@ export default function CommunityHome({ user }) {
         </button>
       </div>
 
-      {/* Mobile Live Football & News Container (When toggled on mobile) */}
-      {showMobileLiveHub && (
-        <div className="mobile-live-hub-container">
-          <LiveFootballAndNews />
-        </div>
-      )}
-
       {/* 4. Feed Stream */}
       <section className="community-posts-stream">
         {filter === 'news' ? (
@@ -1725,13 +1717,10 @@ export default function CommunityHome({ user }) {
   </main>
 
       {/* =========================================================================
-          RIGHT SIDEBAR: Live Football Scores & News Hub, AI Spotlight & Trending
+          RIGHT SIDEBAR: AI Spotlight & Trending
           ========================================================================= */}
       <aside className="community-sidebar-right">
-        {/* Card 1: Real World News & Live Football Scores Hub (.live-hub-card) */}
-        <LiveFootballAndNews />
-
-        {/* Card 2: Scrolling AI Spotlight Ticker (.sidebar-card) */}
+        {/* Scrolling AI Spotlight Ticker (.sidebar-card) */}
         <div className="sidebar-card ai-spotlight-card">
           <div className="spotlight-header">
             <span className="spotlight-title">

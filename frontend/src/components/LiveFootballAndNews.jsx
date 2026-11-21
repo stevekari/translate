@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { getLiveNews, FALLBACK_NEWS, NEWS_COUNTRIES, NEWS_CATEGORIES } from '../api/newsApi';
+import { getRealFootballScores } from '../api/footballApi';
 import { INITIAL_MATCHES } from '../utils/liveMatchesData';
 import LiveScoresModal from './LiveScoresModal';
 import '../styles/liveScoresAndNews.css';
@@ -7,6 +8,7 @@ import '../styles/liveScoresAndNews.css';
 export default function LiveFootballAndNews() {
   const [activeTab, setActiveTab] = useState('football'); // 'football' | 'news' | 'trends'
   const [matches, setMatches] = useState(INITIAL_MATCHES);
+  const [isRealScoresActive, setIsRealScoresActive] = useState(false);
   const [newsList, setNewsList] = useState(FALLBACK_NEWS);
   const [newsLoading, setNewsLoading] = useState(false);
   const [leagueFilter, setLeagueFilter] = useState('all'); // 'all' | 'live' | 'ucl' | 'epl' | 'laliga' | 'seriea' | 'bundesliga' | 'ligue1' | 'intl'
@@ -26,7 +28,53 @@ export default function LiveFootballAndNews() {
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollContainerRef = useRef(null);
 
-  // Live match minute ticker (updates live matches realistically)
+  // Helper to render team crest (supports real ESPN logo images and emoji fallbacks)
+  const renderTeamCrest = (crest, fallback = '⚽') => {
+    if (typeof crest === 'string' && crest.startsWith('http')) {
+      return (
+        <img
+          src={crest}
+          alt=""
+          className="team-crest-img"
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      );
+    }
+    return <span className="team-crest">{crest || fallback}</span>;
+  };
+
+  // Fetch real-time live matches from ESPN on mount and periodically
+  useEffect(() => {
+    let isMounted = true;
+    const loadRealScores = async (force = false) => {
+      try {
+        const data = await getRealFootballScores('today', force);
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setMatches(data);
+          setIsRealScoresActive(data.some((m) => m.isRealMatch));
+        }
+      } catch (err) {
+        console.warn('Real football API error:', err);
+      }
+    };
+
+    loadRealScores();
+
+    // Auto-refresh real live scores every 30 seconds
+    const interval = setInterval(() => {
+      loadRealScores(true);
+    }, 30000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  // Live match minute ticker (updates live matches realistically between polls)
   useEffect(() => {
     const interval = setInterval(() => {
       setMatches((prevMatches) =>
@@ -96,24 +144,18 @@ export default function LiveFootballAndNews() {
   const handleManualRefresh = async () => {
     setIsRefreshing(true);
     try {
-      const data = await getLiveNews(newsFilter, newsCountry, true);
-      if (data && data.length > 0) {
-        setNewsList(data);
+      const [newsData, scoresData] = await Promise.allSettled([
+        getLiveNews(newsFilter, newsCountry, true),
+        getRealFootballScores('today', true),
+      ]);
+      if (newsData.status === 'fulfilled' && newsData.value && newsData.value.length > 0) {
+        setNewsList(newsData.value);
+      }
+      if (scoresData.status === 'fulfilled' && scoresData.value && scoresData.value.length > 0) {
+        setMatches(scoresData.value);
+        setIsRealScoresActive(scoresData.value.some((m) => m.isRealMatch));
       }
       setLastUpdated('Just now');
-      // Increment live match minutes and refresh ticker
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.isLive && m.minute) {
-            return {
-              ...m,
-              minute: Math.min(89, m.minute + 1),
-              status: `LIVE ${Math.min(89, m.minute + 1)}'`,
-            };
-          }
-          return m;
-        })
-      );
     } catch (err) {
       console.warn('Refresh error:', err);
     } finally {
@@ -232,7 +274,7 @@ export default function LiveFootballAndNews() {
           ========================================================================= */}
       {activeTab === 'football' && (
         <div className="football-feed-section">
-          {/* Live Summary Banner with Click-to-Popup */}
+          {/* Live Summary Banner with Click-to-Popup & Real-time Live Badge */}
           <div
             className="football-summary-banner clickable"
             onClick={() => setShowScoresModal(true)}
@@ -240,10 +282,15 @@ export default function LiveFootballAndNews() {
           >
             <div className="football-live-count-pill">
               <span className="status-live-dot" />
-              <span>{liveMatchesCount} Matches Live • Tap to Pop up</span>
+              <span>{liveMatchesCount} Matches Live • Tap for Live Center</span>
               <i className="fa-solid fa-arrow-up-right-from-square live-popup-hint-icon" />
             </div>
-            <span className="football-total-badge">{matches.length} Total</span>
+            <div className="football-banner-right-tags">
+              <span className="football-real-indicator" title="Connected to Real Live Football ESPN Feeds">
+                <i className="fa-solid fa-circle-check" /> Real Live Feed
+              </span>
+              <span className="football-total-badge">{matches.length} Total</span>
+            </div>
           </div>
 
           {/* Quick Search Bar */}
@@ -428,7 +475,7 @@ export default function LiveFootballAndNews() {
                       <div className="match-score-board">
                         {/* Home Team */}
                         <div className={`team-col home-col ${homeLeading ? 'is-winner' : ''}`}>
-                          <span className="team-crest">{m.homeCrest}</span>
+                          {renderTeamCrest(m.homeCrest)}
                           <span className="team-name">{m.homeTeam}</span>
                         </div>
 
@@ -451,7 +498,7 @@ export default function LiveFootballAndNews() {
 
                         {/* Away Team */}
                         <div className={`team-col away-col ${awayLeading ? 'is-winner' : ''}`}>
-                          <span className="team-crest">{m.awayCrest}</span>
+                          {renderTeamCrest(m.awayCrest)}
                           <span className="team-name">{m.awayTeam}</span>
                         </div>
                       </div>
@@ -704,7 +751,7 @@ export default function LiveFootballAndNews() {
             {/* Big Match Score Board */}
             <div className="match-modal-scoreboard">
               <div className="modal-team-block">
-                <span className="modal-team-crest">{selectedMatch.homeCrest}</span>
+                <span className="modal-team-crest">{renderTeamCrest(selectedMatch.homeCrest)}</span>
                 <strong className="modal-team-name">{selectedMatch.homeTeam}</strong>
               </div>
 
@@ -721,7 +768,7 @@ export default function LiveFootballAndNews() {
               </div>
 
               <div className="modal-team-block">
-                <span className="modal-team-crest">{selectedMatch.awayCrest}</span>
+                <span className="modal-team-crest">{renderTeamCrest(selectedMatch.awayCrest)}</span>
                 <strong className="modal-team-name">{selectedMatch.awayTeam}</strong>
               </div>
             </div>

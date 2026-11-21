@@ -1,5 +1,6 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { INITIAL_MATCHES, LEAGUES } from '../utils/liveMatchesData';
+import { getRealFootballScores } from '../api/footballApi';
 import '../styles/liveScoresAndNews.css';
 
 export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live' }) {
@@ -24,6 +25,24 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollRef = useRef(null);
 
+  // Helper to render team crest (supports real ESPN image logos and emoji fallbacks)
+  const renderTeamCrest = (crest, fallback = '⚽') => {
+    if (typeof crest === 'string' && crest.startsWith('http')) {
+      return (
+        <img
+          src={crest}
+          alt=""
+          className="team-crest-img"
+          loading="lazy"
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
+      );
+    }
+    return <span className="team-crest">{crest || fallback}</span>;
+  };
+
   useEffect(() => {
     if (isOpen) {
       if (initialFilter === 'live') {
@@ -31,6 +50,27 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
       }
     }
   }, [isOpen, initialFilter]);
+
+  // Load real matches for the selected date (Today, Yesterday, Tomorrow)
+  useEffect(() => {
+    if (!isOpen) return;
+    let isMounted = true;
+    setIsRefreshing(true);
+    getRealFootballScores(activeDateTab, true)
+      .then((data) => {
+        if (isMounted && Array.isArray(data) && data.length > 0) {
+          setMatches(data);
+        }
+      })
+      .catch((err) => console.warn('Real scores error:', err))
+      .finally(() => {
+        if (isMounted) setIsRefreshing(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen, activeDateTab]);
 
   // Live match minute increment ticker (every 45s)
   useEffect(() => {
@@ -76,24 +116,18 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
     }));
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
-    setTimeout(() => {
-      setMatches((prev) =>
-        prev.map((m) => {
-          if (m.isLive && m.minute) {
-            const nextMin = Math.min(89, m.minute + 1);
-            return {
-              ...m,
-              minute: nextMin,
-              status: `LIVE ${nextMin}'`,
-            };
-          }
-          return m;
-        })
-      );
+    try {
+      const data = await getRealFootballScores(activeDateTab, true);
+      if (Array.isArray(data) && data.length > 0) {
+        setMatches(data);
+      }
+    } catch (err) {
+      console.warn('Refresh error:', err);
+    } finally {
       setIsRefreshing(false);
-    }, 500);
+    }
   };
 
   const handleScroll = (e) => {
@@ -132,14 +166,31 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
     return true;
   });
 
-  // Group matches by league (Sofascore architecture)
-  const groupedByLeague = LEAGUES.map((league) => {
-    const leagueMatches = filteredMatches.filter((m) => m.leagueCode === league.code);
-    return {
-      ...league,
-      matches: leagueMatches,
-    };
-  }).filter((group) => group.matches.length > 0);
+  // Group matches by league dynamically (supporting all real ESPN competitions)
+  const groupedByLeague = useMemo(() => {
+    const knownLeagues = [...LEAGUES];
+    filteredMatches.forEach((m) => {
+      if (m.leagueCode && !knownLeagues.some((l) => l.code === m.leagueCode)) {
+        knownLeagues.push({
+          code: m.leagueCode,
+          name: m.league || 'Other League',
+          flag: m.leagueFlag || '⚽',
+          country: m.round || 'World',
+          round: 'League',
+        });
+      }
+    });
+
+    return knownLeagues
+      .map((league) => {
+        const leagueMatches = filteredMatches.filter((m) => m.leagueCode === league.code);
+        return {
+          ...league,
+          matches: leagueMatches,
+        };
+      })
+      .filter((group) => group.matches.length > 0);
+  }, [filteredMatches]);
 
   const totalLiveMatches = matches.filter((m) => m.isLive).length;
 
@@ -397,7 +448,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                               {/* Home Team Row */}
                               <div className={`sofascore-team-line ${homeWinner ? 'is-leading' : ''}`}>
                                 <div className="team-meta">
-                                  <span className="team-crest">{m.homeCrest}</span>
+                                  {renderTeamCrest(m.homeCrest)}
                                   <span className="team-name">{m.homeTeam}</span>
                                 </div>
                                 <span className={`team-score ${homeWinner ? 'leading-score' : ''}`}>
@@ -408,7 +459,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                               {/* Away Team Row */}
                               <div className={`sofascore-team-line ${awayWinner ? 'is-leading' : ''}`}>
                                 <div className="team-meta">
-                                  <span className="team-crest">{m.awayCrest}</span>
+                                  {renderTeamCrest(m.awayCrest)}
                                   <span className="team-name">{m.awayTeam}</span>
                                 </div>
                                 <span className={`team-score ${awayWinner ? 'leading-score' : ''}`}>
@@ -512,7 +563,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
             <div className="sofascore-center-scoreboard">
               {/* Home Team Block */}
               <div className="center-team-block home">
-                <span className="center-crest">{selectedMatch.homeCrest}</span>
+                <span className="center-crest">{renderTeamCrest(selectedMatch.homeCrest)}</span>
                 <strong className="center-team-name">{selectedMatch.homeTeam}</strong>
                 <span className="center-team-code">{selectedMatch.homeCode}</span>
               </div>
@@ -541,7 +592,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
 
               {/* Away Team Block */}
               <div className="center-team-block away">
-                <span className="center-crest">{selectedMatch.awayCrest}</span>
+                <span className="center-crest">{renderTeamCrest(selectedMatch.awayCrest)}</span>
                 <strong className="center-team-name">{selectedMatch.awayTeam}</strong>
                 <span className="center-team-code">{selectedMatch.awayCode}</span>
               </div>

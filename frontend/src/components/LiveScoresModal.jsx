@@ -208,9 +208,9 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
             </div>
             <div className="sofascore-brand-text">
               <span className="sofascore-title">
-                SOFASCORE <span className="sofascore-live-tag">LIVE</span>
+                SOFASCORE <span className="sofascore-live-tag">{totalLiveMatches > 0 ? `${totalLiveMatches} LIVE` : 'LIVE'}</span>
               </span>
-              <span className="sofascore-subtitle">Football Scores, xG & Real-Time Statistics</span>
+              <span className="sofascore-subtitle">Live Scores &amp; Real-Time Statistics</span>
             </div>
           </div>
 

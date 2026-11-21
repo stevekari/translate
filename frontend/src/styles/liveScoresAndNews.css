@@ -1992,36 +1992,44 @@
 
 /* Sofascore Top Nav Header */
 .sofascore-header {
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 20px;
+  gap: 12px;
+  padding: 12px 18px;
   background: #090e17;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
 }
 
 :root[data-theme='light'] .sofascore-header {
   background: #0284c7;
   color: #ffffff;
-  border-bottom-color: transparent;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
 }
 
 .sofascore-brand-group {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 10px;
+  min-width: 0;
+  flex: 0 1 auto;
 }
 
 .sofascore-logo-badge {
-  width: 38px;
-  height: 38px;
+  width: 36px;
+  height: 36px;
   border-radius: 10px;
   background: linear-gradient(135deg, #0284c7, #38bdf8);
   color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 1.25rem;
+  font-size: 1.15rem;
   box-shadow: 0 3px 12px rgba(2, 132, 199, 0.4);
   flex-shrink: 0;
 }
@@ -2029,16 +2037,19 @@
 .sofascore-brand-text {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .sofascore-title {
-  font-size: 1.12rem;
+  font-size: 1.05rem;
   font-weight: 900;
   letter-spacing: 0.5px;
   color: #ffffff;
   display: flex;
   align-items: center;
   gap: 6px;
+  white-space: nowrap;
 }
 
 .sofascore-live-tag {
@@ -2049,11 +2060,16 @@
   background: #ef4444;
   color: #ffffff;
   letter-spacing: 0.5px;
+  white-space: nowrap;
 }
 
 .sofascore-subtitle {
-  font-size: 0.73rem;
+  font-size: 0.72rem;
   color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 240px;
 }
 
 :root[data-theme='light'] .sofascore-subtitle {
@@ -2069,6 +2085,7 @@
   border-radius: 10px;
   padding: 3px;
   gap: 3px;
+  flex-shrink: 0;
 }
 
 :root[data-theme='light'] .sofascore-date-picker {
@@ -2087,20 +2104,22 @@
   cursor: pointer;
   transition: all 0.15s ease;
   white-space: nowrap;
+  user-select: none;
 }
 
 :root[data-theme='light'] .sofascore-date-tab {
-  color: rgba(255, 255, 255, 0.8);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .sofascore-date-tab:hover {
   color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .sofascore-date-tab.active {
   background: #0284c7;
   color: #ffffff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.25);
 }
 
 .sofascore-date-tab.today.active {
@@ -2112,6 +2131,7 @@
 :root[data-theme='light'] .sofascore-date-tab.today.active {
   background: #ffffff;
   color: #0284c7;
+  border: 1px solid rgba(255, 255, 255, 0.6);
 }
 
 .sofascore-live-dot {
@@ -2128,6 +2148,7 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .sofascore-icon-btn {
@@ -2145,10 +2166,32 @@
   transition: all 0.15s ease;
 }
 
+:root[data-theme='light'] .sofascore-icon-btn {
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.3);
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .sofascore-icon-btn:hover {
   background: rgba(255, 255, 255, 0.2);
   color: #ffffff;
   transform: scale(1.05);
+}
+
+.sofascore-icon-btn:active {
+  transform: scale(0.96);
+}
+
+.sofascore-icon-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+}
+
+@media (max-width: 768px) {
+  .sofascore-subtitle {
+    display: none;
+  }
 }
 
 /* Sofascore Subbar */
@@ -3354,11 +3397,36 @@
   }
 
   .sofascore-header {
-    padding: 12px 14px;
+    flex-wrap: wrap;
+    padding: 10px 14px 12px;
+    gap: 8px 12px;
+  }
+
+  .sofascore-brand-group {
+    order: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .sofascore-header-actions {
+    order: 2;
+    flex-shrink: 0;
   }
 
   .sofascore-date-picker {
-    display: none;
+    order: 3;
+    display: flex;
+    width: 100%;
+    justify-content: space-between;
+    margin-top: 2px;
+    padding: 2px;
+  }
+
+  .sofascore-date-tab {
+    flex: 1;
+    text-align: center;
+    padding: 6px 4px;
+    font-size: 0.72rem;
   }
 
   .sofascore-subbar {

@@ -1956,7 +1956,7 @@
 .sofascore-modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 99999;
   background: rgba(3, 7, 18, 0.82);
   backdrop-filter: blur(14px);
   -webkit-backdrop-filter: blur(14px);
@@ -1977,13 +1977,14 @@
   flex-shrink: 0;
   background: #0f172a;
   color: #f8fafc;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(59, 130, 246, 0.35);
   border-radius: 20px;
-  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.75), 0 0 35px rgba(59, 130, 246, 0.15);
+  box-shadow: 0 25px 70px rgba(0, 0, 0, 0.8), 0 0 45px rgba(59, 130, 246, 0.2);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   position: relative;
+  z-index: 100;
   animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
@@ -2007,7 +2008,7 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
   position: relative;
-  z-index: 10;
+  z-index: 50;
 }
 
 :root[data-theme='light'] .sofascore-header {

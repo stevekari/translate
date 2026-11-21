@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { INITIAL_MATCHES, LEAGUES } from '../utils/liveMatchesData';
 import { getRealFootballScores } from '../api/footballApi';
 import '../styles/liveScoresAndNews.css';
@@ -203,7 +204,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
 
   const totalLiveMatches = matches.filter((m) => m.isLive).length;
 
-  return (
+  return createPortal(
     <div className="sofascore-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
       <div className="sofascore-modal-container" onClick={(e) => e.stopPropagation()}>
         {/* =========================================================================
@@ -864,7 +865,8 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
           </div>
         </div>
       )}
-    </div>
+    </div>,
+    document.body
   );
 }
 

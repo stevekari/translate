@@ -1725,10 +1725,13 @@ export default function CommunityHome({ user }) {
   </main>
 
       {/* =========================================================================
-          RIGHT SIDEBAR: AI Tech Spotlight, Trending & AI Assistant
+          RIGHT SIDEBAR: Live Football Scores & News Hub, AI Spotlight & Trending
           ========================================================================= */}
       <aside className="community-sidebar-right">
-        {/* Card 1: Scrolling AI Spotlight Ticker */}
+        {/* Card 1: Real World News & Live Football Scores Hub (.live-hub-card) */}
+        <LiveFootballAndNews />
+
+        {/* Card 2: Scrolling AI Spotlight Ticker (.sidebar-card) */}
         <div className="sidebar-card ai-spotlight-card">
           <div className="spotlight-header">
             <span className="spotlight-title">
@@ -1772,9 +1775,6 @@ export default function CommunityHome({ user }) {
             </div>
           </div>
         </div>
-
-        {/* Card 3: Real World News & Live Football Scores Hub */}
-        <LiveFootballAndNews />
 
         {/* Footer */}
         <div className="sidebar-footer">

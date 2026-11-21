@@ -19,7 +19,7 @@ import HomeNewsFeed from '../components/HomeNewsFeed';
 import StoriesReelsTray from '../components/StoriesReelsTray';
 import CreateReelModal from '../components/CreateReelModal';
 import InstagramReelsViewer from '../components/InstagramReelsViewer';
-import { getActiveReels, saveNewReel, toggleLikeReel } from '../utils/reelsData';
+import { getActiveReels, fetchRealReels, saveNewReel, toggleLikeReel } from '../utils/reelsData';
 import { useWeather } from '../contexts/WeatherContext';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
@@ -133,6 +133,15 @@ export default function CommunityHome({ user }) {
   const [deleteUserError, setDeleteUserError] = useState('');
   const onlineIds = useSelector((state) => state.presence?.onlineIds || []);
   const userStatuses = useSelector((state) => state.presence?.userStatuses || {});
+
+  // Load real active 5-hour reels (combining user stories, followed friends & real live news)
+  useEffect(() => {
+    fetchRealReels(friendsList).then((realData) => {
+      if (Array.isArray(realData) && realData.length > 0) {
+        setReels(realData);
+      }
+    });
+  }, [friendsList]);
 
   // Right-click context menu for sidebar friends
   const [friendContextMenu, setFriendContextMenu] = useState({ visible: false, x: 0, y: 0, friend: null });

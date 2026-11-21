@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import chatImg from '../assets/chat.jpeg';
@@ -10,6 +10,8 @@ import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import QRRoomModal from './QRRoomModal';
 import VoiceTranslateModal from './VoiceTranslateModal';
 import AiAssistantModal from './AiAssistantModal';
+import LiveScoresModal from './LiveScoresModal';
+import { getRealFootballScores } from '../api/footballApi';
 import { useWeather } from '../contexts/WeatherContext';
 
 export default function Navbar({ user, onLogout, isChatOpen }) {
@@ -26,6 +28,23 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
   const [showQRModal, setShowQRModal] = useState(false);
   const [showVoiceTranslateModal, setShowVoiceTranslateModal] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
+  const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
+  const [liveMatchesCount, setLiveMatchesCount] = useState(0);
+
+  useEffect(() => {
+    let isMounted = true;
+    getRealFootballScores('today', false)
+      .then((data) => {
+        if (isMounted && Array.isArray(data)) {
+          const count = data.filter((m) => m.isLive).length;
+          setLiveMatchesCount(count);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      isMounted = false;
+    };
+  }, []);
   const { weather, formatTemp, showWeatherModal, openWeatherModal } = useWeather();
 
   const totalUnread = useMemo(() => {
@@ -136,17 +155,24 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
             </div>
           </button>
 
-          {/* GioAI Assistant Tab - prominent center access */}
+          {/* Live Football Scores Tab - replaces duplicate GioAI on left */}
           <button
             type="button"
-            className={`fb-tab gioai-nav-tab ${showAiModal ? 'active' : ''}`}
-            onClick={() => setShowAiModal(true)}
-            title="🤖 GioAI Assistant - Instant Answers, Explanations & Translations"
-            aria-label="GioAI Assistant"
+            className={`fb-tab football-nav-tab ${showLiveScoresModal ? 'active' : ''}`}
+            onClick={() => setShowLiveScoresModal(true)}
+            title={liveMatchesCount > 0 ? `⚽ ${liveMatchesCount} Matches Live - Click for Match Center` : '⚽ Live Football Scores - Click for Match Center'}
+            aria-label="Live Football Scores"
           >
-            <div className="fb-tab-icon-wrap gioai-tab-icon-wrap">
-              <i className="fa-solid fa-wand-magic-sparkles gioai-sparkle-icon" />
-              <span className="gioai-mini-badge">GioAI</span>
+            <div className="fb-tab-icon-wrap football-tab-icon-wrap">
+              <i className="fa-solid fa-futbol football-nav-icon" />
+              {liveMatchesCount > 0 ? (
+                <span className="navbar-live-matches-badge">
+                  <span className="status-live-dot" />
+                  {liveMatchesCount} LIVE
+                </span>
+              ) : (
+                <span className="navbar-scores-badge">Scores</span>
+              )}
             </div>
           </button>
         </div>
@@ -273,6 +299,13 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           onClose={() => setShowAiModal(false)}
           chatPartnerName={user?.displayName || 'Giochat'}
           preferredLanguage={user?.preferredLanguage || language || 'en'}
+        />
+      )}
+      {showLiveScoresModal && (
+        <LiveScoresModal
+          isOpen={showLiveScoresModal}
+          onClose={() => setShowLiveScoresModal(false)}
+          initialFilter={liveMatchesCount > 0 ? 'live' : 'all'}
         />
       )}
     </nav>

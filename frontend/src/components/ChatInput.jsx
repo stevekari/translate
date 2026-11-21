@@ -769,19 +769,19 @@ const ChatInput = forwardRef(function ChatInput({
             </button>
           </div>
         ) : (
-          /* 3. FACEBOOK MESSENGER STYLE CHAT INPUT BAR */
-          <div className="wa-input-row fb-messenger-input-row">
-            {/* Left Action 1: Plus (+) Menu for Attachments */}
+          /* 3. UNIQUE MODERN CHAT INPUT BAR */
+          <div className="wa-input-row fb-messenger-input-row unique-chat-composer">
+            {/* Left Action: Paperclip Attachment Button */}
             <div className="attach-menu-wrapper fb-input-action-wrap" ref={attachMenuRef}>
               <button
                 type="button"
-                className={`fb-input-action-btn fb-attach-btn ${showAttachMenu ? 'active' : ''}`}
+                className={`fb-input-action-btn fb-attach-btn unique-attach-btn ${showAttachMenu ? 'active' : ''}`}
                 onClick={() => setShowAttachMenu((prev) => !prev)}
-                title="More actions: photos, files, voice translate"
-                aria-label="More actions"
+                title="Attach photos, files, or voice notes"
+                aria-label="Attach file"
                 disabled={isBusy}
               >
-                <i className={`fa-solid ${showAttachMenu ? 'fa-xmark' : 'fa-plus'}`}></i>
+                <i className={`fa-solid ${showAttachMenu ? 'fa-xmark' : 'fa-paperclip'}`}></i>
               </button>
 
               {showAttachMenu && (
@@ -795,7 +795,7 @@ const ChatInput = forwardRef(function ChatInput({
                     }}
                   >
                     <i className="fa-solid fa-video attach-icon-polo attach-icon-gio"></i>
-                    <span>Record Gio Video Note</span>
+                    <span>Record Video Note</span>
                   </button>
                   <button
                     type="button"
@@ -849,20 +849,8 @@ const ChatInput = forwardRef(function ChatInput({
               )}
             </div>
 
-            {/* Left Action 2: Quick Camera button (Messenger style) */}
-            <button
-              type="button"
-              className="fb-input-action-btn fb-camera-btn"
-              onClick={() => setShowCameraModal(true)}
-              title="Record Gio Video Note / Camera"
-              aria-label="Camera"
-              disabled={isBusy}
-            >
-              <i className="fa-solid fa-camera"></i>
-            </button>
-
             {/* Center: Input Pill with Text + Emoji button on the right inside pill */}
-            <div className="wa-input-pill fb-messenger-pill">
+            <div className="wa-input-pill fb-messenger-pill unique-input-pill">
               <input
                 ref={inputRef}
                 type="text"
@@ -875,7 +863,7 @@ const ChatInput = forwardRef(function ChatInput({
                     ? 'Update message...'
                     : (imageDraft || documentDraft)
                     ? 'Add a caption...'
-                    : (t('typeMessage') || 'Aa')
+                    : 'Type message...'
                 }
                 onChange={handleTextChange}
                 onBlur={stopTypingNow}

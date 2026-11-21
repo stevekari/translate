@@ -754,13 +754,30 @@ export default function Chat({ currentUserId, currentUser }) {
   return (
     <div className="chat-layout-page">
       <aside className="chat-sidebar">
-        <h2>{t('friends')} <span className="friends-count">({t('friendsCount', { count: safeConversations.length })})</span></h2>
+        <div className="chat-sidebar-header">
+          <h2>Chats</h2>
+          {currentUser && (
+            <div
+              className="chat-sidebar-my-avatar"
+              onClick={() => navigate('/settings')}
+              title={`${currentUser.displayName || currentUser.username} (View Settings)`}
+            >
+              <img
+                src={resolveAvatarUrl(currentUser.avatarUrl, currentUser.displayName || currentUser.username)}
+                alt={currentUser.username}
+                onError={(e) => handleAvatarError(e, currentUser.displayName || currentUser.username)}
+              />
+              <span className="online-dot online" />
+            </div>
+          )}
+        </div>
 
         <div className="friends-search">
-          <div className="search-bar">
+          <div className="search-bar chats-search-bar">
+            <i className="fa-solid fa-magnifying-glass search-icon" />
             <input
               type="text"
-              placeholder={t('search')}
+              placeholder="Search for chats and conversations"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               onFocus={() => setSearchFocused(true)}
@@ -847,7 +864,7 @@ export default function Chat({ currentUserId, currentUser }) {
                   title={t('friends') || 'Back to Chats'}
                   aria-label="Back to chats"
                 >
-                  <i className="fa-solid fa-arrow-left" />
+                  <i className="fa-solid fa-chevron-left" />
                   {otherUnreadTotal > 0 && (
                     <span className="fb-back-unread-badge">
                       {otherUnreadTotal > 99 ? '99+' : otherUnreadTotal}

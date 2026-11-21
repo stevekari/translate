@@ -26,15 +26,17 @@
     transform: scale(0.92);
 }
 
-/* colors based on mine/theirs */
+/* colors based on mine/theirs - Unique royal blue modern waveform */
 .voice-msg.mine .voice-play-btn {
-    background: white;
-    color: #128C7E;
+    background: #ffffff;
+    color: #4162ff;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }
 
 .voice-msg.theirs .voice-play-btn {
-    background: #128C7E;
-    color: white;
+    background: #4162ff;
+    color: #ffffff;
+    box-shadow: 0 4px 12px rgba(65, 98, 255, 0.4);
 }
 
 .voice-body {
@@ -60,12 +62,12 @@
 .voice-wave .bar {
     width: 3px;
     border-radius: 99px;
-    background: #128C7E;
+    background: #4162ff;
     transition: opacity 0.1s, height 0.2s;
 }
 
 .voice-msg.mine .bar {
-    background: white;
+    background: rgba(255, 255, 255, 0.9);
 }
 
 .voice-progress-track {
@@ -74,24 +76,24 @@
     right: 0;
     bottom: 0;
     height: 3px;
-    background: rgba(0, 0, 0, 0.08);
+    background: rgba(255, 255, 255, 0.12);
     border-radius: 99px;
     overflow: hidden;
 }
 
 .voice-msg.mine .voice-progress-track {
-    background: rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.28);
 }
 
 .voice-progress-fill {
     height: 100%;
-    background: #128C7E;
+    background: #4162ff;
     border-radius: 99px;
     transition: width 0.1s linear;
 }
 
 .voice-msg.mine .voice-progress-fill {
-    background: white;
+    background: #ffffff;
 }
 
 .voice-time {

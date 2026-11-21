@@ -39,27 +39,29 @@
     align-items: center;
     gap: 12px;
     padding: 12px 14px;
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
+    background: #101524;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 16px;
     cursor: pointer;
     min-width: 0;
     width: 100%;
     box-sizing: border-box;
     overflow: hidden;
-    transition: border-color 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease, background-color 0.15s ease;
+    margin-bottom: 6px;
+    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease, background-color 0.18s ease;
 }
 
 .friend-card:hover {
-    border-color: var(--accent);
-    background: var(--surface-hi);
+    border-color: rgba(65, 98, 255, 0.35);
+    background: #181f33;
     transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 
 .friend-card.active {
-    border-color: var(--accent);
-    background: var(--accent-soft);
+    border-color: #4162ff;
+    background: #182038;
+    box-shadow: 0 4px 16px rgba(65, 98, 255, 0.22);
 }
 
 .friends-page-layout {
@@ -253,7 +255,7 @@
 }
 
 .unread-badge {
-    background: #25D366;
+    background: #4162ff;
     color: #ffffff;
     font-size: 11px;
     font-weight: 700;
@@ -265,7 +267,7 @@
     align-items: center;
     justify-content: center;
     padding: 0 5.5px;
-    box-shadow: 0 2px 6px rgba(37, 211, 102, 0.35);
+    box-shadow: 0 2px 8px rgba(65, 98, 255, 0.45);
     flex-shrink: 0;
     animation: badgePop 0.22s cubic-bezier(0.175, 0.885, 0.32, 1.275) both;
     user-select: none;

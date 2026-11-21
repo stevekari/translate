@@ -5870,3 +5870,334 @@
 .fb-tools-item.danger .fb-tools-item-text strong {
     color: #f87171;
 }
+
+/* ==========================================================================
+   UNIQUE CHAT DESIGN SYSTEM (Dark Midnight / Electric Royal Blue Aesthetic)
+   Matching Mockup: Sleek Obsidian Navy & Royal Blue UI
+   ========================================================================== */
+
+/* Main Layout & Chat Viewport */
+.chat-layout-page {
+    background: transparent !important;
+}
+
+.chat-layout-page .chat-page,
+.chat-page {
+    background: #0c101c !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.4) !important;
+    overflow: hidden !important;
+}
+
+/* Left Sidebar (Chats List) */
+.chat-sidebar {
+    background: #101524 !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
+    border-radius: 20px !important;
+    box-shadow: 0 10px 32px rgba(0, 0, 0, 0.35) !important;
+}
+
+.chat-sidebar-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 2px 4px 6px;
+}
+
+.chat-sidebar-header h2 {
+    font-size: 1.45rem !important;
+    font-weight: 800 !important;
+    color: #ffffff !important;
+    letter-spacing: -0.02em !important;
+    margin: 0 !important;
+}
+
+.chat-sidebar-my-avatar {
+    position: relative;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.chat-sidebar-my-avatar img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+}
+
+.chat-sidebar-my-avatar .online-dot {
+    position: absolute;
+    bottom: -1px;
+    right: -1px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #22c55e;
+    border: 2px solid #101524;
+}
+
+/* Search Bar (Pill) */
+.chat-sidebar .search-bar.chats-search-bar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    background: #181f33 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 24px !important;
+    padding: 0 14px !important;
+    margin: 12px 0 12px 0 !important;
+    transition: all 0.2s ease;
+}
+
+.chat-sidebar .search-bar.chats-search-bar:focus-within {
+    border-color: #4162ff !important;
+    box-shadow: 0 0 0 3px rgba(65, 98, 255, 0.2) !important;
+}
+
+.chat-sidebar .search-bar.chats-search-bar .search-icon {
+    color: #64748b;
+    font-size: 0.9rem;
+    margin-right: 8px;
+    flex-shrink: 0;
+}
+
+.chat-sidebar .search-bar.chats-search-bar input {
+    background: transparent !important;
+    border: none !important;
+    padding: 11px 0 !important;
+    margin: 0 !important;
+    color: #f8fafc !important;
+    font-size: 0.88rem !important;
+    width: 100% !important;
+}
+
+.chat-sidebar .search-bar.chats-search-bar input::placeholder {
+    color: #64748b !important;
+}
+
+/* Chat Header */
+.chat-header {
+    background: #101524 !important;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
+    backdrop-filter: blur(16px) !important;
+    -webkit-backdrop-filter: blur(16px) !important;
+    padding: 12px 18px !important;
+}
+
+.chat-back-btn,
+.fb-chat-back-btn {
+    background: #181f33 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #f1f5f9 !important;
+    width: 36px !important;
+    height: 36px !important;
+    min-width: 36px !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1rem !important;
+    transition: all 0.18s ease !important;
+}
+
+.chat-back-btn:hover,
+.fb-chat-back-btn:hover {
+    background: #4162ff !important;
+    border-color: #4162ff !important;
+    color: #ffffff !important;
+    transform: scale(1.05);
+}
+
+.chat-header-name-row h2 {
+    color: #ffffff !important;
+    font-weight: 700 !important;
+    font-size: 1.05rem !important;
+}
+
+.chat-header-status {
+    font-size: 0.78rem !important;
+    color: #94a3b8 !important;
+}
+
+.chat-header-status.online {
+    color: #4162ff !important;
+    font-weight: 600 !important;
+}
+
+.chat-header-status .chat-status-indicator-dot.online {
+    background-color: #22c55e !important;
+    box-shadow: 0 0 8px rgba(34, 197, 94, 0.85) !important;
+}
+
+.chat-call-btn {
+    background: #181f33 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #94a3b8 !important;
+    width: 38px !important;
+    height: 38px !important;
+    min-width: 38px !important;
+    border-radius: 50% !important;
+    transition: all 0.18s ease !important;
+}
+
+.chat-call-btn:hover {
+    background: rgba(65, 98, 255, 0.15) !important;
+    border-color: #4162ff !important;
+    color: #4162ff !important;
+    transform: scale(1.06);
+}
+
+/* Chat Messages Viewport */
+.chat-messages {
+    background: #0c101c !important;
+    padding: 16px 20px !important;
+}
+
+/* Outgoing Message Bubbles (Mine - Vibrant Royal Blue) */
+.message-bubble.mine {
+    background: #4162ff !important;
+    color: #ffffff !important;
+    border-radius: 18px 18px 4px 18px !important;
+    box-shadow: 0 4px 16px rgba(65, 98, 255, 0.3) !important;
+    border: none !important;
+    font-size: 0.94rem !important;
+    line-height: 1.45 !important;
+    padding: 12px 16px !important;
+}
+
+.message-bubble.mine .message-time {
+    color: rgba(255, 255, 255, 0.75) !important;
+    font-size: 0.72rem !important;
+}
+
+.message-bubble.mine .message-status {
+    color: #ffffff !important;
+}
+
+/* Incoming Message Bubbles (Theirs - Dark Slate Navy) */
+.message-bubble.theirs {
+    background: #1c233a !important;
+    color: #e2e8f0 !important;
+    border-radius: 18px 18px 18px 4px !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22) !important;
+    font-size: 0.94rem !important;
+    line-height: 1.45 !important;
+    padding: 12px 16px !important;
+}
+
+.message-bubble.theirs .message-time {
+    color: #64748b !important;
+    font-size: 0.72rem !important;
+}
+
+/* Media in Messages */
+.message-image {
+    border-radius: 18px !important;
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+/* Chat Composer Bar */
+.chat-input-container {
+    background: #101524 !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+    padding: 10px 16px max(10px, env(safe-area-inset-bottom, 10px)) !important;
+}
+
+.fb-messenger-input-row.unique-chat-composer {
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+    gap: 10px !important;
+}
+
+.unique-attach-btn,
+.fb-attach-btn {
+    background: #181f33 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    color: #94a3b8 !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 50% !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    transition: all 0.18s ease !important;
+}
+
+.unique-attach-btn:hover,
+.fb-attach-btn:hover {
+    background: #4162ff !important;
+    border-color: #4162ff !important;
+    color: #ffffff !important;
+    transform: scale(1.05);
+}
+
+.fb-messenger-pill.unique-input-pill,
+.fb-messenger-pill {
+    background: #181f33 !important;
+    border: 1px solid rgba(255, 255, 255, 0.08) !important;
+    border-radius: 28px !important;
+    padding: 4px 10px 4px 16px !important;
+    transition: all 0.2s ease !important;
+}
+
+.fb-messenger-pill.unique-input-pill:focus-within,
+.fb-messenger-pill:focus-within {
+    border-color: #4162ff !important;
+    box-shadow: 0 0 0 3px rgba(65, 98, 255, 0.2) !important;
+}
+
+.fb-messenger-field {
+    color: #f8fafc !important;
+    font-size: 0.94rem !important;
+}
+
+.fb-messenger-field::placeholder {
+    color: #64748b !important;
+}
+
+.unique-action-btn,
+.fb-messenger-send,
+.fb-messenger-mic {
+    background: #4162ff !important;
+    color: #ffffff !important;
+    border: none !important;
+    width: 42px !important;
+    height: 42px !important;
+    min-width: 42px !important;
+    border-radius: 50% !important;
+    box-shadow: 0 4px 14px rgba(65, 98, 255, 0.35) !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.05rem !important;
+    transition: all 0.18s ease !important;
+}
+
+.unique-action-btn:hover,
+.fb-messenger-send:hover,
+.fb-messenger-mic:hover {
+    background: #3454f5 !important;
+    transform: scale(1.06);
+    box-shadow: 0 6px 18px rgba(65, 98, 255, 0.45) !important;
+}
+
+/* Mobile Fullscreen Clean Lockdown */
+@media (max-width: 768px) {
+    .chat-layout-page .chat-page,
+    .chat-page {
+        border-radius: 0 !important;
+        border: none !important;
+    }
+
+    .chat-header {
+        border-radius: 0 !important;
+    }
+}

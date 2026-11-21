@@ -354,7 +354,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
               className="sofascore-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search team, league, player or stadium..."
+              placeholder="Search team or league..."
             />
             {searchQuery && (
               <button

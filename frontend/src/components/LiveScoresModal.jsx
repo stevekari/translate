@@ -61,6 +61,10 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
       .then((data) => {
         if (isMounted && Array.isArray(data) && data.length > 0) {
           setMatches(data);
+          const liveCount = data.filter((m) => m.isLive).length;
+          if (liveCount === 0 && initialFilter === 'live') {
+            setLiveOnly(false);
+          }
         }
       })
       .catch((err) => console.warn('Real scores error:', err))

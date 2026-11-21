@@ -41,8 +41,17 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         }
       })
       .catch(() => {});
+
+    // Listen to custom global events to trigger GioAI and Live Scores modals from anywhere (including mobile bottom nav)
+    const handleOpenAi = () => setShowAiModal(true);
+    const handleOpenLivescore = () => setShowLiveScoresModal(true);
+    window.addEventListener('open-gioai-assistant', handleOpenAi);
+    window.addEventListener('open-livescores-modal', handleOpenLivescore);
+
     return () => {
       isMounted = false;
+      window.removeEventListener('open-gioai-assistant', handleOpenAi);
+      window.removeEventListener('open-livescores-modal', handleOpenLivescore);
     };
   }, []);
   const { weather, formatTemp, showWeatherModal, openWeatherModal, tWeather } = useWeather();

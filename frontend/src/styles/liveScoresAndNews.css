@@ -2384,26 +2384,53 @@
   color: #f8fafc;
 }
 
-/* Sofascore Horizontal League Selector */
+/* Sofascore Horizontal League Selector - Smooth scrollable with visible modern scrollbar */
 .sofascore-leagues-scroll {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 20px;
+  gap: 8px;
+  padding: 10px 18px;
   background: #090e17;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   overflow-x: auto;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  white-space: nowrap;
+  -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(2, 132, 199, 0.6) rgba(255, 255, 255, 0.04);
   flex-shrink: 0;
 }
 
 :root[data-theme='light'] .sofascore-leagues-scroll {
-  background: #ffffff;
+  background: #f8fafc;
   border-bottom-color: #e2e8f0;
+  scrollbar-color: rgba(2, 132, 199, 0.6) rgba(0, 0, 0, 0.04);
 }
 
 .sofascore-leagues-scroll::-webkit-scrollbar {
-  display: none;
+  height: 6px;
+  display: block;
+}
+
+.sofascore-leagues-scroll::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 9999px;
+  margin: 0 16px;
+}
+
+:root[data-theme='light'] .sofascore-leagues-scroll::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+.sofascore-leagues-scroll::-webkit-scrollbar-thumb {
+  background: rgba(2, 132, 199, 0.55);
+  border-radius: 9999px;
+  transition: background 0.15s ease;
+}
+
+.sofascore-leagues-scroll::-webkit-scrollbar-thumb:hover {
+  background: #0284c7;
 }
 
 .sofascore-league-item {

@@ -466,7 +466,7 @@
     .navbar.fb-navbar {
         display: flex;
         justify-content: space-between;
-        padding: 0 12px;
+        padding: 0 10px;
         height: 52px;
     }
 
@@ -476,23 +476,54 @@
     }
 
     .fb-nav-right {
-        gap: 8px;
+        gap: 6px;
     }
 
     .fb-circle-btn {
-        width: 36px;
-        height: 36px;
-        font-size: 0.92rem;
+        width: 34px;
+        height: 34px;
+        font-size: 0.9rem;
     }
 
     .fb-nav-toggle-group {
         gap: 4px;
-        padding: 1px 3px;
+        padding: 2px 4px;
+        display: inline-flex !important;
+        align-items: center !important;
+    }
+
+    /* On mobile, hide duplicate settings & theme buttons from top navbar since they are in mobile bottom nav */
+    .fb-nav-toggle-group .fb-settings-btn,
+    .fb-nav-toggle-group .theme-toggle,
+    .fb-nav-toggle-group .qr-nav-btn {
+        display: none !important;
+    }
+
+    /* Top livescore button on mobile: always visible, clean tap target */
+    .top-navbar-livescore-btn {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        height: 30px !important;
+        padding: 0 8px !important;
+        font-size: 0.72rem !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* GioAI Quick Button on mobile: prominent, visible, purple sparkle */
+    .gioai-circle-btn {
+        display: inline-flex !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        width: 34px !important;
+        height: 34px !important;
+        flex-shrink: 0 !important;
+        font-size: 0.95rem !important;
     }
 
     .fb-profile-avatar {
-        width: 34px;
-        height: 34px;
+        width: 32px;
+        height: 32px;
     }
 }
 

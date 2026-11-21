@@ -1829,7 +1829,7 @@ export default function CommunityHome({ user }) {
         <LiveScoresModal
           isOpen={showLiveScoresModal}
           onClose={() => setShowLiveScoresModal(false)}
-          initialFilter="live"
+          initialFilter="all"
         />
       )}
 

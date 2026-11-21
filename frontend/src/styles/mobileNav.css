@@ -250,6 +250,27 @@
     color: var(--accent);
     font-size: 0.95rem;
   }
+
+  /* GioAI Mobile Navigation Tab */
+  .mobile-nav-gioai {
+    color: #a855f7 !important;
+  }
+
+  .mobile-nav-gioai .gioai-mobile-icon-wrap {
+    color: #c084fc;
+    font-size: 1.25rem;
+    transition: transform 0.15s ease, filter 0.15s ease;
+  }
+
+  .mobile-nav-gioai:active .gioai-mobile-icon-wrap {
+    transform: scale(1.18);
+    filter: drop-shadow(0 0 6px rgba(168, 85, 247, 0.6));
+  }
+
+  .mobile-nav-gioai .mobile-nav-label {
+    color: #c084fc !important;
+    font-weight: 700;
+  }
 }
 
 @keyframes slideUp {

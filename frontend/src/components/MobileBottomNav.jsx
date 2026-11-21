@@ -83,7 +83,7 @@ export default function MobileBottomNav() {
         <span className="mobile-nav-label">{t('chats')}</span>
       </button>
 
-      {/* 2. Calls */}
+      {/* 4. Calls */}
       <button
         type="button"
         className={`mobile-nav-item ${isCallsActive ? 'active' : ''}`}
@@ -96,7 +96,23 @@ export default function MobileBottomNav() {
         <span className="mobile-nav-label">{t('calls')}</span>
       </button>
 
-      {/* 3. Settings */}
+      {/* 5. GioAI Assistant */}
+      <button
+        type="button"
+        className="mobile-nav-item mobile-nav-gioai"
+        onClick={() => {
+          window.dispatchEvent(new CustomEvent('open-gioai-assistant'));
+        }}
+        aria-label="GioAI Assistant"
+        title="✨ GioAI Assistant"
+      >
+        <div className="mobile-nav-icon-wrap gioai-mobile-icon-wrap">
+          <i className="fa-solid fa-wand-magic-sparkles" />
+        </div>
+        <span className="mobile-nav-label">GioAI</span>
+      </button>
+
+      {/* 6. Settings */}
       <button
         type="button"
         className={`mobile-nav-item ${isSettingsActive ? 'active' : ''}`}
@@ -107,19 +123,6 @@ export default function MobileBottomNav() {
           <i className="fa-solid fa-gear" />
         </div>
         <span className="mobile-nav-label">{t('settings')}</span>
-      </button>
-
-      {/* 4. Theme Toggle */}
-      <button
-        type="button"
-        className="mobile-nav-item"
-        onClick={toggleTheme}
-        aria-label={t('toggleTheme')}
-      >
-        <div className="mobile-nav-icon-wrap">
-          <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} />
-        </div>
-        <span className="mobile-nav-label">{theme === 'dark' ? 'Light' : 'Dark'}</span>
       </button>
     </nav>
   );

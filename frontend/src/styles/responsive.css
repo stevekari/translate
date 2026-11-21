@@ -204,6 +204,17 @@ iframe {
 
     .chat-header-status {
         font-size: 0.74rem;
+        max-width: 100%;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    @media (max-width: 360px) {
+        .chat-header-status .chat-status-text {
+            max-width: 75px;
+        }
     }
 
     .chat-header-actions {

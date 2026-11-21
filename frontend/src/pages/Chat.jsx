@@ -889,13 +889,17 @@ export default function Chat({ currentUserId, currentUser }) {
                       <span className="chat-header-handle">@{friend.username}</span>
                     )}
                   </div>
-                  <span className={`chat-header-status ${friendStatusType}`}>
+                  <span
+                    className={`chat-header-status ${friendStatusType}`}
+                    title={isOtherTyping ? 'typing...' : friendStatusLabel}
+                  >
+                    <span className={`chat-status-indicator-dot ${friendStatusType}`} />
                     {isOtherTyping ? (
                       <span className="typing-header-text">
                         <span className="typing-dots"><span>.</span><span>.</span><span>.</span></span> typing...
                       </span>
                     ) : (
-                      friendStatusLabel
+                      <span className="chat-status-text">{friendStatusLabel}</span>
                     )}
                   </span>
                 </div>

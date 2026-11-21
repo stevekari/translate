@@ -15,7 +15,6 @@ import FriendContextMenu from '../components/FriendContextMenu';
 import WhatsAppDeleteModal from '../components/WhatsAppDeleteModal';
 import LiveFootballAndNews from '../components/LiveFootballAndNews';
 import LiveScoresModal from '../components/LiveScoresModal';
-import SidebarAiWidget from '../components/SidebarAiWidget';
 import HomeNewsFeed from '../components/HomeNewsFeed';
 import { useWeather } from '../contexts/WeatherContext';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
@@ -1715,9 +1714,6 @@ export default function CommunityHome({ user }) {
 
         {/* Card 3: Real World News & Live Football Scores Hub */}
         <LiveFootballAndNews />
-
-        {/* Card 4: Interactive GioAI Assistant at Bottom of Right Sidebar */}
-        <SidebarAiWidget />
 
         {/* Footer */}
         <div className="sidebar-footer">

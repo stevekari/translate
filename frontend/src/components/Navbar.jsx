@@ -9,6 +9,7 @@ import { setMyStatus } from '../store/slices/presenceSlice';
 import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
 import QRRoomModal from './QRRoomModal';
 import VoiceTranslateModal from './VoiceTranslateModal';
+import AiAssistantModal from './AiAssistantModal';
 import { useWeather } from '../contexts/WeatherContext';
 
 export default function Navbar({ user, onLogout, isChatOpen }) {
@@ -24,6 +25,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
   const [searchQuery, setSearchQuery] = useState('');
   const [showQRModal, setShowQRModal] = useState(false);
   const [showVoiceTranslateModal, setShowVoiceTranslateModal] = useState(false);
+  const [showAiModal, setShowAiModal] = useState(false);
   const { weather, formatTemp, showWeatherModal, openWeatherModal } = useWeather();
 
   const totalUnread = useMemo(() => {
@@ -133,6 +135,20 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               )}
             </div>
           </button>
+
+          {/* GioAI Assistant Tab - prominent center access */}
+          <button
+            type="button"
+            className={`fb-tab gioai-nav-tab ${showAiModal ? 'active' : ''}`}
+            onClick={() => setShowAiModal(true)}
+            title="🤖 GioAI Assistant - Instant Answers, Explanations & Translations"
+            aria-label="GioAI Assistant"
+          >
+            <div className="fb-tab-icon-wrap gioai-tab-icon-wrap">
+              <i className="fa-solid fa-wand-magic-sparkles gioai-sparkle-icon" />
+              <span className="gioai-mini-badge">GioAI</span>
+            </div>
+          </button>
         </div>
       )}
 
@@ -141,6 +157,17 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         <div className="fb-nav-right">
           {/* Settings & Toggle placed right next to each other */}
           <div className="fb-nav-toggle-group">
+            {/* GioAI Quick Button */}
+            <button
+              type="button"
+              onClick={() => setShowAiModal(true)}
+              className={`fb-circle-btn gioai-circle-btn ${showAiModal ? 'active' : ''}`}
+              title="✨ GioAI Assistant - Answers, Explanations & Translations"
+              aria-label="GioAI Assistant"
+            >
+              <i className="fa-solid fa-wand-magic-sparkles" />
+            </button>
+
             {/* Live Weather Quick Button */}
             <button
               type="button"
@@ -252,6 +279,14 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           onClose={() => setShowVoiceTranslateModal(false)}
           initialSourceLang={user?.preferredLanguage || language || 'en'}
           initialTargetLang={user?.preferredLanguage || language || 'en'}
+        />
+      )}
+      {showAiModal && (
+        <AiAssistantModal
+          isOpen={showAiModal}
+          onClose={() => setShowAiModal(false)}
+          chatPartnerName={user?.displayName || 'Giochat'}
+          preferredLanguage={user?.preferredLanguage || language || 'en'}
         />
       )}
     </nav>

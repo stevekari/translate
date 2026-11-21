@@ -316,6 +316,75 @@
     white-space: nowrap;
 }
 
+/* ---------- GioAI Assistant in Top Navbar ---------- */
+.gioai-nav-tab {
+    background: transparent;
+    border: none;
+    outline: none;
+    padding: 0 10px;
+    transition: all 0.2s ease;
+}
+
+.gioai-tab-icon-wrap {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.gioai-sparkle-icon {
+    font-size: 1.15rem;
+    color: #a855f7;
+    transition: transform 0.25s cubic-bezier(0.34, 1.56, 0.64, 1), color 0.2s ease;
+}
+
+.gioai-nav-tab:hover .gioai-sparkle-icon {
+    transform: scale(1.22) rotate(12deg);
+    color: #c084fc;
+}
+
+.gioai-mini-badge {
+    font-size: 0.72rem;
+    font-weight: 800;
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: #ffffff;
+    padding: 2px 7px;
+    border-radius: 9999px;
+    letter-spacing: 0.3px;
+    box-shadow: 0 2px 8px rgba(168, 85, 247, 0.35);
+    transition: all 0.2s ease;
+}
+
+.gioai-nav-tab:hover .gioai-mini-badge {
+    box-shadow: 0 3px 12px rgba(168, 85, 247, 0.55);
+    transform: translateY(-1px);
+}
+
+.gioai-nav-tab.active {
+    border-bottom: 3px solid #a855f7;
+}
+
+.gioai-circle-btn {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(168, 85, 247, 0.18));
+    border: 1px solid rgba(168, 85, 247, 0.35);
+    color: #a855f7;
+    box-shadow: 0 2px 6px rgba(168, 85, 247, 0.15);
+}
+
+.gioai-circle-btn:hover {
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    border-color: #a855f7;
+    color: #ffffff;
+    box-shadow: 0 0 14px rgba(168, 85, 247, 0.5);
+    transform: scale(1.08);
+}
+
+.gioai-circle-btn.active {
+    background: linear-gradient(135deg, #6366f1, #a855f7);
+    color: #ffffff;
+    border-color: #c084fc;
+    box-shadow: 0 0 12px rgba(168, 85, 247, 0.6);
+}
+
 /* ---------- Responsive Adjustments ---------- */
 @media (max-width: 900px) {
     .navbar.fb-navbar {

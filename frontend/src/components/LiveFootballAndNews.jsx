@@ -145,6 +145,15 @@ export default function LiveFootballAndNews() {
     return true;
   });
 
+  // Sort matches: Live matches first, then by league importance so top 8+ live matches appear right in view
+  const sortedMatches = useMemo(() => {
+    return [...filteredMatches].sort((a, b) => {
+      if (a.isLive && !b.isLive) return -1;
+      if (!a.isLive && b.isLive) return 1;
+      return 0;
+    });
+  }, [filteredMatches]);
+
   const liveMatchesCount = matches.filter((m) => m.isLive).length;
   const activeCountryObj = NEWS_COUNTRIES.find((c) => c.code === newsCountry) || NEWS_COUNTRIES[0];
 
@@ -389,7 +398,7 @@ export default function LiveFootballAndNews() {
               </div>
             ) : (
               <div className="football-matches-list">
-                {filteredMatches.map((m) => {
+                {sortedMatches.map((m) => {
                   const homeLeading = m.homeScore > m.awayScore;
                   const awayLeading = m.awayScore > m.homeScore;
 

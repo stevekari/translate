@@ -285,7 +285,8 @@
 
 /* Scrollable Matches Viewport Container */
 .football-matches-scroll-container {
-  max-height: 480px;
+  max-height: 750px;
+  min-height: 540px;
   overflow-y: auto;
   overscroll-behavior: contain;
   -webkit-overflow-scrolling: touch;

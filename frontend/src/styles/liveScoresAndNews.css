@@ -2487,11 +2487,13 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 9px 14px;
+  padding: 10px 14px;
   background: rgba(255, 255, 255, 0.04);
   border-bottom: 1px solid rgba(255, 255, 255, 0.06);
   cursor: pointer;
   user-select: none;
+  gap: 10px;
+  transition: background 0.15s ease;
 }
 
 :root[data-theme='light'] .sofascore-league-header {
@@ -2499,25 +2501,40 @@
   border-bottom-color: #e2e8f0;
 }
 
+.sofascore-league-header:hover {
+  background: rgba(255, 255, 255, 0.07);
+}
+
+:root[data-theme='light'] .sofascore-league-header:hover {
+  background: #f1f5f9;
+}
+
 .sofascore-league-info {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  flex: 1 1 auto;
 }
 
 .sofascore-league-info .league-flag {
   font-size: 1.15rem;
+  flex-shrink: 0;
 }
 
 .league-titles {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .league-titles .league-name {
   font-size: 0.84rem;
   font-weight: 800;
   color: #f8fafc;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 :root[data-theme='light'] .league-titles .league-name {
@@ -2527,31 +2544,110 @@
 .league-titles .league-country {
   font-size: 0.7rem;
   color: #94a3b8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .sofascore-league-actions {
   display: flex;
   align-items: center;
   gap: 8px;
+  flex-shrink: 0;
 }
 
 .league-match-count {
   font-size: 0.72rem;
   color: #94a3b8;
   background: rgba(255, 255, 255, 0.06);
-  padding: 2px 7px;
+  padding: 3px 8px;
   border-radius: 6px;
+  white-space: nowrap;
 }
 
-.collapse-icon {
-  font-size: 0.74rem;
-  color: #64748b;
+:root[data-theme='light'] .league-match-count {
+  background: #e2e8f0;
+  color: #475569;
 }
 
-/* Matches Table inside League */
+.league-close-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  color: #cbd5e1;
+  padding: 3px 9px;
+  border-radius: 6px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+  white-space: nowrap;
+}
+
+:root[data-theme='light'] .league-close-btn {
+  background: #f1f5f9;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.league-close-btn:hover {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: rgba(239, 68, 68, 0.45);
+  color: #ef4444;
+  transform: scale(1.03);
+}
+
+:root[data-theme='light'] .league-close-btn:hover {
+  background: #fee2e2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+/* Matches Table inside League (Scrollable to ~4 matches per league) */
 .sofascore-matches-table {
   display: flex;
   flex-direction: column;
+  max-height: 256px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+}
+
+.sofascore-matches-table::-webkit-scrollbar {
+  width: 5px;
+}
+
+.sofascore-matches-table::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+:root[data-theme='light'] .sofascore-matches-table::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.league-scroll-footer {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #64748b;
+  letter-spacing: 0.2px;
+}
+
+:root[data-theme='light'] .league-scroll-footer {
+  background: #f8fafc;
+  border-top-color: #e2e8f0;
+  color: #94a3b8;
 }
 
 /* Sofascore Match Row (Signature 2-row layout) */

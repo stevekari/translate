@@ -183,7 +183,16 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
 
     return knownLeagues
       .map((league) => {
-        const leagueMatches = filteredMatches.filter((m) => m.leagueCode === league.code);
+        const leagueMatches = filteredMatches
+          .filter((m) => m.leagueCode === league.code)
+          .sort((a, b) => {
+            // Live matches first (highest priority)
+            if (a.isLive !== b.isLive) return a.isLive ? -1 : 1;
+            // Finished matches with scores
+            if (a.status === 'FT' && b.status !== 'FT') return -1;
+            if (b.status === 'FT' && a.status !== 'FT') return 1;
+            return 0;
+          });
         return {
           ...league,
           matches: leagueMatches,
@@ -415,7 +424,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                   <div
                     className="sofascore-league-header"
                     onClick={() => toggleLeagueCollapse(group.code)}
-                    title="Click to collapse/expand league"
+                    title={isCollapsed ? `Click to open ${group.name}` : `Click to close ${group.name}`}
                   >
                     <div className="sofascore-league-info">
                       <span className="league-flag">{group.flag}</span>
@@ -426,8 +435,22 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                     </div>
 
                     <div className="sofascore-league-actions">
-                      <span className="league-match-count">{group.matches.length} matches</span>
-                      <i className={`fa-solid fa-chevron-${isCollapsed ? 'down' : 'up'} collapse-icon`}></i>
+                      <span className="league-match-count">
+                        {group.matches.length > 4 ? `4 of ${group.matches.length} (scroll)` : `${group.matches.length} matches`}
+                      </span>
+                      <button
+                        type="button"
+                        className="league-close-btn"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleLeagueCollapse(group.code);
+                        }}
+                        aria-label={isCollapsed ? `Open ${group.name}` : `Close ${group.name}`}
+                        title={isCollapsed ? 'Open league' : 'Close league'}
+                      >
+                        <i className={`fa-solid fa-${isCollapsed ? 'chevron-down' : 'xmark'}`}></i>
+                        <span>{isCollapsed ? 'Open' : 'Close'}</span>
+                      </button>
                     </div>
                   </div>
 
@@ -521,6 +544,12 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                           </div>
                         );
                       })}
+                      {group.matches.length > 4 && (
+                        <div className="league-scroll-footer">
+                          <i className="fa-solid fa-arrows-up-down"></i>
+                          <span>Scroll to view all {group.matches.length} matches</span>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

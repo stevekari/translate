@@ -2073,11 +2073,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 10px 14px;
   padding: 10px 20px;
   background: #111c30;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   flex-shrink: 0;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 :root[data-theme='light'] .sofascore-subbar {
@@ -2088,23 +2092,28 @@
 .sofascore-quick-toggles {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
+  min-width: 0;
 }
 
 /* Sofascore Signature LIVE Toggle Button */
 .sofascore-live-toggle {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  padding: 5px 12px;
-  border-radius: 8px;
+  gap: 7px;
+  padding: 6px 14px;
+  border-radius: 9px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1.5px solid rgba(255, 255, 255, 0.12);
-  color: #cbd5e1;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: #e2e8f0;
   cursor: pointer;
   font-weight: 800;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
+  letter-spacing: 0.3px;
   transition: all 0.18s ease;
+  white-space: nowrap;
+  user-select: none;
 }
 
 :root[data-theme='light'] .sofascore-live-toggle {
@@ -2113,38 +2122,61 @@
   color: #475569;
 }
 
+.sofascore-live-toggle:hover {
+  background: rgba(255, 255, 255, 0.12);
+  border-color: rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+}
+
+:root[data-theme='light'] .sofascore-live-toggle:hover {
+  background: #f8fafc;
+  color: #0f172a;
+  border-color: #94a3b8;
+}
+
 .sofascore-live-toggle.is-active {
   background: #ef4444;
-  border-color: #ef4444;
+  border-color: #dc2626;
   color: #ffffff;
-  box-shadow: 0 2px 10px rgba(239, 68, 68, 0.45);
+  box-shadow: 0 2px 12px rgba(239, 68, 68, 0.45);
 }
 
 .sofascore-live-toggle .live-toggle-indicator {
   display: flex;
   align-items: center;
+  justify-content: center;
+}
+
+.sofascore-live-toggle.is-active .status-live-dot {
+  background: #ffffff;
+  box-shadow: 0 0 8px rgba(255, 255, 255, 0.9);
 }
 
 .live-toggle-count {
   font-size: 0.72rem;
+  font-weight: 800;
   background: rgba(0, 0, 0, 0.3);
-  padding: 1px 6px;
+  padding: 2px 7px;
   border-radius: 6px;
+  min-width: 18px;
+  text-align: center;
 }
 
 .sofascore-filter-pill {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 5px 12px;
-  border-radius: 8px;
+  padding: 6px 14px;
+  border-radius: 9px;
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   color: #94a3b8;
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   font-weight: 700;
   cursor: pointer;
   transition: all 0.15s ease;
+  white-space: nowrap;
+  user-select: none;
 }
 
 :root[data-theme='light'] .sofascore-filter-pill {
@@ -2156,27 +2188,39 @@
 .sofascore-filter-pill:hover {
   color: #f8fafc;
   background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.2);
+}
+
+:root[data-theme='light'] .sofascore-filter-pill:hover {
+  background: #f8fafc;
+  color: #0f172a;
 }
 
 .sofascore-filter-pill.active {
   background: #f59e0b;
-  border-color: #f59e0b;
+  border-color: #d97706;
   color: #12100c;
   font-weight: 800;
+  box-shadow: 0 2px 10px rgba(245, 158, 11, 0.35);
 }
 
 .sofascore-reset-filters-btn {
-  background: transparent;
-  border: none;
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.25);
   color: #38bdf8;
   font-size: 0.74rem;
   font-weight: 700;
   cursor: pointer;
-  padding: 2px 6px;
+  padding: 5px 10px;
+  border-radius: 8px;
+  transition: all 0.15s ease;
+  white-space: nowrap;
 }
 
 .sofascore-reset-filters-btn:hover {
-  text-decoration: underline;
+  background: rgba(56, 189, 248, 0.2);
+  color: #7dd3fc;
+  border-color: rgba(56, 189, 248, 0.45);
 }
 
 /* Sofascore Search Box */
@@ -2184,10 +2228,13 @@
   display: flex;
   align-items: center;
   background: #090e17;
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.14);
   border-radius: 10px;
-  padding: 2px 10px;
-  width: 250px;
+  padding: 2px 12px;
+  flex: 1 1 200px;
+  max-width: 320px;
+  min-width: 160px;
+  box-sizing: border-box;
   transition: all 0.18s ease;
 }
 
@@ -2198,24 +2245,30 @@
 
 .sofascore-search-box:focus-within {
   border-color: #0284c7;
-  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.25);
+  box-shadow: 0 0 0 2px rgba(2, 132, 199, 0.3);
 }
 
 .sofascore-search-box .search-icon {
-  font-size: 0.76rem;
+  font-size: 0.78rem;
   color: #64748b;
-  margin-right: 6px;
+  margin-right: 8px;
+  flex-shrink: 0;
 }
 
 .sofascore-search-input {
   flex: 1;
+  min-width: 0;
   background: transparent;
   border: none;
   outline: none;
   color: inherit;
-  font-size: 0.8rem;
-  padding: 5px 0;
+  font-size: 0.82rem;
+  padding: 6px 0;
   font-family: inherit;
+}
+
+.sofascore-search-input::placeholder {
+  color: #64748b;
 }
 
 .sofascore-clear-btn {
@@ -2223,8 +2276,17 @@
   border: none;
   color: #64748b;
   cursor: pointer;
-  font-size: 0.75rem;
-  padding: 2px;
+  font-size: 0.78rem;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+  flex-shrink: 0;
+}
+
+.sofascore-clear-btn:hover {
+  color: #f8fafc;
 }
 
 /* Sofascore Horizontal League Selector */
@@ -2402,11 +2464,14 @@
 .sofascore-match-row {
   display: flex;
   align-items: center;
-  padding: 10px 14px;
+  padding: 11px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.05);
   cursor: pointer;
   transition: all 0.16s ease;
   position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
 }
 
 :root[data-theme='light'] .sofascore-match-row {
@@ -2418,7 +2483,7 @@
 }
 
 .sofascore-match-row:hover {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(255, 255, 255, 0.06);
 }
 
 :root[data-theme='light'] .sofascore-match-row:hover {
@@ -2426,13 +2491,13 @@
 }
 
 .sofascore-match-row.is-live-row {
-  border-left: 3px solid #ef4444;
-  background: linear-gradient(90deg, rgba(239, 68, 68, 0.06) 0%, transparent 40%);
+  border-left: 3.5px solid #ef4444;
+  background: linear-gradient(90deg, rgba(239, 68, 68, 0.07) 0%, transparent 45%);
 }
 
 /* Match Status / Minute Column */
 .sofascore-status-col {
-  width: 58px;
+  width: 64px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
@@ -2443,26 +2508,39 @@
 .sofascore-live-badge {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
+  gap: 5px;
   color: #ef4444;
   font-weight: 800;
-  font-size: 0.8rem;
+  font-size: 0.84rem;
 }
 
 .sofascore-minute {
-  letter-spacing: -0.3px;
+  letter-spacing: -0.2px;
 }
 
 .sofascore-ft-badge {
   font-size: 0.74rem;
   font-weight: 800;
-  color: #64748b;
+  color: #cbd5e1;
+  background: rgba(148, 163, 184, 0.14);
+  padding: 2px 7px;
+  border-radius: 5px;
+  letter-spacing: 0.3px;
+}
+
+:root[data-theme='light'] .sofascore-ft-badge {
+  color: #475569;
+  background: #e2e8f0;
 }
 
 .sofascore-time-badge {
-  font-size: 0.74rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: #94a3b8;
+}
+
+:root[data-theme='light'] .sofascore-time-badge {
+  color: #64748b;
 }
 
 /* Teams & Scores Column (2 Rows) */
@@ -2470,37 +2548,42 @@
   flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 6px;
   min-width: 0;
+  overflow: hidden;
 }
 
 .sofascore-team-line {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
+  min-width: 0;
 }
 
 .sofascore-team-line .team-meta {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
   min-width: 0;
   overflow: hidden;
+  flex: 1;
 }
 
 .sofascore-team-line .team-crest {
-  font-size: 1.05rem;
+  font-size: 1.12rem;
   flex-shrink: 0;
+  line-height: 1;
 }
 
 .sofascore-team-line .team-name {
-  font-size: 0.88rem;
+  font-size: 0.92rem;
   font-weight: 700;
   color: #e2e8f0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  letter-spacing: -0.1px;
 }
 
 :root[data-theme='light'] .sofascore-team-line .team-name {
@@ -2517,21 +2600,25 @@
 }
 
 .sofascore-team-line .team-score {
-  font-size: 0.98rem;
+  font-size: 1.15rem;
   font-weight: 800;
   color: #94a3b8;
-  min-width: 18px;
-  text-align: right;
+  min-width: 28px;
+  text-align: center;
   flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
 }
 
 :root[data-theme='light'] .sofascore-team-line .team-score {
   color: #64748b;
 }
 
+.sofascore-team-line.is-leading .team-score,
 .sofascore-team-line .team-score.leading-score {
   color: #10b981;
-  font-size: 1.05rem;
+  font-size: 1.22rem;
+  font-weight: 900;
 }
 
 /* Right Meta Column: xG, Scorers & Star */
@@ -2539,24 +2626,25 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-left: 16px;
+  margin-left: 14px;
   flex-shrink: 0;
 }
 
 .sofascore-xg-pill {
-  font-size: 0.68rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 800;
   color: #38bdf8;
   background: rgba(56, 189, 248, 0.1);
   border: 1px solid rgba(56, 189, 248, 0.25);
-  padding: 2px 6px;
+  padding: 3px 8px;
   border-radius: 6px;
+  white-space: nowrap;
 }
 
 .sofascore-scorers-preview {
-  font-size: 0.72rem;
+  font-size: 0.74rem;
   color: #94a3b8;
-  max-width: 160px;
+  max-width: 150px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2568,13 +2656,20 @@
   color: #475569;
   cursor: pointer;
   padding: 4px;
-  font-size: 0.9rem;
+  font-size: 0.95rem;
   transition: all 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sofascore-star-btn:hover {
   color: #f59e0b;
   transform: scale(1.15);
+}
+
+.sofascore-star-btn.starred {
+  color: #f59e0b;
 }
 
 .sofascore-star-btn.starred {
@@ -3151,7 +3246,13 @@
   color: #12100c;
 }
 
-/* Mobile Responsive */
+/* Responsive Breakpoints for Sofascore Layout */
+@media (max-width: 820px) {
+  .sofascore-scorers-preview {
+    display: none;
+  }
+}
+
 @media (max-width: 640px) {
   .sofascore-modal-overlay {
     align-items: flex-end;
@@ -3178,18 +3279,47 @@
   }
 
   .sofascore-subbar {
-    padding: 8px 14px;
+    padding: 10px 14px;
     flex-direction: column;
     align-items: stretch;
-    gap: 8px;
+    gap: 10px;
+  }
+
+  .sofascore-quick-toggles {
+    width: 100%;
+    justify-content: flex-start;
   }
 
   .sofascore-search-box {
     width: 100%;
+    max-width: 100%;
+    min-width: 100%;
   }
 
   .sofascore-matches-scroll-area {
-    padding: 10px 14px;
+    padding: 10px 12px;
+  }
+
+  .sofascore-status-col {
+    width: 52px;
+  }
+
+  .sofascore-team-line .team-name {
+    font-size: 0.86rem;
+  }
+
+  .sofascore-team-line .team-score {
+    font-size: 1.05rem;
+    min-width: 22px;
+  }
+
+  .sofascore-team-line.is-leading .team-score,
+  .sofascore-team-line .team-score.leading-score {
+    font-size: 1.12rem;
+  }
+
+  .sofascore-meta-col {
+    margin-left: 8px;
   }
 
   .sofascore-meta-col .sofascore-xg-pill,

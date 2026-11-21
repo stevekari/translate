@@ -437,7 +437,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
 
                     <div className="sofascore-league-actions">
                       <span className="league-match-count">
-                        {group.matches.length > 4 ? `4 of ${group.matches.length} (scroll)` : `${group.matches.length} matches`}
+                        {group.matches.length} {group.matches.length === 1 ? 'match' : 'matches'}
                       </span>
                       <button
                         type="button"
@@ -446,11 +446,11 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                           e.stopPropagation();
                           toggleLeagueCollapse(group.code);
                         }}
-                        aria-label={isCollapsed ? `Open ${group.name}` : `Close ${group.name}`}
-                        title={isCollapsed ? 'Open league' : 'Close league'}
+                        aria-label={isCollapsed ? `Expand ${group.name}` : `Collapse ${group.name}`}
+                        title={isCollapsed ? 'Expand league' : 'Collapse league'}
                       >
-                        <i className={`fa-solid fa-${isCollapsed ? 'chevron-down' : 'xmark'}`}></i>
-                        <span>{isCollapsed ? 'Open' : 'Close'}</span>
+                        <i className={`fa-solid fa-chevron-${isCollapsed ? 'down' : 'up'}`}></i>
+                        <span>{isCollapsed ? 'Show' : 'Hide'}</span>
                       </button>
                     </div>
                   </div>
@@ -545,12 +545,6 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
                           </div>
                         );
                       })}
-                      {group.matches.length > 4 && (
-                        <div className="league-scroll-footer">
-                          <i className="fa-solid fa-arrows-up-down"></i>
-                          <span>Scroll to view all {group.matches.length} matches</span>
-                        </div>
-                      )}
                     </div>
                   )}
                 </div>

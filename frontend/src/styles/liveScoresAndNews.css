@@ -2472,15 +2472,16 @@
 .sofascore-league-block {
   border: 1px solid rgba(255, 255, 255, 0.08);
   border-radius: 14px;
-  background: #111c30;
+  background: #141f30;
+  margin-bottom: 14px;
   overflow: hidden;
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
 }
 
 :root[data-theme='light'] .sofascore-league-block {
   background: #ffffff;
   border-color: #e2e8f0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
 }
 
 /* League Section Header */
@@ -2607,48 +2608,18 @@
   color: #dc2626;
 }
 
-/* Matches Table inside League (Scrollable to ~4 matches per league) */
+/* Authentic Sofascore Matches Table */
 .sofascore-matches-table {
   display: flex;
   flex-direction: column;
-  max-height: 256px;
-  overflow-y: auto;
-  overflow-x: hidden;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
+  width: 100%;
+  background: #141f30;
+  border-radius: 0 0 14px 14px;
+  overflow: hidden;
 }
 
-.sofascore-matches-table::-webkit-scrollbar {
-  width: 5px;
-}
-
-.sofascore-matches-table::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-}
-
-:root[data-theme='light'] .sofascore-matches-table::-webkit-scrollbar-thumb {
-  background: rgba(0, 0, 0, 0.2);
-}
-
-.league-scroll-footer {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 5px 10px;
-  background: rgba(255, 255, 255, 0.02);
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
-  font-size: 0.68rem;
-  font-weight: 600;
-  color: #64748b;
-  letter-spacing: 0.2px;
-}
-
-:root[data-theme='light'] .league-scroll-footer {
-  background: #f8fafc;
-  border-top-color: #e2e8f0;
-  color: #94a3b8;
+:root[data-theme='light'] .sofascore-matches-table {
+  background: #ffffff;
 }
 
 /* Sofascore Match Row (Signature 2-row layout with comfortable height and prominent team names) */
@@ -3523,25 +3494,84 @@
   }
 
   .sofascore-matches-scroll-area {
+    padding: 10px 10px 28px;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .sofascore-league-block {
+    border-radius: 12px;
+    margin-bottom: 12px;
+  }
+
+  .sofascore-league-header {
     padding: 10px 12px;
   }
 
+  .sofascore-matches-table {
+    max-height: none !important;
+  }
+
+  .sofascore-match-row {
+    padding: 12px 14px;
+    min-height: 68px;
+  }
+
   .sofascore-status-col {
-    width: 52px;
+    width: 58px;
+  }
+
+  .sofascore-status-col .sofascore-minute {
+    font-size: 0.88rem;
+  }
+
+  .sofascore-status-col .sofascore-ft-badge {
+    font-size: 0.76rem;
+    padding: 2px 7px;
+  }
+
+  .sofascore-status-col .sofascore-time-badge {
+    font-size: 0.82rem;
+  }
+
+  .sofascore-teams-col {
+    gap: 8px;
+  }
+
+  .sofascore-team-line {
+    min-height: 26px;
+    gap: 10px;
+  }
+
+  .sofascore-team-line .team-meta {
+    gap: 9px;
+  }
+
+  .sofascore-team-line .team-crest {
+    font-size: 1.22rem;
+    width: 24px;
+    height: 24px;
   }
 
   .sofascore-team-line .team-name {
-    font-size: 0.86rem;
+    font-size: 0.98rem;
+    font-weight: 700;
+  }
+
+  .sofascore-team-line.is-leading .team-name {
+    font-size: 1.02rem;
+    font-weight: 800;
   }
 
   .sofascore-team-line .team-score {
-    font-size: 1.05rem;
-    min-width: 22px;
+    font-size: 1.25rem;
+    font-weight: 800;
+    min-width: 26px;
   }
 
   .sofascore-team-line.is-leading .team-score,
   .sofascore-team-line .team-score.leading-score {
-    font-size: 1.12rem;
+    font-size: 1.32rem;
+    font-weight: 900;
   }
 
   .sofascore-meta-col {

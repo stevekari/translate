@@ -957,6 +957,26 @@ export default function CommunityHome({ user }) {
           CENTER COLUMN: Main Community Feed
           ========================================================================= */}
       <main className="community-feed-center">
+        {/* Top Homepage Live Score Bar (Reduced Height, Always Visible, Pops Up Screen) */}
+        <div
+          className="homepage-top-livescore-bar clickable"
+          onClick={() => setShowLiveScoresModal(true)}
+          title="Click to pop up all live football matches on screen"
+        >
+          <div className="hp-live-bar-left">
+            <i className="fa-solid fa-futbol" />
+            <span className="hp-live-bar-title">Live Scores</span>
+            <span className="hp-live-bar-tag">
+              <span className="status-live-dot" />
+              ESPN Live Center
+            </span>
+          </div>
+          <div className="hp-live-bar-right">
+            <span>Tap to open live matches</span>
+            <i className="fa-solid fa-arrow-up-right-from-square" />
+          </div>
+        </div>
+
         {/* Instagram & Facebook Stories & Reels Tray (5 Hours Only) */}
         <StoriesReelsTray
           user={user}

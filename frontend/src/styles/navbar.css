@@ -154,53 +154,58 @@
     box-shadow: 0 2px 4px rgba(228, 30, 63, 0.4);
 }
 
-/* Live Football Scores Tab in Top Navbar */
-.football-nav-tab .football-nav-icon {
-    font-size: 1.25rem;
-    color: #10b981;
-    transition: transform 0.2s ease, color 0.2s ease;
+/* Top Navbar Live Score Matches Button (Always Visible, Reduced Height) */
+.top-navbar-livescore-btn {
+    height: 28px !important;
+    padding: 0 9px !important;
+    border-radius: 9999px !important;
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.22) 0%, rgba(239, 68, 68, 0.12) 100%) !important;
+    border: 1px solid rgba(239, 68, 68, 0.45) !important;
+    color: #ef4444 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 5px !important;
+    font-size: 0.72rem !important;
+    font-weight: 800 !important;
+    cursor: pointer !important;
+    transition: all 0.16s ease !important;
+    white-space: nowrap !important;
+    text-decoration: none !important;
+    user-select: none !important;
+    flex-shrink: 0 !important;
+    box-sizing: border-box !important;
 }
 
-.football-nav-tab:hover .football-nav-icon {
-    transform: scale(1.15) rotate(15deg);
-    color: #059669;
+:root[data-theme='light'] .top-navbar-livescore-btn {
+    background: #fef2f2 !important;
+    border-color: #fca5a5 !important;
+    color: #dc2626 !important;
 }
 
-.football-nav-tab.active .football-nav-icon {
-    color: #ef4444;
+.top-navbar-livescore-btn:hover {
+    background: rgba(239, 68, 68, 0.32) !important;
+    border-color: #ef4444 !important;
+    color: #ffffff !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(239, 68, 68, 0.35);
 }
 
-.navbar-live-matches-badge {
-    position: absolute;
-    top: -10px;
-    right: -24px;
-    background: #ef4444;
-    color: #ffffff;
-    font-size: 0.65rem;
-    font-weight: 800;
-    padding: 1px 6px;
-    border-radius: 9999px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
+.top-navbar-livescore-btn i {
+    font-size: 0.8rem;
+    color: inherit;
+}
+
+.top-navbar-livescore-btn .top-livescore-text {
     letter-spacing: 0.3px;
-    box-shadow: 0 2px 6px rgba(239, 68, 68, 0.45);
-    white-space: nowrap;
-    animation: liveBadgePulse 1.8s infinite;
+    font-weight: 800;
 }
 
-.navbar-scores-badge {
-    position: absolute;
-    top: -8px;
-    right: -18px;
-    background: rgba(16, 185, 129, 0.2);
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    color: #10b981;
-    font-size: 0.62rem;
-    font-weight: 800;
-    padding: 1px 5px;
-    border-radius: 6px;
-    white-space: nowrap;
+.top-navbar-livescore-btn .status-live-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #ef4444;
+    animation: liveBadgePulse 1.6s infinite;
 }
 
 /* ---------- 3. Right Section: Clean Facebook Circular Actions ---------- */

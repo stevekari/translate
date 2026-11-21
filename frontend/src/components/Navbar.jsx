@@ -154,27 +154,6 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               )}
             </div>
           </button>
-
-          {/* Live Football Scores Tab - replaces duplicate GioAI on left */}
-          <button
-            type="button"
-            className={`fb-tab football-nav-tab ${showLiveScoresModal ? 'active' : ''}`}
-            onClick={() => setShowLiveScoresModal(true)}
-            title={liveMatchesCount > 0 ? `⚽ ${liveMatchesCount} Matches Live - Click for Match Center` : '⚽ Live Football Scores - Click for Match Center'}
-            aria-label="Live Football Scores"
-          >
-            <div className="fb-tab-icon-wrap football-tab-icon-wrap">
-              <i className="fa-solid fa-futbol football-nav-icon" />
-              {liveMatchesCount > 0 ? (
-                <span className="navbar-live-matches-badge">
-                  <span className="status-live-dot" />
-                  {liveMatchesCount} LIVE
-                </span>
-              ) : (
-                <span className="navbar-scores-badge">Scores</span>
-              )}
-            </div>
-          </button>
         </div>
       )}
 
@@ -183,6 +162,21 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         <div className="fb-nav-right">
           {/* Settings & Toggle placed right next to each other */}
           <div className="fb-nav-toggle-group">
+            {/* ⚽ Top Navbar Live Football Scores - placed on left of GioAI, reduced height, always visible */}
+            <button
+              type="button"
+              onClick={() => setShowLiveScoresModal(true)}
+              className={`top-navbar-livescore-btn ${showLiveScoresModal ? 'active' : ''}`}
+              title={liveMatchesCount > 0 ? `⚽ ${liveMatchesCount} Matches Live - Click for Match Center` : '⚽ Live Football Scores - Click for Match Center'}
+              aria-label="Live Football Scores"
+            >
+              <i className="fa-solid fa-futbol" />
+              <span className="top-livescore-text">
+                {liveMatchesCount > 0 ? `${liveMatchesCount} LIVE` : 'Scores'}
+              </span>
+              <span className="status-live-dot" />
+            </button>
+
             {/* GioAI Quick Button */}
             <button
               type="button"

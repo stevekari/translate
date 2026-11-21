@@ -19,6 +19,7 @@ export default function WeatherModal() {
     removeCity,
     showWeatherModal,
     closeWeatherModal,
+    tWeather,
   } = useWeather();
 
   const [query, setQuery] = useState('');
@@ -94,8 +95,8 @@ export default function WeatherModal() {
           <div className="weather-modal-title">
             <i className="fa-solid fa-cloud-sun weather-header-icon"></i>
             <div>
-              <h3>Weather & Forecast</h3>
-              <span className="weather-header-subtitle">Live real-time weather & city forecasts</span>
+              <h3>{tWeather('weatherAndForecast')}</h3>
+              <span className="weather-header-subtitle">{tWeather('weatherSubtitle')}</span>
             </div>
           </div>
 
@@ -132,7 +133,7 @@ export default function WeatherModal() {
             <input
               type="text"
               className="weather-search-input"
-              placeholder="Search city (e.g. Accra, London, Tokyo, New York)..."
+              placeholder={tWeather('searchCityPlaceholder')}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -163,12 +164,12 @@ export default function WeatherModal() {
                 {isSearching && (
                   <div className="weather-search-loading">
                     <i className="fa-solid fa-circle-notch fa-spin"></i>
-                    <span>Searching cities...</span>
+                    <span>{tWeather('searchingCities')}</span>
                   </div>
                 )}
                 {!isSearching && searchResults.length === 0 && query.trim().length >= 2 && (
                   <div className="weather-search-empty">
-                    <span>No matching cities found</span>
+                    <span>{tWeather('noMatchingCities')}</span>
                   </div>
                 )}
                 {!isSearching &&
@@ -199,11 +200,11 @@ export default function WeatherModal() {
             className="weather-detect-btn"
             onClick={detectLocation}
             disabled={isDetecting}
-            title="Detect your current location with GPS"
-            aria-label="Detect current location"
+            title={tWeather('detectMyLocation')}
+            aria-label={tWeather('detectMyLocation')}
           >
             <i className={`fa-solid ${isDetecting ? 'fa-spinner fa-spin' : 'fa-location-crosshairs'}`}></i>
-            <span>{isDetecting ? 'Detecting...' : 'Detect My Location'}</span>
+            <span>{isDetecting ? tWeather('detecting') : tWeather('detectMyLocation')}</span>
           </button>
         </div>
 
@@ -217,7 +218,7 @@ export default function WeatherModal() {
         {loading && !weather && (
           <div className="weather-loading-card">
             <i className="fa-solid fa-cloud-sun fa-bounce"></i>
-            <p>Loading live weather...</p>
+            <p>{tWeather('loadingWeather')}</p>
           </div>
         )}
 
@@ -230,7 +231,7 @@ export default function WeatherModal() {
                   <h2>{weather.cityName}</h2>
                   {weather.isDetected && (
                     <span className="weather-badge-gps" title="Detected via GPS location">
-                      <i className="fa-solid fa-location-arrow"></i> My Location
+                      <i className="fa-solid fa-location-arrow"></i> {tWeather('myLocation')}
                     </span>
                   )}
                 </div>
@@ -244,11 +245,11 @@ export default function WeatherModal() {
                 type="button"
                 className={`weather-save-city-btn ${isCurrentSaved ? 'saved' : ''}`}
                 onClick={toggleSaveCurrentCity}
-                title={isCurrentSaved ? 'Remove from My Cities' : 'Add to My Cities'}
-                aria-label={isCurrentSaved ? 'Remove from My Cities' : 'Add to My Cities'}
+                title={isCurrentSaved ? tWeather('inMyCities') : tWeather('addToMyCities')}
+                aria-label={isCurrentSaved ? tWeather('inMyCities') : tWeather('addToMyCities')}
               >
                 <i className={`fa-${isCurrentSaved ? 'solid' : 'regular'} fa-star`}></i>
-                <span>{isCurrentSaved ? 'In My Cities' : 'Add to My Cities'}</span>
+                <span>{isCurrentSaved ? tWeather('inMyCities') : tWeather('addToMyCities')}</span>
               </button>
             </div>
 
@@ -258,7 +259,7 @@ export default function WeatherModal() {
                 <div className="weather-condition-desc">
                   <span className="weather-condition-text">{weather.conditionText}</span>
                   <span className="weather-feels-like">
-                    Feels like {formatTemp(weather.apparentTemperature)}
+                    {tWeather('feelsLike')} {formatTemp(weather.apparentTemperature)}
                   </span>
                 </div>
               </div>
@@ -273,7 +274,7 @@ export default function WeatherModal() {
               <div className="weather-metric-item">
                 <i className="fa-solid fa-droplet metric-icon humidity"></i>
                 <div className="metric-text">
-                  <span className="metric-label">Humidity</span>
+                  <span className="metric-label">{tWeather('humidity')}</span>
                   <strong className="metric-value">{weather.humidity}%</strong>
                 </div>
               </div>
@@ -281,7 +282,7 @@ export default function WeatherModal() {
               <div className="weather-metric-item">
                 <i className="fa-solid fa-wind metric-icon wind"></i>
                 <div className="metric-text">
-                  <span className="metric-label">Wind</span>
+                  <span className="metric-label">{tWeather('wind')}</span>
                   <strong className="metric-value">{weather.windSpeed} km/h</strong>
                 </div>
               </div>
@@ -289,7 +290,7 @@ export default function WeatherModal() {
               <div className="weather-metric-item">
                 <i className="fa-solid fa-temperature-arrow-up metric-icon temp-high"></i>
                 <div className="metric-text">
-                  <span className="metric-label">High / Low</span>
+                  <span className="metric-label">{tWeather('highLow')}</span>
                   <strong className="metric-value">
                     {weather.forecast?.[0]
                       ? `${formatTemp(weather.forecast[0].maxTemp)} / ${formatTemp(weather.forecast[0].minTemp)}`
@@ -301,7 +302,7 @@ export default function WeatherModal() {
               <div className="weather-metric-item">
                 <i className="fa-solid fa-cloud-rain metric-icon rain"></i>
                 <div className="metric-text">
-                  <span className="metric-label">Rain Chance</span>
+                  <span className="metric-label">{tWeather('rainChance')}</span>
                   <strong className="metric-value">
                     {weather.forecast?.[0]?.precipitationProb ?? 0}%
                   </strong>
@@ -315,14 +316,14 @@ export default function WeatherModal() {
         <div className="weather-saved-section">
           <div className="weather-saved-header">
             <h4>
-              <i className="fa-solid fa-city"></i> My Cities ({savedCities.length})
+              <i className="fa-solid fa-city"></i> {tWeather('myCities')} ({savedCities.length})
             </h4>
-            <span className="weather-saved-tip">Tap a city to view its forecast</span>
+            <span className="weather-saved-tip">{tWeather('tapCityTip')}</span>
           </div>
 
           {savedCities.length === 0 ? (
             <div className="weather-no-saved-cities">
-              <p>You haven't added any cities yet. Search a city above and click <strong>"Add to My Cities"</strong> to pin it!</p>
+              <p>{tWeather('noSavedCities')}</p>
             </div>
           ) : (
             <div className="weather-saved-chips-scroll">
@@ -348,7 +349,7 @@ export default function WeatherModal() {
                         e.stopPropagation();
                         removeCity(city.name);
                       }}
-                      title={`Remove ${city.name} from My Cities`}
+                      title={`Remove ${city.name}`}
                       aria-label={`Remove ${city.name}`}
                     >
                       <i className="fa-solid fa-xmark"></i>
@@ -365,13 +366,13 @@ export default function WeatherModal() {
           <div className="weather-forecast-section">
             <div className="weather-forecast-header">
               <h4>
-                <i className="fa-solid fa-calendar-days"></i> 7-Day Forecast
+                <i className="fa-solid fa-calendar-days"></i> {tWeather('sevenDayForecast')}
               </h4>
             </div>
 
             <div className="weather-forecast-grid">
               {weather.forecast.map((day) => (
-                <div key={day.date} className={`weather-forecast-day-card ${day.dayName === 'Today' ? 'is-today' : ''}`}>
+                <div key={day.date} className={`weather-forecast-day-card ${day.date === new Date().toISOString().split('T')[0] ? 'is-today' : ''}`}>
                   <span className="forecast-day-name">{day.dayName}</span>
                   <i className={`${day.icon} forecast-day-icon`} style={{ color: day.color }}></i>
                   <span className="forecast-day-label">{day.label}</span>

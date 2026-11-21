@@ -1,4 +1,5 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
+import { useLanguage } from './LanguageContext';
 import {
   fetchWeather,
   getUserCoordinates,
@@ -10,11 +11,15 @@ import {
   loadLastLocation,
   saveLastLocation,
   searchCities,
+  getWmoInfo,
+  getLocalizedDayName,
+  WEATHER_UI_TRANSLATIONS,
 } from '../services/weatherService';
 
 const WeatherContext = createContext();
 
 export function WeatherProvider({ children }) {
+  const { language } = useLanguage();
   const [weather, setWeather] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -51,30 +56,100 @@ export function WeatherProvider({ children }) {
     [unit]
   );
 
+  // Translation helper for Weather UI
+  const tWeather = useCallback(
+    (key, params = {}) => {
+      const normLang = (language || 'en').toLowerCase().slice(0, 2);
+      const dict = WEATHER_UI_TRANSLATIONS[normLang] || WEATHER_UI_TRANSLATIONS.en;
+      let text = dict[key] || WEATHER_UI_TRANSLATIONS.en[key] || key;
+      if (params && typeof params === 'object') {
+        Object.entries(params).forEach(([k, v]) => {
+          text = text.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+        });
+      }
+      return text;
+    },
+    [language]
+  );
+
+  // Dynamically localize active weather condition and forecast day names when language changes
+  const localizedWeather = useMemo(() => {
+    if (!weather) return null;
+    const normLang = (language || 'en').toLowerCase().slice(0, 2);
+    const wmo = getWmoInfo(weather.weatherCode, weather.isDay ? 1 : 0, normLang);
+    const forecast = (weather.forecast || []).map((day, idx) => {
+      const isToday = idx === 0 || day.date === new Date().toISOString().split('T')[0];
+      const dateObj = new Date(day.date);
+      const dayWmo = getWmoInfo(day.weatherCode, 1, normLang);
+      return {
+        ...day,
+        dayName: getLocalizedDayName(dateObj, isToday, normLang),
+        label: dayWmo.label,
+        icon: dayWmo.icon,
+        color: dayWmo.color,
+      };
+    });
+
+    return {
+      ...weather,
+      conditionText: wmo.label,
+      conditionIcon: wmo.icon,
+      conditionColor: wmo.color,
+      forecast,
+    };
+  }, [weather, language]);
+
+  // Dynamically localize condition labels of saved cities
+  const localizedSavedCities = useMemo(() => {
+    const normLang = (language || 'en').toLowerCase().slice(0, 2);
+    return savedCities.map((c) => {
+      if (c.weatherCode != null) {
+        const wmo = getWmoInfo(c.weatherCode, 1, normLang);
+        return {
+          ...c,
+          conditionText: wmo.label,
+          conditionIcon: wmo.icon,
+        };
+      }
+      return c;
+    });
+  }, [savedCities, language]);
+
   // Fetch weather for a coordinate and city name
-  const loadWeatherForCoords = useCallback(async (lat, lon, cityName, countryName, isDetected = false) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await fetchWeather(lat, lon, cityName, countryName);
-      result.isDetected = isDetected;
-      setWeather(result);
-      saveLastLocation({
-        latitude: lat,
-        longitude: lon,
-        cityName: result.cityName,
-        country: result.country,
-        isDetected,
-      });
-      return result;
-    } catch (err) {
-      console.error('Failed to load weather:', err);
-      setError('Unable to load weather forecast right now.');
-      return null;
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+  const loadWeatherForCoords = useCallback(
+    async (lat, lon, cityName, countryName, isDetected = false) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const result = await fetchWeather(lat, lon, cityName, countryName, language);
+        result.isDetected = isDetected;
+        setWeather(result);
+        saveLastLocation({
+          latitude: lat,
+          longitude: lon,
+          cityName: result.cityName,
+          country: result.country,
+          isDetected,
+        });
+        return result;
+      } catch (err) {
+        console.error('Failed to load weather:', err);
+        setError('Unable to load weather forecast right now.');
+        return null;
+      } finally {
+        setLoading(false);
+      }
+    },
+    [language]
+  );
+
+  // Search cities wrapped with current language
+  const handleSearchCities = useCallback(
+    (query) => {
+      return searchCities(query, language);
+    },
+    [language]
+  );
 
   // Detect location using GPS or instant IP location
   const detectLocation = useCallback(async () => {
@@ -191,7 +266,7 @@ export function WeatherProvider({ children }) {
   return (
     <WeatherContext.Provider
       value={{
-        weather,
+        weather: localizedWeather || weather,
         loading,
         error,
         unit,
@@ -200,8 +275,8 @@ export function WeatherProvider({ children }) {
         detectLocation,
         isDetecting,
         selectCity,
-        searchCities,
-        savedCities,
+        searchCities: handleSearchCities,
+        savedCities: localizedSavedCities,
         isCitySaved,
         toggleSaveCurrentCity,
         removeCity,
@@ -209,6 +284,8 @@ export function WeatherProvider({ children }) {
         setShowWeatherModal,
         openWeatherModal: () => setShowWeatherModal(true),
         closeWeatherModal: () => setShowWeatherModal(false),
+        tWeather,
+        language,
       }}
     >
       {children}

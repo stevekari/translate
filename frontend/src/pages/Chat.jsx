@@ -98,7 +98,7 @@ export default function Chat({ currentUserId, currentUser }) {
   const [showMessengerToolsModal, setShowMessengerToolsModal] = useState(false);
   const [familyProfile, setFamilyProfile] = useState(null);
   const [blockConfirmTarget, setBlockConfirmTarget] = useState(null);
-  const { weather, formatTemp, openWeatherModal } = useWeather();
+  const { weather, formatTemp, openWeatherModal, tWeather } = useWeather();
 
   useEffect(() => {
     const fId = friend?.id || friend?.userId || friend?._id;
@@ -995,8 +995,8 @@ export default function Chat({ currentUserId, currentUser }) {
                     type="button"
                     className="chat-call-btn weather-call-btn"
                     onClick={openWeatherModal}
-                    title={weather ? `Weather: ${weather.cityName} (${formatTemp(weather.temperature)})` : 'Check Weather & Forecast'}
-                    aria-label="Weather & Forecast"
+                    title={weather ? `${tWeather ? tWeather('weather') : 'Weather'}: ${weather.cityName} (${formatTemp(weather.temperature)})` : (tWeather ? tWeather('weatherAndForecast') : 'Check Weather & Forecast')}
+                    aria-label={tWeather ? tWeather('weatherAndForecast') : 'Weather & Forecast'}
                   >
                     <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />
                     {weather?.cityName && (

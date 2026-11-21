@@ -45,7 +45,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
       isMounted = false;
     };
   }, []);
-  const { weather, formatTemp, showWeatherModal, openWeatherModal } = useWeather();
+  const { weather, formatTemp, showWeatherModal, openWeatherModal, tWeather } = useWeather();
 
   const totalUnread = useMemo(() => {
     return Object.values(conversations).reduce((sum, conv) => sum + (conv.unread || 0), 0);
@@ -141,8 +141,8 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
             type="button"
             className={`fb-tab weather-nav-tab ${showWeatherModal ? 'active' : ''}`}
             onClick={openWeatherModal}
-            title={weather ? `Weather: ${weather.cityName} (${formatTemp(weather.temperature)}) - Click for details` : 'Weather & Forecast'}
-            aria-label="Weather & Forecast"
+            title={weather ? `${tWeather ? tWeather('weather') : 'Weather'}: ${weather.cityName} (${formatTemp(weather.temperature)})` : (tWeather ? tWeather('weatherAndForecast') : 'Weather & Forecast')}
+            aria-label={tWeather ? tWeather('weatherAndForecast') : 'Weather & Forecast'}
           >
             <div className="fb-tab-icon-wrap weather-tab-icon-wrap">
               <i className={weather?.conditionIcon || 'fa-solid fa-cloud-sun'} style={{ color: weather?.conditionColor || '#f59e0b' }} />

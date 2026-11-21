@@ -26,7 +26,7 @@ import '../styles/community.css';
 export default function CommunityHome({ user }) {
   const navigate = useNavigate();
   const { language: currentLang, languageOptions, t } = useLanguage();
-  const { weather, formatTemp, openWeatherModal } = useWeather();
+  const { weather, formatTemp, openWeatherModal, tWeather } = useWeather();
 
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -101,15 +101,17 @@ export default function CommunityHome({ user }) {
         [51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99].includes(d.weatherCode)
     );
     if (rainyDays.length === 0) {
-      return { willRain: false, message: 'Sunny & dry for the next 5 days ☀️' };
+      return { willRain: false, message: tWeather ? tWeather('sunnyDryDays') : 'Sunny & dry for the next 5 days ☀️' };
     }
     const daysStr = rainyDays.map((d) => d.dayName).join(', ');
     const maxChance = Math.max(...rainyDays.map((d) => d.precipitationProb || 50));
     return {
       willRain: true,
-      message: `Rain expected on ${daysStr} (${maxChance}% chance) 🌧️`,
+      message: tWeather
+        ? tWeather('rainExpectedOn', { days: `${daysStr} (${maxChance}%)` })
+        : `Rain expected on ${daysStr} (${maxChance}% chance) 🌧️`,
     };
-  }, [fiveDaysWeather]);
+  }, [fiveDaysWeather, tWeather]);
 
   // Active comments accordion: { [postId]: { open: boolean, loading: boolean, list: [] } }
   const [commentsState, setCommentsState] = useState({});
@@ -873,7 +875,7 @@ export default function CommunityHome({ user }) {
               >
                 <div className="shortcuts-weather-title-group">
                   <span className="shortcuts-weather-label">
-                    <i className="fa-solid fa-cloud-sun"></i> 5-Day Weather
+                    <i className="fa-solid fa-cloud-sun"></i> {tWeather ? tWeather('fiveDayWeather') : '5-Day Weather'}
                   </span>
                   <span className="shortcuts-weather-city">
                     <i className="fa-solid fa-location-dot"></i> {weather.cityName}
@@ -942,7 +944,7 @@ export default function CommunityHome({ user }) {
                 className="shortcuts-weather-see-all-btn"
                 onClick={openWeatherModal}
               >
-                <span>Full Forecast & City Search</span>
+                <span>{tWeather ? tWeather('fullForecast') : 'Full Forecast & City Search'}</span>
                 <i className="fa-solid fa-arrow-right"></i>
               </button>
             </div>

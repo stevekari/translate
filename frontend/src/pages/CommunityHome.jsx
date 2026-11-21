@@ -1764,11 +1764,6 @@ export default function CommunityHome({ user }) {
             </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="sidebar-footer">
-          <p>© 2026 Giochat • Privacy • Terms • Ad Choices • Cookies</p>
-        </div>
       </aside>
 
       {/* Lightbox for full image viewing */}

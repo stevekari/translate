@@ -43,7 +43,9 @@ export default function Footer() {
       </div>
 
       <div className="footer-bottom">
-        <p>© {year} <span className="footer-steve">Steve</span>. {t('allRights')}</p>
+        <p className="footer-copyright">
+          © {year} <span className="footer-brand-name">Giochat</span> • <a href="#privacy" onClick={(e) => e.preventDefault()}>Privacy</a> • <a href="#terms" onClick={(e) => e.preventDefault()}>Terms</a> • <a href="#ad-choices" onClick={(e) => e.preventDefault()}>Ad Choices</a> • <a href="#cookies" onClick={(e) => e.preventDefault()}>Cookies</a>
+        </p>
         <p className="footer-made">{t('crafted')} <i className="fa-solid fa-heart"></i> by Steve</p>
       </div>
     </footer>

@@ -10,13 +10,19 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
 import java.net.URI;
+import java.net.URLEncoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
+import java.util.HashMap;
 import java.util.Locale;
+import java.util.Map;
 
 @Service
 public class AiService {
@@ -34,11 +40,67 @@ public class AiService {
     @Value("${cloudflare.ai.model:@cf/meta/llama-3.1-8b-instruct}")
     private String cfAiModel;
 
+    private final Map<String, String> envFallbackMap = new HashMap<>();
+
     public AiService(ObjectMapper objectMapper) {
         this.objectMapper = objectMapper;
         this.httpClient = HttpClient.newBuilder()
                 .connectTimeout(Duration.ofSeconds(10))
                 .build();
+        loadLocalEnvFile();
+    }
+
+    private void loadLocalEnvFile() {
+        String[] candidatePaths = {
+                "translate/backend/.env",
+                "backend/.env",
+                ".env",
+                "../backend/.env"
+        };
+        for (String path : candidatePaths) {
+            File f = new File(path);
+            if (f.exists() && f.isFile()) {
+                try (BufferedReader br = new BufferedReader(new FileReader(f, StandardCharsets.UTF_8))) {
+                    String line;
+                    while ((line = br.readLine()) != null) {
+                        line = line.trim();
+                        if (line.isEmpty() || line.startsWith("#")) continue;
+                        int idx = line.indexOf('=');
+                        if (idx > 0) {
+                            String k = line.substring(0, idx).trim();
+                            String v = line.substring(idx + 1).trim();
+                            if ((v.startsWith("\"") && v.endsWith("\"")) || (v.startsWith("'") && v.endsWith("'"))) {
+                                v = v.substring(1, v.length() - 1);
+                            }
+                            envFallbackMap.put(k, v);
+                        }
+                    }
+                    log.info("Loaded {} environment keys from fallback: {}", envFallbackMap.size(), path);
+                    break;
+                } catch (Exception e) {
+                    log.debug("Could not read env file {}: {}", path, e.getMessage());
+                }
+            }
+        }
+    }
+
+    private String getEnvOrProp(String key, String configuredVal) {
+        if (configuredVal != null && !configuredVal.isBlank()) {
+            return configuredVal.trim();
+        }
+        String sysVal = System.getenv(key);
+        if (sysVal != null && !sysVal.isBlank()) {
+            return sysVal.trim();
+        }
+        sysVal = System.getProperty(key);
+        if (sysVal != null && !sysVal.isBlank()) {
+            return sysVal.trim();
+        }
+        String fileVal = envFallbackMap.get(key);
+        if (fileVal != null && !fileVal.isBlank()) {
+            return fileVal.trim();
+        }
+        return null;
     }
 
     public AiAnswerResponse ask(String question, String context, String language) {
@@ -50,10 +112,14 @@ public class AiService {
         String trimmedQuestion = question.trim();
         String contextSnippet = (context != null && !context.isBlank()) ? context.trim() : null;
 
+        String accountId = getEnvOrProp("CLOUDFLARE_ACCOUNT_ID", cfAccountId);
+        String apiToken = getEnvOrProp("CLOUDFLARE_API_TOKEN", cfApiToken);
+        String aiModel = getEnvOrProp("CLOUDFLARE_AI_MODEL", cfAiModel);
+
         // 1. Cloudflare Workers AI (Fast, global, multi-model)
-        if (cfAccountId != null && !cfAccountId.isBlank() && cfApiToken != null && !cfApiToken.isBlank()) {
+        if (accountId != null && !accountId.isBlank() && apiToken != null && !apiToken.isBlank()) {
             try {
-                AiAnswerResponse resp = callCloudflare(cfAccountId, cfApiToken, cfAiModel, trimmedQuestion, contextSnippet, targetLang);
+                AiAnswerResponse resp = callCloudflare(accountId, apiToken, aiModel, trimmedQuestion, contextSnippet, targetLang);
                 if (resp != null && resp.isSuccess() && resp.getAnswer() != null && !resp.getAnswer().isBlank()) {
                     return resp;
                 }
@@ -63,11 +129,7 @@ public class AiService {
         }
 
         // 2. Check for Gemini API Key
-        String geminiApiKey = System.getenv("GEMINI_API_KEY");
-        if (geminiApiKey == null || geminiApiKey.isBlank()) {
-            geminiApiKey = System.getProperty("gemini.api.key");
-        }
-
+        String geminiApiKey = getEnvOrProp("GEMINI_API_KEY", null);
         if (geminiApiKey != null && !geminiApiKey.isBlank()) {
             try {
                 AiAnswerResponse resp = callGemini(geminiApiKey, trimmedQuestion, contextSnippet, targetLang);
@@ -79,12 +141,8 @@ public class AiService {
             }
         }
 
-        // 2. Check for OpenAI API Key
-        String openAiApiKey = System.getenv("OPENAI_API_KEY");
-        if (openAiApiKey == null || openAiApiKey.isBlank()) {
-            openAiApiKey = System.getProperty("openai.api.key");
-        }
-
+        // 3. Check for OpenAI API Key
+        String openAiApiKey = getEnvOrProp("OPENAI_API_KEY", null);
         if (openAiApiKey != null && !openAiApiKey.isBlank()) {
             try {
                 AiAnswerResponse resp = callOpenAi(openAiApiKey, trimmedQuestion, contextSnippet, targetLang);
@@ -96,7 +154,7 @@ public class AiService {
             }
         }
 
-        // 3. Try Pollinations Free AI Engine
+        // 4. Try Pollinations Free AI Engine
         try {
             AiAnswerResponse resp = callPollinations(trimmedQuestion, contextSnippet, targetLang);
             if (resp != null && resp.isSuccess() && resp.getAnswer() != null && !resp.getAnswer().isBlank()) {
@@ -106,9 +164,9 @@ public class AiService {
             log.warn("Pollinations AI call failed: {}", e.getMessage());
         }
 
-        // 4. Fallback to Built-in Contextual Smart Assistant
+        // 5. Fallback to Built-in Contextual Smart Assistant (High Quality)
         String fallbackAnswer = generateBuiltInAnswer(trimmedQuestion, contextSnippet, targetLang);
-        return new AiAnswerResponse(fallbackAnswer, "GioAI Built-in Assistant", true);
+        return new AiAnswerResponse(fallbackAnswer, "GioAI Assistant", true);
     }
 
     private AiAnswerResponse callCloudflare(String accountId, String apiToken, String model, String question, String context, String language) throws Exception {
@@ -120,7 +178,7 @@ public class AiService {
         ArrayNode messages = root.putArray("messages");
         messages.addObject()
                 .put("role", "system")
-                .put("content", "You are GioAI, an intelligent, polite, and helpful multilingual chat companion. Answer clearly in language: " + language + ".");
+                .put("content", "You are GioAI, an intelligent, friendly, and culturally insightful multicultural chat assistant. Provide structured, warm, and natural answers in language: " + language + ".");
         messages.addObject()
                 .put("role", "user")
                 .put("content", prompt);
@@ -141,7 +199,7 @@ public class AiService {
                 textNode = resNode.at("/result/choices/0/message/content");
             }
             if (!textNode.isMissingNode() && !textNode.asText().isBlank()) {
-                return new AiAnswerResponse(textNode.asText().trim(), "Cloudflare AI", true);
+                return new AiAnswerResponse(textNode.asText().trim(), "Cloudflare AI (" + modelToUse.replace("@cf/", "") + ")", true);
             }
         } else {
             log.warn("Cloudflare AI returned status {}: {}", response.statusCode(), response.body());
@@ -212,8 +270,24 @@ public class AiService {
 
     private AiAnswerResponse callPollinations(String question, String context, String language) throws Exception {
         String prompt = buildPrompt(question, context, language);
-        String url = "https://text.pollinations.ai/";
 
+        // Attempt 1: Direct GET
+        try {
+            String encoded = URLEncoder.encode(prompt, StandardCharsets.UTF_8);
+            String getUrl = "https://text.pollinations.ai/" + encoded + "?model=openai";
+            HttpRequest getReq = HttpRequest.newBuilder()
+                    .uri(URI.create(getUrl))
+                    .timeout(Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+            HttpResponse<String> getRes = httpClient.send(getReq, HttpResponse.BodyHandlers.ofString(StandardCharsets.UTF_8));
+            if (getRes.statusCode() == 200 && !getRes.body().isBlank()) {
+                return new AiAnswerResponse(getRes.body().trim(), "GioAI Cloud", true);
+            }
+        } catch (Exception ignored) {}
+
+        // Attempt 2: POST with messages
+        String url = "https://text.pollinations.ai/";
         ObjectNode root = objectMapper.createObjectNode();
         ArrayNode messages = root.putArray("messages");
         messages.addObject()
@@ -225,7 +299,7 @@ public class AiService {
 
         HttpRequest request = HttpRequest.newBuilder()
                 .uri(URI.create(url))
-                .timeout(Duration.ofSeconds(12))
+                .timeout(Duration.ofSeconds(10))
                 .header("Content-Type", "application/json")
                 .POST(HttpRequest.BodyPublishers.ofString(objectMapper.writeValueAsString(root), StandardCharsets.UTF_8))
                 .build();
@@ -242,52 +316,90 @@ public class AiService {
 
     private String buildPrompt(String question, String context, String language) {
         StringBuilder sb = new StringBuilder();
-        sb.append("You are GioAI, an assistant embedded inside GioChat (a global multilingual chat platform).\n");
-        sb.append("Respond naturally, warmly, and concisely in language code '").append(language).append("'.\n\n");
+        sb.append("You are GioAI, the intelligent, friendly, and culturally insightful assistant inside GioChat (a global multilingual chat platform).\n");
+        sb.append("Your mission is to help users communicate naturally, understand nuances, translate accurately, and craft great responses.\n");
+        sb.append("Guidelines:\n");
+        sb.append("- Respond warmly, clearly, and concisely in language code '").append(language).append("'.\n");
+        sb.append("- Format with clean paragraphs, bold key terms, and bullet points where helpful.\n");
+        sb.append("- If asked for replies or suggestions, provide 2-3 distinct, natural options with tone labels (e.g. Casual, Warm, Polite).\n");
+        sb.append("- If explaining a phrase or slang, clarify the meaning, conversational tone, and a quick example.\n\n");
         if (context != null && !context.isBlank()) {
-            sb.append("Current conversation context with friend:\n\"").append(context).append("\"\n\n");
+            sb.append("Active Chat Context / Referencing Message:\n\"").append(context).append("\"\n\n");
         }
-        sb.append("User's Question / Prompt:\n").append(question);
+        sb.append("User's Request:\n").append(question);
         return sb.toString();
     }
 
     private String generateBuiltInAnswer(String question, String context, String language) {
         String qLower = question.toLowerCase(Locale.ROOT);
 
-        if (qLower.contains("reply") || qLower.contains("respond") || qLower.contains("answer")) {
-            if (context != null && !context.isBlank()) {
-                return "Here are 3 friendly ways to reply to \"" + context + "\":\n\n" +
-                        "1. Friendly & casual: \"Thanks for letting me know! Sounds good.\"\n" +
-                        "2. Enthusiastic: \"That's awesome! Looking forward to it 😊\"\n" +
-                        "3. Polite: \"Understood, thank you! Let me know if you need anything else.\"";
-            }
-            return "Here are quick reply suggestions:\n" +
-                    "• \"Thanks! Talk to you soon.\"\n" +
-                    "• \"Sounds great, let's catch up later!\"\n" +
-                    "• \"Got it, thank you for sharing!\"";
+        // Greetings
+        if (qLower.equals("hi") || qLower.equals("hello") || qLower.startsWith("hi ") || qLower.startsWith("hello ") || qLower.contains("hey gioai") || qLower.contains("who are you")) {
+            return "👋 **Hello! I'm GioAI**, your personal chat and language companion in GioChat.\n\n" +
+                    "Here are a few things I can do for you right now:\n" +
+                    "• ✍️ **Draft replies:** Give me any message and I'll suggest friendly or professional responses.\n" +
+                    "• 💡 **Explain phrases & slang:** Learn the nuance, tone, and cultural meaning of words.\n" +
+                    "• 🌍 **Cross-cultural tips:** Communicate smoothly with friends worldwide.\n" +
+                    "• 🎓 **Translation assistance:** Ask how to say anything naturally in another language.\n\n" +
+                    "How can I help you today?";
         }
 
-        if (qLower.contains("explain") || qLower.contains("mean") || qLower.contains("meaning")) {
+        // Reply generation
+        if (qLower.contains("reply") || qLower.contains("respond") || qLower.contains("answer") || qLower.contains("what should i say")) {
             if (context != null && !context.isBlank()) {
-                return "Explanation for: \"" + context + "\"\n\n" +
-                        "This phrase is commonly used in casual conversation to share updates or express feelings. " +
-                        "It has a friendly and approachable tone.";
+                return "Here are 3 natural, tailored replies to: *\"" + context + "\"*\n\n" +
+                        "1. 😊 **Casual & Warm:**\n" +
+                        "   \"Thanks for letting me know! That sounds like a wonderful plan 😊\"\n\n" +
+                        "2. 🌟 **Enthusiastic & Engaging:**\n" +
+                        "   \"That's awesome! I'd love to hear more about it when you have a moment.\"\n\n" +
+                        "3. 🤝 **Short & Polite:**\n" +
+                        "   \"Got it, thank you! I'll catch up with you shortly.\"";
             }
-            return "GioAI Linguistic Tip: In cross-cultural chat, keeping messages warm and adding emojis helps prevent misunderstandings across languages!";
+            return "Here are 3 versatile friendly replies you can use anytime:\n\n" +
+                    "1. 😊 **Warm check-in:** \"Hey! Great to hear from you. How has your week been going?\"\n" +
+                    "2. 👍 **Positive acknowledgment:** \"Sounds good to me! Let's definitely catch up soon.\"\n" +
+                    "3. ☕ **Thoughtful:** \"Thanks for thinking of me! I really appreciate it.\"";
         }
 
-        if (qLower.contains("translate") || qLower.contains("how to say") || qLower.contains("how do you say")) {
-            return "GioAI Translation Tip:\n" +
-                    "You can tap the 🌍 Translate button directly on any chat message to translate into your preferred language instantly!";
+        // Explaining meaning / idioms / slang
+        if (qLower.contains("explain") || qLower.contains("mean") || qLower.contains("meaning") || qLower.contains("slang") || qLower.contains("idiom") || qLower.contains("phrase")) {
+            if (context != null && !context.isBlank()) {
+                return "💡 **Explanation & Nuance for:** *\"" + context + "\"*\n\n" +
+                        "• **Tone:** Conversational and relaxed.\n" +
+                        "• **Meaning:** In informal chats, this is used to acknowledge an update, express agreement, or show friendly interest.\n" +
+                        "• **Cultural Tip:** Pairing your response with a positive emoji (😊, 👍) helps ensure warmth and clarity across different languages.";
+            }
+            return "💡 **GioAI Slang & Nuance Guide:**\n\n" +
+                    "Slang and idioms often carry subtle emotional tone that direct translations miss.\n" +
+                    "• **Type any specific phrase** in the box above (e.g., *\"Explain no cap\"* or *\"What does 'catch up' mean?\"*) and I'll break down its tone, origin, and natural usage!";
+        }
+
+        // Cultural etiquette / tips
+        if (qLower.contains("cultural") || qLower.contains("etiquette") || qLower.contains("culture") || qLower.contains("polite") || qLower.contains("tips")) {
+            return "🌍 **Cross-Cultural Communication Tips:**\n\n" +
+                    "1. **Start with a warm greeting:** In many cultures, a brief \"How are you doing today?\" before business or requests establishes mutual respect.\n" +
+                    "2. **Mind the directness:** Some cultures appreciate concise, direct statements, while others value softer phrasing (e.g., *\"Could we perhaps explore...\"* instead of *\"We must...\"*).\n" +
+                    "3. **Leverage GioChat tools:** Tap the 🌍 **Translate** button on any message to see both original and translated text side-by-side to verify nuances!";
+        }
+
+        // Translation assistance
+        if (qLower.contains("translate") || qLower.contains("how to say") || qLower.contains("how do you say") || qLower.contains("spanish") || qLower.contains("french") || qLower.contains("german")) {
+            return "🎓 **GioAI Translation & Practice:**\n\n" +
+                    "• **Instant Chat Translation:** In any conversation, tap the 🌍 icon on a message to view it in your chosen language.\n" +
+                    "• **Ask me anything:** You can ask me questions like: *\"How do I say 'Thank you for your hospitality' naturally in Spanish?\"* and I will give you both literal and idiomatic phrasing!";
         }
 
         if (context != null && !context.isBlank()) {
-            return "Regarding \"" + context + "\":\n\n" +
-                    "Based on your conversation, here is some insight: " + question + "\n" +
-                    "Tip: You can use GioAI to draft replies, clarify expressions, or practice pronunciation with your chat partner!";
+            return "Regarding *\"" + context + "\"*:\n\n" +
+                    "Here is what I recommend for your question (*\"" + question + "\"*):\n\n" +
+                    "Keep your message clear, friendly, and open-ended. You can easily tap **Insert into chat** below to adapt this into your active conversation!";
         }
 
-        return "GioAI Assistant: I am here to help you communicate smoothly with your friends! " +
-                "You can ask me to draft replies, explain what someone meant, or ask general questions.";
+        return "🤖 **GioAI Assistant:**\n\n" +
+                "I am ready to help you communicate with ease! You can ask me to:\n" +
+                "• Suggest quick friendly or professional replies\n" +
+                "• Explain the meaning or tone of a phrase or slang\n" +
+                "• Give polite cross-cultural conversation tips\n" +
+                "• Translate expressions with natural pronunciation and tone";
     }
 }

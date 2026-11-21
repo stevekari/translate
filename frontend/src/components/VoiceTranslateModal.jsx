@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import { WORLD_LANGUAGES, getLanguageInfo } from '../utils/languages';
 import {
   speakText,
@@ -287,9 +288,20 @@ export default function VoiceTranslateModal({
 
   if (!isOpen) return null;
 
-  return (
+  const modalContent = (
     <div className="voice-trans-backdrop" onClick={onClose} role="dialog" aria-modal="true">
       <div className="voice-trans-card" onClick={(e) => e.stopPropagation()}>
+        {/* Prominent Always-Visible Top Close Button */}
+        <button
+          type="button"
+          className="voice-trans-close-btn"
+          onClick={onClose}
+          aria-label="Close Voice Translator"
+          title="Close Voice Translator"
+        >
+          <i className="fa-solid fa-xmark"></i>
+        </button>
+
         {/* Header */}
         <div className="voice-trans-header">
           <div className="voice-trans-title-wrap">
@@ -298,14 +310,6 @@ export default function VoiceTranslateModal({
             </span>
             <h2 className="voice-trans-heading">Speak & Translate With Natural Voice</h2>
           </div>
-          <button
-            type="button"
-            className="voice-trans-close-btn"
-            onClick={onClose}
-            aria-label="Close Voice Translator"
-          >
-            <i className="fa-solid fa-xmark"></i>
-          </button>
         </div>
 
         {/* Language Selector Bar with Quick Swap */}
@@ -557,6 +561,17 @@ export default function VoiceTranslateModal({
           </label>
 
           <div className="voice-trans-right-actions">
+            <button
+              type="button"
+              className="voice-trans-footer-close-btn"
+              onClick={onClose}
+              title="Close Voice Translator"
+              aria-label="Close"
+            >
+              <i className="fa-solid fa-xmark"></i>
+              <span>Close</span>
+            </button>
+
             {onSendToChat && (translatedText || inputText) && (
               <button
                 type="button"
@@ -573,4 +588,6 @@ export default function VoiceTranslateModal({
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

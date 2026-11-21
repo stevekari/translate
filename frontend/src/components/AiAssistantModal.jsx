@@ -28,15 +28,15 @@ export default function AiAssistantModal({
 
       // Initialize conversation
       const welcomeText = initialContext
-        ? `👋 **Hi! I see you are referencing this message from ${chatPartnerName}:**\n> "${initialContext}"\n\nI can help you draft natural replies, explain any slang or idioms, or check cultural nuances. What would you like to do?`
-        : `👋 **Hi! I'm GioAI**, your personal multicultural chat assistant.\n\nAsk me anything, draft messages for **${chatPartnerName}**, or ask for translations and cultural guidance!`;
+        ? `👋 **Hi! I'm GioAI.** Ask me anything about this message from **${chatPartnerName}**:\n> "${initialContext}"\n\nI will give you a direct, accurate, short answer.`
+        : `👋 **Hi! I'm GioAI.** Ask me any question and I will give you a direct, accurate, short answer.`;
 
       setMessages([
         {
           id: 'welcome',
           role: 'assistant',
           text: welcomeText,
-          model: 'GioAI Assistant',
+          model: 'GioAI',
         },
       ]);
 
@@ -108,26 +108,26 @@ export default function AiAssistantModal({
 
   const QUICK_PROMPTS = [
     {
-      label: '✍️ Draft friendly reply',
+      label: '✍️ Short reply',
       prompt: context
-        ? `Suggest 3 friendly and natural ways to reply to: "${context}"`
-        : `Suggest 3 friendly reply options for a chat with ${chatPartnerName}`,
+        ? `Give me 1 short and friendly reply to: "${context}"`
+        : `Give me 1 short and friendly conversation opener for ${chatPartnerName}`,
     },
     {
-      label: '💡 Explain meaning & tone',
+      label: '💡 Quick explanation',
       prompt: context
-        ? `Explain the meaning, tone, and cultural nuance of this message: "${context}"`
-        : 'Explain common chat idioms and slang used in casual messaging',
+        ? `Explain the meaning of this in 1 short sentence: "${context}"`
+        : 'Explain the most common everyday messaging slang in 1 sentence',
     },
     {
-      label: '🌍 Cultural etiquette',
+      label: '🌍 Quick translate',
       prompt: context
-        ? `Are there any cultural nuances or polite etiquette to consider for: "${context}"?`
-        : `Give me polite conversational tips for chatting with friends across different cultures`,
+        ? `Translate this directly into natural language in 1 short sentence: "${context}"`
+        : 'How do you say "Have a wonderful day" naturally in Spanish and French?',
     },
     {
-      label: '🗣️ Express naturally',
-      prompt: 'How can I say "I really appreciate your help and hope you have a great day" naturally in casual conversation?',
+      label: '⚡ Direct answer',
+      prompt: 'What is the fastest way to communicate clearly across languages?',
     },
   ];
 
@@ -144,11 +144,11 @@ export default function AiAssistantModal({
               <div className="ai-modal-title">
                 GioAI Studio
                 <span className="ai-modal-badge">
-                  <span className="ai-modal-pulse-dot" /> Live Multi-Model
+                  <span className="ai-modal-pulse-dot" /> Real Multi-Model AI
                 </span>
               </div>
               <div className="ai-modal-subtitle">
-                {chatPartnerName ? `Assisting your chat with ${chatPartnerName}` : 'Answers, explanations & translations'}
+                Direct, accurate and short AI answers
               </div>
             </div>
           </div>
@@ -302,7 +302,7 @@ export default function AiAssistantModal({
               rows={2}
               value={question}
               onChange={(e) => setQuestion(e.target.value)}
-              placeholder={`Ask GioAI anything (e.g. "Draft a warm reply", "What does 'bet' mean?", "Translate to Spanish")...`}
+              placeholder="Ask GioAI any question for a quick, direct, and short answer..."
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();

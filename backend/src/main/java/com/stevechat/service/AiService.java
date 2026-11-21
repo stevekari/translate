@@ -316,17 +316,14 @@ public class AiService {
 
     private String buildPrompt(String question, String context, String language) {
         StringBuilder sb = new StringBuilder();
-        sb.append("You are GioAI, the intelligent, friendly, and culturally insightful assistant inside GioChat (a global multilingual chat platform).\n");
-        sb.append("Your mission is to help users communicate naturally, understand nuances, translate accurately, and craft great responses.\n");
-        sb.append("Guidelines:\n");
-        sb.append("- Respond warmly, clearly, and concisely in language code '").append(language).append("'.\n");
-        sb.append("- Format with clean paragraphs, bold key terms, and bullet points where helpful.\n");
-        sb.append("- If asked for replies or suggestions, provide 2-3 distinct, natural options with tone labels (e.g. Casual, Warm, Polite).\n");
-        sb.append("- If explaining a phrase or slang, clarify the meaning, conversational tone, and a quick example.\n\n");
+        sb.append("You are GioAI, a highly intelligent, accurate, and concise AI assistant inside GioChat.\n");
+        sb.append("CRITICAL INSTRUCTION: Provide a direct, correct, and SHORT answer in 1 to 2 sentences maximum.\n");
+        sb.append("Never include introductory greetings (e.g. 'Hello', 'Sure!'), conversational filler, or disclaimers. Get straight to the correct answer.\n");
+        sb.append("Language: ").append(language).append(".\n\n");
         if (context != null && !context.isBlank()) {
-            sb.append("Active Chat Context / Referencing Message:\n\"").append(context).append("\"\n\n");
+            sb.append("Context: \"").append(context).append("\"\n\n");
         }
-        sb.append("User's Request:\n").append(question);
+        sb.append("Question: ").append(question);
         return sb.toString();
     }
 
@@ -335,39 +332,37 @@ public class AiService {
 
         // Greetings
         if (qLower.equals("hi") || qLower.equals("hello") || qLower.startsWith("hi ") || qLower.startsWith("hello ") || qLower.contains("hey gioai") || qLower.contains("who are you")) {
-            return "👋 **Hello! I'm GioAI**, your personal chat and language companion in GioChat.\n\n" +
-                    "Here are a few things I can do for you right now:\n" +
-                    "• ✍️ **Draft replies:** Give me any message and I'll suggest friendly or professional responses.\n" +
-                    "• 💡 **Explain phrases & slang:** Learn the nuance, tone, and cultural meaning of words.\n" +
-                    "• 🌍 **Cross-cultural tips:** Communicate smoothly with friends worldwide.\n" +
-                    "• 🎓 **Translation assistance:** Ask how to say anything naturally in another language.\n\n" +
-                    "How can I help you today?";
+            return "Hello! I am GioAI, your intelligent AI assistant in GioChat. Ask me any question for a quick, direct answer.";
         }
 
         // Reply generation
         if (qLower.contains("reply") || qLower.contains("respond") || qLower.contains("answer") || qLower.contains("what should i say")) {
             if (context != null && !context.isBlank()) {
-                return "Here are 3 natural, tailored replies to: *\"" + context + "\"*\n\n" +
-                        "1. 😊 **Casual & Warm:**\n" +
-                        "   \"Thanks for letting me know! That sounds like a wonderful plan 😊\"\n\n" +
-                        "2. 🌟 **Enthusiastic & Engaging:**\n" +
-                        "   \"That's awesome! I'd love to hear more about it when you have a moment.\"\n\n" +
-                        "3. 🤝 **Short & Polite:**\n" +
-                        "   \"Got it, thank you! I'll catch up with you shortly.\"";
+                return "A natural short reply: \"Thanks for letting me know! That sounds great 👍\"";
             }
-            return "Here are 3 versatile friendly replies you can use anytime:\n\n" +
-                    "1. 😊 **Warm check-in:** \"Hey! Great to hear from you. How has your week been going?\"\n" +
-                    "2. 👍 **Positive acknowledgment:** \"Sounds good to me! Let's definitely catch up soon.\"\n" +
-                    "3. ☕ **Thoughtful:** \"Thanks for thinking of me! I really appreciate it.\"";
+            return "A friendly short reply: \"Thanks for checking in! Hope you are having a wonderful day 😊\"";
         }
 
         // Explaining meaning / idioms / slang
         if (qLower.contains("explain") || qLower.contains("mean") || qLower.contains("meaning") || qLower.contains("slang") || qLower.contains("idiom") || qLower.contains("phrase")) {
             if (context != null && !context.isBlank()) {
-                return "💡 **Explanation & Nuance for:** *\"" + context + "\"*\n\n" +
-                        "• **Tone:** Conversational and relaxed.\n" +
-                        "• **Meaning:** In informal chats, this is used to acknowledge an update, express agreement, or show friendly interest.\n" +
-                        "• **Cultural Tip:** Pairing your response with a positive emoji (😊, 👍) helps ensure warmth and clarity across different languages.";
+                return "In casual conversation, \"" + context + "\" conveys friendly agreement and positive acknowledgment.";
+            }
+            return "This phrase expresses friendly, informal confirmation and warm tone in everyday chat.";
+        }
+
+        // Cultural context & etiquette
+        if (qLower.contains("cultural") || qLower.contains("etiquette") || qLower.contains("culture") || qLower.contains("polite") || qLower.contains("tips")) {
+            return "Polite tip: Start with a brief, friendly greeting before making requests to ensure warm cross-cultural connection.";
+        }
+
+        // Translation assistance
+        if (qLower.contains("how to say") || qLower.contains("how do you say") || qLower.contains("translate") || qLower.contains("spanish") || qLower.contains("french") || qLower.contains("german")) {
+            return "To translate any phrase instantly in your chats, tap the 🌍 icon on any message bubble.";
+        }
+
+        return "Here is your answer to \"" + question + "\". For full real-time details, connect to live network.";
+    }
             }
             return "💡 **GioAI Slang & Nuance Guide:**\n\n" +
                     "Slang and idioms often carry subtle emotional tone that direct translations miss.\n" +

@@ -282,12 +282,13 @@ export default function LiveFootballAndNews() {
           >
             <div className="football-live-count-pill">
               <span className="status-live-dot" />
-              <span>{liveMatchesCount} Matches Live • Tap for Live Center</span>
+              <span className="live-banner-highlight">{liveMatchesCount} LIVE</span>
+              <span className="live-banner-sub">Tap for Center</span>
               <i className="fa-solid fa-arrow-up-right-from-square live-popup-hint-icon" />
             </div>
             <div className="football-banner-right-tags">
               <span className="football-real-indicator" title="Connected to Real Live Football ESPN Feeds">
-                <i className="fa-solid fa-circle-check" /> Real Live Feed
+                <i className="fa-solid fa-circle-check" /> ESPN Live
               </span>
               <span className="football-total-badge">{matches.length} Total</span>
             </div>

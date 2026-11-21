@@ -107,6 +107,139 @@
 }
 
 /* League & Category Filter Chips */
+/* Football Live Summary Banner */
+.football-summary-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+}
+
+.football-live-count-pill {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #ef4444;
+}
+
+.football-total-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--surface-hi, rgba(255, 255, 255, 0.06));
+  padding: 2px 7px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+}
+
+/* Quick Search Bar */
+.football-search-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--surface-hi, rgba(255, 255, 255, 0.04));
+  border: 1.5px solid var(--border);
+  border-radius: 12px;
+  padding: 2px 10px;
+  transition: all 0.18s ease;
+}
+
+.football-search-wrapper:focus-within {
+  border-color: #1877f2;
+  box-shadow: 0 0 0 2px rgba(24, 119, 242, 0.18);
+}
+
+.football-search-wrapper .search-icon {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.football-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text);
+  font-size: 0.82rem;
+  padding: 6px 0;
+  font-family: inherit;
+}
+
+.football-search-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.75;
+}
+
+.football-search-clear {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  font-size: 0.76rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.football-search-clear:hover {
+  color: var(--text);
+}
+
+/* Status Filter Buttons */
+.football-status-filter-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding-bottom: 2px;
+}
+
+.football-status-filter-row::-webkit-scrollbar {
+  display: none;
+}
+
+.status-pill-btn {
+  padding: 4px 9px;
+  border-radius: 8px;
+  background: var(--surface-hi, rgba(255, 255, 255, 0.04));
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.16s ease;
+  flex-shrink: 0;
+}
+
+.status-pill-btn:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.status-pill-btn.active {
+  background: var(--surface);
+  border-color: #1877f2;
+  color: #1877f2;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+}
+
+.status-pill-btn.live.active {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* League & Category Filter Chips */
 .football-chips-row {
   display: flex;
   align-items: center;
@@ -121,7 +254,7 @@
 }
 
 .football-chip {
-  padding: 4px 9px;
+  padding: 4px 10px;
   border-radius: 9999px;
   background: var(--surface-hi, rgba(255, 255, 255, 0.05));
   border: 1px solid var(--border);
@@ -150,34 +283,72 @@
   border-color: #ef4444;
 }
 
+/* Scrollable Matches Viewport Container */
+.football-matches-scroll-container {
+  max-height: 480px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  padding-right: 4px;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  scroll-behavior: smooth;
+  gap: 8px;
+}
+
+.football-matches-scroll-container::-webkit-scrollbar {
+  width: 5px;
+}
+
+.football-matches-scroll-container::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 4px;
+}
+
+.football-matches-scroll-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
+}
+
+.football-matches-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
+}
+
 /* Matches List */
 .football-matches-list {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 9px;
 }
 
 .football-match-card {
   background: var(--surface-hi, rgba(255, 255, 255, 0.03));
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 13px;
   padding: 10px 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
   cursor: pointer;
   transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
 }
 
 .football-match-card:hover {
   transform: translateY(-1px);
-  border-color: rgba(24, 119, 242, 0.4);
-  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+  border-color: rgba(24, 119, 242, 0.45);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.14);
 }
 
 .football-match-card.is-live-card {
-  border-color: rgba(239, 68, 68, 0.35);
-  background: linear-gradient(180deg, rgba(239, 68, 68, 0.04), var(--surface-hi, rgba(255, 255, 255, 0.02)));
+  border-color: rgba(239, 68, 68, 0.4);
+  background: linear-gradient(180deg, rgba(239, 68, 68, 0.05), var(--surface-hi, rgba(255, 255, 255, 0.02)));
+}
+
+.football-match-card.is-live-card:hover {
+  border-color: rgba(239, 68, 68, 0.7);
+  box-shadow: 0 4px 16px rgba(239, 68, 68, 0.15);
 }
 
 .match-comp-row {
@@ -203,9 +374,10 @@
 }
 
 .match-status-badge.live-badge {
-  background: rgba(239, 68, 68, 0.16);
+  background: rgba(239, 68, 68, 0.18);
   color: #ef4444;
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  box-shadow: 0 0 8px rgba(239, 68, 68, 0.2);
 }
 
 .status-live-dot {
@@ -255,7 +427,7 @@
 }
 
 .team-crest {
-  font-size: 1.15rem;
+  font-size: 1.18rem;
   flex-shrink: 0;
 }
 
@@ -266,6 +438,12 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.15s ease;
+}
+
+.team-col.is-winner .team-name {
+  color: #10b981;
+  font-weight: 800;
 }
 
 .score-center-col {
@@ -275,18 +453,28 @@
 .score-pill {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 3px 8px;
-  border-radius: 8px;
+  gap: 5px;
+  padding: 3px 9px;
+  border-radius: 9px;
   background: var(--surface);
   border: 1px solid var(--border);
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.08);
 }
 
+.score-pill.live-score-pill {
+  border-color: rgba(239, 68, 68, 0.45);
+  background: rgba(239, 68, 68, 0.08);
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.15);
+}
+
 .score-num {
-  font-size: 1rem;
+  font-size: 1.05rem;
   font-weight: 800;
   color: var(--text);
+}
+
+.score-num.winner-num {
+  color: #10b981;
 }
 
 .score-divider {
@@ -295,7 +483,7 @@
 }
 
 .match-time-upcoming {
-  font-size: 0.8rem;
+  font-size: 0.78rem;
   font-weight: 700;
   color: #f59e0b;
   background: rgba(245, 158, 11, 0.12);
@@ -319,6 +507,78 @@
 
 .match-scorers-ticker i {
   color: #f59e0b;
+  font-size: 0.72rem;
+}
+
+/* Floating Scroll to Top Button */
+.football-scroll-top-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #1877f2;
+  color: #ffffff;
+  border: none;
+  box-shadow: 0 4px 14px rgba(24, 119, 242, 0.45);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.85rem;
+  z-index: 10;
+  transition: all 0.18s ease;
+}
+
+.football-scroll-top-btn:hover {
+  background: #166fe5;
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(24, 119, 242, 0.6);
+}
+
+/* Empty State */
+.football-empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 10px;
+}
+
+.football-empty-state .empty-icon {
+  font-size: 2rem;
+  color: var(--text-muted);
+  opacity: 0.5;
+}
+
+.reset-filters-btn {
+  background: rgba(24, 119, 242, 0.12);
+  border: 1px solid rgba(24, 119, 242, 0.35);
+  color: #1877f2;
+  font-size: 0.76rem;
+  font-weight: 700;
+  padding: 5px 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.reset-filters-btn:hover {
+  background: rgba(24, 119, 242, 0.22);
+  color: #ffffff;
+}
+
+/* Footer Indicator */
+.football-footer-indicator {
+  font-size: 0.69rem;
+  color: var(--text-muted);
+  text-align: center;
+  padding-top: 4px;
+  opacity: 0.8;
 }
 
 /* News Articles Feed - X (Twitter) Style Micro-Cards */

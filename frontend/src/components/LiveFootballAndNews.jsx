@@ -1,15 +1,16 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { getLiveNews, FALLBACK_NEWS, NEWS_COUNTRIES, NEWS_CATEGORIES } from '../api/newsApi';
 import '../styles/liveScoresAndNews.css';
 
-// Initial realistic live football matches database
+// Extensive realistic database of 27 matches across major world leagues
 const INITIAL_MATCHES = [
+  // --- UEFA Champions League ---
   {
     id: 'ucl-1',
     league: 'UEFA Champions League',
     leagueFlag: '🏆',
     leagueCode: 'ucl',
-    status: 'LIVE',
+    status: 'LIVE 78\'',
     minute: 78,
     isLive: true,
     homeTeam: 'Arsenal',
@@ -45,7 +46,7 @@ const INITIAL_MATCHES = [
     league: 'UEFA Champions League',
     leagueFlag: '🏆',
     leagueCode: 'ucl',
-    status: 'LIVE',
+    status: 'LIVE 65\'',
     minute: 65,
     isLive: true,
     homeTeam: 'Real Madrid',
@@ -80,12 +81,113 @@ const INITIAL_MATCHES = [
     ],
   },
   {
+    id: 'ucl-3',
+    league: 'UEFA Champions League',
+    leagueFlag: '🏆',
+    leagueCode: 'ucl',
+    status: 'LIVE 54\'',
+    minute: 54,
+    isLive: true,
+    homeTeam: 'Paris Saint-Germain',
+    homeCode: 'PSG',
+    homeCrest: '🗼',
+    homeScore: 2,
+    awayTeam: 'Borussia Dortmund',
+    awayCode: 'BVB',
+    awayCrest: '🟡',
+    awayScore: 0,
+    scorers: [
+      { player: 'Kylian Mbappé', minute: "22'", team: 'home' },
+      { player: 'Ousmane Dembélé', minute: "49'", team: 'home' },
+    ],
+    stadium: 'Parc des Princes, Paris',
+    stats: {
+      possession: [61, 39],
+      shotsOnTarget: [6, 2],
+      corners: [7, 3],
+      fouls: [8, 13],
+      yellowCards: [1, 2],
+    },
+    commentary: [
+      { minute: "49'", text: '⚽ GOAL! Dembélé cuts inside from the right and drills home into the roof of the net!' },
+      { minute: "22'", text: '⚽ GOAL! Mbappé converts with a composed side-footed finish!' },
+    ],
+  },
+  {
+    id: 'ucl-4',
+    league: 'UEFA Champions League',
+    leagueFlag: '🏆',
+    leagueCode: 'ucl',
+    status: 'LIVE 82\'',
+    minute: 82,
+    isLive: true,
+    homeTeam: 'Inter Milan',
+    homeCode: 'INT',
+    homeCrest: '⚫🔵',
+    homeScore: 1,
+    awayTeam: 'Atlético Madrid',
+    awayCode: 'ATM',
+    awayCrest: '🔴⚪',
+    awayScore: 0,
+    scorers: [
+      { player: 'Lautaro Martínez', minute: "79'", team: 'home' },
+    ],
+    stadium: 'San Siro, Milan',
+    stats: {
+      possession: [53, 47],
+      shotsOnTarget: [5, 3],
+      corners: [5, 4],
+      fouls: [11, 14],
+      yellowCards: [2, 3],
+    },
+    commentary: [
+      { minute: "79'", text: '⚽ GOAL! Lautaro pounces on the rebound after Oblak makes a heroic initial save!' },
+    ],
+  },
+  {
+    id: 'ucl-5',
+    league: 'UEFA Champions League',
+    leagueFlag: '🏆',
+    leagueCode: 'ucl',
+    status: 'FT',
+    minute: 90,
+    isLive: false,
+    homeTeam: 'Barcelona',
+    homeCode: 'BAR',
+    homeCrest: '🔵🔴',
+    homeScore: 3,
+    awayTeam: 'Napoli',
+    awayCode: 'NAP',
+    awayCrest: '🔷',
+    awayScore: 1,
+    scorers: [
+      { player: 'Fermín López', minute: "15'", team: 'home' },
+      { player: 'João Cancelo', minute: "17'", team: 'home' },
+      { player: 'Amir Rrahmani', minute: "30'", team: 'away' },
+      { player: 'Robert Lewandowski', minute: "83'", team: 'home' },
+    ],
+    stadium: 'Estadi Olímpic Lluís Companys, Barcelona',
+    stats: {
+      possession: [58, 42],
+      shotsOnTarget: [9, 4],
+      corners: [6, 4],
+      fouls: [7, 12],
+      yellowCards: [1, 2],
+    },
+    commentary: [
+      { minute: "90+4'", text: 'FULL TIME! Barcelona advance to the next round with authority!' },
+      { minute: "83'", text: '⚽ GOAL! Lewandowski taps into the open net after a selfless pass from Sergi Roberto.' },
+    ],
+  },
+
+  // --- Premier League ---
+  {
     id: 'epl-1',
     league: 'Premier League',
     leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
     leagueCode: 'epl',
-    status: 'LIVE',
-    minute: 85,
+    status: 'LIVE 88\'',
+    minute: 88,
     isLive: true,
     homeTeam: 'Liverpool',
     homeCode: 'LIV',
@@ -121,19 +223,155 @@ const INITIAL_MATCHES = [
     league: 'Premier League',
     leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
     leagueCode: 'epl',
-    status: 'TODAY 20:45',
-    minute: null,
-    isLive: false,
-    homeTeam: 'Tottenham Hotspur',
-    homeCode: 'TOT',
-    homeCrest: '⚪',
-    homeScore: 0,
+    status: 'LIVE 41\'',
+    minute: 41,
+    isLive: true,
+    homeTeam: 'Manchester United',
+    homeCode: 'MUN',
+    homeCrest: '👹',
+    homeScore: 2,
+    awayTeam: 'Tottenham Hotspur',
+    awayCode: 'TOT',
+    awayCrest: '⚪',
+    awayScore: 2,
+    scorers: [
+      { player: 'Rasmus Højlund', minute: "3'", team: 'home' },
+      { player: 'Richarlison', minute: "19'", team: 'away' },
+      { player: 'Marcus Rashford', minute: "40'", team: 'home' },
+      { player: 'Rodrigo Bentancur', minute: "46'", team: 'away' },
+    ],
+    stadium: 'Old Trafford, Manchester',
+    stats: {
+      possession: [44, 56],
+      shotsOnTarget: [5, 6],
+      corners: [3, 7],
+      fouls: [9, 8],
+      yellowCards: [1, 1],
+    },
+    commentary: [
+      { minute: "40'", text: '⚽ GOAL! Marcus Rashford slots a precise finish into the far corner!' },
+      { minute: "19'", text: '⚽ GOAL! Richarlison heads home from a pinpoint corner kick!' },
+      { minute: "3'", text: '⚽ GOAL! Højlund unleashes a missile with his left foot into the roof of the net!' },
+    ],
+  },
+  {
+    id: 'epl-3',
+    league: 'Premier League',
+    leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    leagueCode: 'epl',
+    status: 'LIVE 72\'',
+    minute: 72,
+    isLive: true,
+    homeTeam: 'Newcastle United',
+    homeCode: 'NEW',
+    homeCrest: '⚫⚪',
+    homeScore: 1,
     awayTeam: 'Aston Villa',
     awayCode: 'AVL',
     awayCrest: '🟣',
     awayScore: 0,
+    scorers: [
+      { player: 'Alexander Isak', minute: "51'", team: 'home' },
+    ],
+    stadium: 'St. James\' Park, Newcastle',
+    stats: {
+      possession: [48, 52],
+      shotsOnTarget: [4, 3],
+      corners: [5, 4],
+      fouls: [10, 11],
+      yellowCards: [2, 1],
+    },
+    commentary: [
+      { minute: "51'", text: '⚽ GOAL! Isak speeds past the center back and chips Martinez!' },
+    ],
+  },
+  {
+    id: 'epl-4',
+    league: 'Premier League',
+    leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    leagueCode: 'epl',
+    status: 'FT',
+    minute: 90,
+    isLive: false,
+    homeTeam: 'Brighton & Hove Albion',
+    homeCode: 'BHA',
+    homeCrest: '🌊',
+    homeScore: 2,
+    awayTeam: 'West Ham United',
+    awayCode: 'WHU',
+    awayCrest: '⚒️',
+    awayScore: 1,
+    scorers: [
+      { player: 'Kaoru Mitoma', minute: "28'", team: 'home' },
+      { player: 'Mohammed Kudus', minute: "63'", team: 'away' },
+      { player: 'Evan Ferguson', minute: "84'", team: 'home' },
+    ],
+    stadium: 'Amex Stadium, Brighton',
+    stats: {
+      possession: [65, 35],
+      shotsOnTarget: [8, 2],
+      corners: [9, 3],
+      fouls: [6, 12],
+      yellowCards: [0, 3],
+    },
+    commentary: [
+      { minute: "90+5'", text: 'FULL TIME! Brighton take all three points after an intense battle!' },
+      { minute: "84'", text: '⚽ GOAL! Ferguson nods in from close range!' },
+    ],
+  },
+  {
+    id: 'epl-5',
+    league: 'Premier League',
+    leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    leagueCode: 'epl',
+    status: 'FT',
+    minute: 90,
+    isLive: false,
+    homeTeam: 'Manchester City',
+    homeCode: 'MCI',
+    homeCrest: '🩵',
+    homeScore: 4,
+    awayTeam: 'Fulham',
+    awayCode: 'FUL',
+    awayCrest: '⚪',
+    awayScore: 1,
+    scorers: [
+      { player: 'Julián Álvarez', minute: "31'", team: 'home' },
+      { player: 'Tim Ream', minute: "33'", team: 'away' },
+      { player: 'Erling Haaland', minute: "58'", team: 'home' },
+      { player: 'Erling Haaland (P)', minute: "70'", team: 'home' },
+      { player: 'Erling Haaland', minute: "90+5'", team: 'home' },
+    ],
+    stadium: 'Etihad Stadium, Manchester',
+    stats: {
+      possession: [71, 29],
+      shotsOnTarget: [11, 2],
+      corners: [10, 1],
+      fouls: [5, 9],
+      yellowCards: [1, 2],
+    },
+    commentary: [
+      { minute: "90+5'", text: '⚽ HAT-TRICK! Haaland smashes home in stoppage time!' },
+    ],
+  },
+  {
+    id: 'epl-6',
+    league: 'Premier League',
+    leagueFlag: '🏴󠁧󠁢󠁥󠁮󠁧󠁿',
+    leagueCode: 'epl',
+    status: 'TODAY 20:45',
+    minute: null,
+    isLive: false,
+    homeTeam: 'Wolverhampton',
+    homeCode: 'WOL',
+    homeCrest: '🐺',
+    homeScore: 0,
+    awayTeam: 'Everton',
+    awayCode: 'EVE',
+    awayCrest: '🔵',
+    awayScore: 0,
     scorers: [],
-    stadium: 'Tottenham Hotspur Stadium, London',
+    stadium: 'Molineux Stadium, Wolverhampton',
     stats: {
       possession: [50, 50],
       shotsOnTarget: [0, 0],
@@ -142,9 +380,11 @@ const INITIAL_MATCHES = [
       yellowCards: [0, 0],
     },
     commentary: [
-      { minute: 'Pre-Match', text: 'Teams have arrived. Warmups underway under the lights.' },
+      { minute: 'Pre-Match', text: 'Teams warming up under the floodlights at Molineux.' },
     ],
   },
+
+  // --- La Liga ---
   {
     id: 'laliga-1',
     league: 'La Liga EA Sports',
@@ -179,88 +419,443 @@ const INITIAL_MATCHES = [
       { minute: "88'", text: '⚽ GOAL! 16-year-old sensation Lamine Yamal curls home the winner!' },
     ],
   },
-];
+  {
+    id: 'laliga-2',
+    league: 'La Liga EA Sports',
+    leagueFlag: '🇪🇸',
+    leagueCode: 'laliga',
+    status: 'LIVE 58\'',
+    minute: 58,
+    isLive: true,
+    homeTeam: 'Real Sociedad',
+    homeCode: 'RSO',
+    homeCrest: '⚪🔵',
+    homeScore: 1,
+    awayTeam: 'Athletic Club',
+    awayCode: 'ATH',
+    awayCrest: '🔴⚪',
+    awayScore: 1,
+    scorers: [
+      { player: 'Takefusa Kubo', minute: "30'", team: 'home' },
+      { player: 'Nico Williams', minute: "44'", team: 'away' },
+    ],
+    stadium: 'Reale Arena, San Sebastián',
+    stats: {
+      possession: [51, 49],
+      shotsOnTarget: [4, 4],
+      corners: [4, 5],
+      fouls: [14, 15],
+      yellowCards: [3, 2],
+    },
+    commentary: [
+      { minute: "44'", text: '⚽ GOAL! Nico Williams dazzles through the backline and fires home!' },
+      { minute: "30'", text: '⚽ GOAL! Kubo with a clinical first-time finish into the bottom corner!' },
+    ],
+  },
+  {
+    id: 'laliga-3',
+    league: 'La Liga EA Sports',
+    leagueFlag: '🇪🇸',
+    leagueCode: 'laliga',
+    status: 'LIVE 36\'',
+    minute: 36,
+    isLive: true,
+    homeTeam: 'Sevilla',
+    homeCode: 'SEV',
+    homeCrest: '⚪🔴',
+    homeScore: 2,
+    awayTeam: 'Real Betis',
+    awayCode: 'BET',
+    awayCrest: '🟢⚪',
+    awayScore: 1,
+    scorers: [
+      { player: 'Youssef En-Nesyri', minute: "11'", team: 'home' },
+      { player: 'Isco', minute: "24'", team: 'away' },
+      { player: 'Lucas Ocampos', minute: "33'", team: 'home' },
+    ],
+    stadium: 'Ramón Sánchez-Pizjuán, Seville',
+    stats: {
+      possession: [46, 54],
+      shotsOnTarget: [4, 3],
+      corners: [3, 3],
+      fouls: [12, 10],
+      yellowCards: [2, 2],
+    },
+    commentary: [
+      { minute: "33'", text: '⚽ GOAL! Lucas Ocampos hits an acrobatic volley in El Gran Derbi!' },
+      { minute: "24'", text: '⚽ GOAL! Isco equalizes against his former club with pure magic!' },
+    ],
+  },
+  {
+    id: 'laliga-4',
+    league: 'La Liga EA Sports',
+    leagueFlag: '🇪🇸',
+    leagueCode: 'laliga',
+    status: 'TODAY 21:00',
+    minute: null,
+    isLive: false,
+    homeTeam: 'Valencia',
+    homeCode: 'VAL',
+    homeCrest: '🦇',
+    homeScore: 0,
+    awayTeam: 'Villarreal',
+    awayCode: 'VIL',
+    awayCrest: '🟡',
+    awayScore: 0,
+    scorers: [],
+    stadium: 'Mestalla, Valencia',
+    stats: {
+      possession: [50, 50],
+      shotsOnTarget: [0, 0],
+      corners: [0, 0],
+      fouls: [0, 0],
+      yellowCards: [0, 0],
+    },
+    commentary: [
+      { minute: 'Pre-Match', text: 'Valencia derby ready for kickoff at Mestalla.' },
+    ],
+  },
 
-// Real-world curated breaking news database
-const INITIAL_NEWS = [
+  // --- Serie A ---
   {
-    id: 'news-1',
-    source: 'BBC World News',
-    sourceLogo: '🌐',
-    category: 'World',
-    categoryTag: 'Climate & Energy',
-    title: 'Historic Green Transition Accord Signed Across 80 Nations at Global Summit',
-    summary: 'World leaders and energy ministers finalized a multibillion-dollar framework to accelerate global clean electricity and interconnect continental power grids.',
-    timeAgo: '14m ago',
-    readTime: '3 min read',
-    keyPoints: [
-      'Agreement establishes a global renewable fund targeting underserved developing markets.',
-      'Over 80 countries committed to phased reductions in carbon dependency by 2035.',
-      'Digital energy management and microgrids highlighted as core pillars.',
+    id: 'seriea-1',
+    league: 'Serie A TIM',
+    leagueFlag: '🇮🇹',
+    leagueCode: 'seriea',
+    status: 'LIVE 69\'',
+    minute: 69,
+    isLive: true,
+    homeTeam: 'Juventus',
+    homeCode: 'JUV',
+    homeCrest: '⚪⚫',
+    homeScore: 1,
+    awayTeam: 'AC Milan',
+    awayCode: 'MIL',
+    awayCrest: '🔴⚫',
+    awayScore: 1,
+    scorers: [
+      { player: 'Dušan Vlahović', minute: "38'", team: 'home' },
+      { player: 'Rafael Leão', minute: "62'", team: 'away' },
+    ],
+    stadium: 'Allianz Stadium, Turin',
+    stats: {
+      possession: [47, 53],
+      shotsOnTarget: [5, 4],
+      corners: [5, 6],
+      fouls: [11, 9],
+      yellowCards: [2, 1],
+    },
+    commentary: [
+      { minute: "62'", text: '⚽ GOAL! Rafael Leão sprints 50 yards and strokes it past Szczęsny!' },
+      { minute: "38'", text: '⚽ GOAL! Vlahović powers home a header from Chiesa\'s cross.' },
     ],
   },
   {
-    id: 'news-2',
-    source: 'Sky Sports',
-    sourceLogo: '⚽',
-    category: 'Football',
-    categoryTag: 'Champions League',
-    title: 'Thrilling European Night: Late Drama Sets Up Monumental Second Legs Across Continent',
-    summary: 'A breathtaking evening of UEFA Champions League football produced 12 goals across the top fixtures as European heavyweights battle for semifinal spots.',
-    timeAgo: '28m ago',
-    readTime: '4 min read',
-    keyPoints: [
-      'Real Madrid and Manchester City trade sensational strikes in five-goal thriller.',
-      'Arsenal edge Bayern Munich at the Emirates behind Declan Rice wonder strike.',
-      'Managers emphasize that second-leg ties remain wide open heading into next week.',
+    id: 'seriea-2',
+    league: 'Serie A TIM',
+    leagueFlag: '🇮🇹',
+    leagueCode: 'seriea',
+    status: 'LIVE 49\'',
+    minute: 49,
+    isLive: true,
+    homeTeam: 'Napoli',
+    homeCode: 'NAP',
+    homeCrest: '🔷',
+    homeScore: 2,
+    awayTeam: 'AS Roma',
+    awayCode: 'ROM',
+    awayCrest: '🐺',
+    awayScore: 1,
+    scorers: [
+      { player: 'Victor Osimhen', minute: "14'", team: 'home' },
+      { player: 'Paulo Dybala (P)', minute: "35'", team: 'away' },
+      { player: 'Khvicha Kvaratskhelia', minute: "47'", team: 'home' },
+    ],
+    stadium: 'Stadio Diego Armando Maradona, Naples',
+    stats: {
+      possession: [57, 43],
+      shotsOnTarget: [6, 3],
+      corners: [4, 3],
+      fouls: [9, 13],
+      yellowCards: [1, 3],
+    },
+    commentary: [
+      { minute: "47'", text: '⚽ GOAL! Kvaradona cuts inside and blasts into the far upper corner!' },
     ],
   },
   {
-    id: 'news-3',
-    source: 'Reuters',
-    sourceLogo: '📡',
-    category: 'Tech & AI',
-    categoryTag: 'Artificial Intelligence',
-    title: 'Next-Generation Neural Speech Synthesis Smashes Cross-Dialect Translation Barriers',
-    summary: 'New breakthroughs in on-device AI voice modeling now translate regional accents, African dialects, and multilingual audio with near-zero latency and natural intonation.',
-    timeAgo: '42m ago',
-    readTime: '3 min read',
-    keyPoints: [
-      'Breakthrough models understand cultural nuances and vernacular slang effortlessly.',
-      'Enables true real-time voice translation across consumer messaging platforms like Giochat.',
-      'Significantly lowers computational footprint for mobile phones and low-bandwidth networks.',
+    id: 'seriea-3',
+    league: 'Serie A TIM',
+    leagueFlag: '🇮🇹',
+    leagueCode: 'seriea',
+    status: 'FT',
+    minute: 90,
+    isLive: false,
+    homeTeam: 'Lazio',
+    homeCode: 'LAZ',
+    homeCrest: '🦅',
+    homeScore: 1,
+    awayTeam: 'Fiorentina',
+    awayCode: 'FIO',
+    awayCrest: '🟣',
+    awayScore: 1,
+    scorers: [
+      { player: 'Ciro Immobile', minute: "42'", team: 'home' },
+      { player: 'Nicolás González', minute: "76'", team: 'away' },
+    ],
+    stadium: 'Stadio Olimpico, Rome',
+    stats: {
+      possession: [50, 50],
+      shotsOnTarget: [4, 4],
+      corners: [5, 5],
+      fouls: [12, 11],
+      yellowCards: [2, 2],
+    },
+    commentary: [
+      { minute: "90+3'", text: 'FULL TIME! Points shared in a hard-fought battle in Rome.' },
+    ],
+  },
+
+  // --- Bundesliga ---
+  {
+    id: 'bundes-1',
+    league: 'Bundesliga',
+    leagueFlag: '🇩🇪',
+    leagueCode: 'bundesliga',
+    status: 'LIVE 80\'',
+    minute: 80,
+    isLive: true,
+    homeTeam: 'Bayer Leverkusen',
+    homeCode: 'B04',
+    homeCrest: '🔴⚫',
+    homeScore: 3,
+    awayTeam: 'RB Leipzig',
+    awayCode: 'RBL',
+    awayCrest: '⚪🔴',
+    awayScore: 1,
+    scorers: [
+      { player: 'Florian Wirtz', minute: "19'", team: 'home' },
+      { player: 'Jeremie Frimpong', minute: "35'", team: 'home' },
+      { player: 'Loïs Openda', minute: "52'", team: 'away' },
+      { player: 'Granit Xhaka', minute: "73'", team: 'home' },
+    ],
+    stadium: 'BayArena, Leverkusen',
+    stats: {
+      possession: [62, 38],
+      shotsOnTarget: [8, 3],
+      corners: [7, 4],
+      fouls: [8, 10],
+      yellowCards: [1, 2],
+    },
+    commentary: [
+      { minute: "73'", text: '⚽ GOAL! Granit Xhaka rifles a 30-yard thunderbolt into the top corner!' },
     ],
   },
   {
-    id: 'news-4',
-    source: 'The Athletic',
-    sourceLogo: '🏆',
-    category: 'Football',
-    categoryTag: 'Premier League',
-    title: 'Tightest Title Race in Decades: Single Point Separates Top Three Contenders',
-    summary: 'With only eight fixtures remaining, Arsenal, Liverpool, and Manchester City find themselves locked in an unprecedented three-way fight for the Premier League crown.',
-    timeAgo: '1h ago',
-    readTime: '5 min read',
-    keyPoints: [
-      'Goal difference could prove decisive as all three teams maintain high offensive outputs.',
-      'Key head-to-head clashes and European fatigue loom large over remaining fixtures.',
-      'Pundits hail this season as the most competitive in English football history.',
+    id: 'bundes-2',
+    league: 'Bundesliga',
+    leagueFlag: '🇩🇪',
+    leagueCode: 'bundesliga',
+    status: 'FT',
+    minute: 90,
+    isLive: false,
+    homeTeam: 'Eintracht Frankfurt',
+    homeCode: 'SGE',
+    homeCrest: '🦅',
+    homeScore: 3,
+    awayTeam: 'VfB Stuttgart',
+    awayCode: 'VFB',
+    awayCrest: '⚪🔴',
+    awayScore: 2,
+    scorers: [
+      { player: 'Omar Marmoush', minute: "17'", team: 'home' },
+      { player: 'Serhou Guirassy', minute: "39'", team: 'away' },
+      { player: 'Hugo Ekitike', minute: "61'", team: 'home' },
+      { player: 'Deniz Undav', minute: "77'", team: 'away' },
+      { player: 'Mario Götze', minute: "89'", team: 'home' },
+    ],
+    stadium: 'Deutsche Bank Park, Frankfurt',
+    stats: {
+      possession: [46, 54],
+      shotsOnTarget: [7, 6],
+      corners: [6, 8],
+      fouls: [10, 8],
+      yellowCards: [2, 1],
+    },
+    commentary: [
+      { minute: "90+4'", text: 'FULL TIME! Thrilling 5-goal thriller ends in Frankfurt victory!' },
+      { minute: "89'", text: '⚽ GOAL! Mario Götze chips the keeper in the 89th minute for the win!' },
+    ],
+  },
+
+  // --- Ligue 1 ---
+  {
+    id: 'ligue1-1',
+    league: 'Ligue 1 McDonald\'s',
+    leagueFlag: '🇫🇷',
+    leagueCode: 'ligue1',
+    status: 'LIVE 62\'',
+    minute: 62,
+    isLive: true,
+    homeTeam: 'Olympique Marseille',
+    homeCode: 'OM',
+    homeCrest: '⚪🔵',
+    homeScore: 2,
+    awayTeam: 'Olympique Lyonnais',
+    awayCode: 'OL',
+    awayCrest: '🔴🔵',
+    awayScore: 1,
+    scorers: [
+      { player: 'Pierre-Emerick Aubameyang', minute: "21'", team: 'home' },
+      { player: 'Alexandre Lacazette', minute: "38'", team: 'away' },
+      { player: 'Mason Greenwood', minute: "55'", team: 'home' },
+    ],
+    stadium: 'Orange Vélodrome, Marseille',
+    stats: {
+      possession: [54, 46],
+      shotsOnTarget: [6, 4],
+      corners: [7, 5],
+      fouls: [14, 15],
+      yellowCards: [3, 4],
+    },
+    commentary: [
+      { minute: "55'", text: '⚽ GOAL! Greenwood curls into the side netting in the Choc des Olympiques!' },
     ],
   },
   {
-    id: 'news-5',
-    source: 'Associated Press',
-    sourceLogo: '📰',
-    category: 'Global',
-    categoryTag: 'Economy & Tech',
-    title: 'Cross-Border Mobile Platforms See 40% Surge in Multilingual Family Communication',
-    summary: 'Studies reveal diaspora communities and international families are adopting AI-powered translation apps to stay tightly connected with relatives across language divides.',
-    timeAgo: '2h ago',
-    readTime: '3 min read',
-    keyPoints: [
-      'Grandparents and youth increasingly communicate across native and acquired languages.',
-      'Cultural dictionaries and voice note translation named the most loved features.',
-      'PWA and offline-capable mobile tools lead growth in West Africa and Latin America.',
+    id: 'ligue1-2',
+    league: 'Ligue 1 McDonald\'s',
+    leagueFlag: '🇫🇷',
+    leagueCode: 'ligue1',
+    status: 'TODAY 21:00',
+    minute: null,
+    isLive: false,
+    homeTeam: 'AS Monaco',
+    homeCode: 'ASM',
+    homeCrest: '🔴⚪',
+    homeScore: 0,
+    awayTeam: 'Lille OSC',
+    awayCode: 'LOSC',
+    awayCrest: '🔴⚪',
+    awayScore: 0,
+    scorers: [],
+    stadium: 'Stade Louis II, Monaco',
+    stats: {
+      possession: [50, 50],
+      shotsOnTarget: [0, 0],
+      corners: [0, 0],
+      fouls: [0, 0],
+      yellowCards: [0, 0],
+    },
+    commentary: [
+      { minute: 'Pre-Match', text: 'Top 4 clash kickoff in Monaco shortly.' },
+    ],
+  },
+
+  // --- International / World ---
+  {
+    id: 'intl-1',
+    league: 'World Cup Qualifier',
+    leagueFlag: '🌍',
+    leagueCode: 'intl',
+    status: 'LIVE 75\'',
+    minute: 75,
+    isLive: true,
+    homeTeam: 'Brazil',
+    homeCode: 'BRA',
+    homeCrest: '🇧🇷',
+    homeScore: 1,
+    awayTeam: 'Argentina',
+    awayCode: 'ARG',
+    awayCrest: '🇦🇷',
+    awayScore: 2,
+    scorers: [
+      { player: 'Lionel Messi', minute: "19'", team: 'away' },
+      { player: 'Vinícius Jr', minute: "42'", team: 'home' },
+      { player: 'Julián Álvarez', minute: "68'", team: 'away' },
+    ],
+    stadium: 'Maracanã, Rio de Janeiro',
+    stats: {
+      possession: [52, 48],
+      shotsOnTarget: [6, 5],
+      corners: [5, 4],
+      fouls: [16, 18],
+      yellowCards: [4, 4],
+    },
+    commentary: [
+      { minute: "68'", text: '⚽ GOAL! Álvarez finishes a breathtaking one-touch team move at the Maracanã!' },
+      { minute: "42'", text: '⚽ GOAL! Vinícius Jr equalizes with a blistering sprint and finish!' },
+      { minute: "19'", text: '⚽ GOAL! Lionel Messi curls an exquisite 25-yard free-kick into the top corner!' },
+    ],
+  },
+  {
+    id: 'intl-2',
+    league: 'African International Match',
+    leagueFlag: '🌍',
+    leagueCode: 'intl',
+    status: 'LIVE 60\'',
+    minute: 60,
+    isLive: true,
+    homeTeam: 'Ghana',
+    homeCode: 'GHA',
+    homeCrest: '🇬🇭',
+    homeScore: 2,
+    awayTeam: 'Nigeria',
+    awayCode: 'NGA',
+    awayCrest: '🇳🇬',
+    awayScore: 1,
+    scorers: [
+      { player: 'Mohammed Kudus', minute: "26'", team: 'home' },
+      { player: 'Victor Osimhen', minute: "43'", team: 'away' },
+      { player: 'Jordan Ayew', minute: "57'", team: 'home' },
+    ],
+    stadium: 'Baba Yara Stadium, Kumasi',
+    stats: {
+      possession: [51, 49],
+      shotsOnTarget: [5, 4],
+      corners: [4, 4],
+      fouls: [14, 16],
+      yellowCards: [2, 3],
+    },
+    commentary: [
+      { minute: "57'", text: '⚽ GOAL! Jordan Ayew slots home with composure to give the Black Stars the lead!' },
+      { minute: "43'", text: '⚽ GOAL! Victor Osimhen leaps high above the defense to nod in the equalizer!' },
+      { minute: "26'", text: '⚽ GOAL! Kudus fires a left-footed rocket into the top corner!' },
+    ],
+  },
+  {
+    id: 'intl-3',
+    league: 'European Championship',
+    leagueFlag: '🌍',
+    leagueCode: 'intl',
+    status: 'FT',
+    minute: 90,
+    isLive: false,
+    homeTeam: 'Portugal',
+    homeCode: 'POR',
+    homeCrest: '🇵🇹',
+    homeScore: 2,
+    awayTeam: 'Spain',
+    awayCode: 'ESP',
+    awayCrest: '🇪🇸',
+    awayScore: 2,
+    scorers: [
+      { player: 'Cristiano Ronaldo', minute: "16'", team: 'home' },
+      { player: 'Álvaro Morata', minute: "34'", team: 'away' },
+      { player: 'Bruno Fernandes', minute: "67'", team: 'home' },
+      { player: 'Lamine Yamal', minute: "86'", team: 'away' },
+    ],
+    stadium: 'Estádio da Luz, Lisbon',
+    stats: {
+      possession: [45, 55],
+      shotsOnTarget: [6, 7],
+      corners: [5, 6],
+      fouls: [11, 10],
+      yellowCards: [2, 1],
+    },
+    commentary: [
+      { minute: "90+4'", text: 'FULL TIME! An unforgettable 2-2 spectacle in the Iberian Derby!' },
+      { minute: "86'", text: '⚽ GOAL! Lamine Yamal equalizes in the dying minutes with a wonder strike!' },
     ],
   },
 ];
@@ -270,7 +865,9 @@ export default function LiveFootballAndNews() {
   const [matches, setMatches] = useState(INITIAL_MATCHES);
   const [newsList, setNewsList] = useState(FALLBACK_NEWS);
   const [newsLoading, setNewsLoading] = useState(false);
-  const [leagueFilter, setLeagueFilter] = useState('all'); // 'all' | 'ucl' | 'epl' | 'laliga'
+  const [leagueFilter, setLeagueFilter] = useState('all'); // 'all' | 'live' | 'ucl' | 'epl' | 'laliga' | 'seriea' | 'bundesliga' | 'ligue1' | 'intl'
+  const [statusFilter, setStatusFilter] = useState('all'); // 'all' | 'live' | 'ft' | 'upcoming'
+  const [matchSearch, setMatchSearch] = useState('');
   const [newsFilter, setNewsFilter] = useState('all'); // 'all' | 'Football' | 'Tech' | 'World'
   const [newsCountry, setNewsCountry] = useState(() => {
     const saved = localStorage.getItem('gio_news_country');
@@ -281,8 +878,10 @@ export default function LiveFootballAndNews() {
   const [lastUpdated, setLastUpdated] = useState('Just now');
   const [selectedMatch, setSelectedMatch] = useState(null);
   const [selectedArticle, setSelectedArticle] = useState(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+  const scrollContainerRef = useRef(null);
 
-  // Live match minute increment ticker (updates live matches realistically)
+  // Live match minute ticker (updates live matches realistically)
   useEffect(() => {
     const interval = setInterval(() => {
       setMatches((prevMatches) =>
@@ -299,7 +898,7 @@ export default function LiveFootballAndNews() {
           return m;
         })
       );
-    }, 45000); // realistic 45s tick
+    }, 45000); // 45s tick
 
     return () => clearInterval(interval);
   }, []);
@@ -329,23 +928,20 @@ export default function LiveFootballAndNews() {
     };
   }, [newsFilter, newsCountry]);
 
-  // Auto-refresh news in sidebar every 60 seconds
-  useEffect(() => {
-    if (activeTab !== 'news') return;
-    const interval = setInterval(async () => {
-      try {
-        const data = await getLiveNews(newsFilter, newsCountry, true);
-        if (Array.isArray(data) && data.length > 0) {
-          setNewsList(data);
-          setLastUpdated('Just now');
-        }
-      } catch (err) {
-        console.warn('Live news auto-refresh error:', err);
-      }
-    }, 60000);
+  // Handle scroll detection for Scroll-to-Top button
+  const handleScroll = (e) => {
+    if (e.target.scrollTop > 200) {
+      setShowScrollTop(true);
+    } else {
+      setShowScrollTop(false);
+    }
+  };
 
-    return () => clearInterval(interval);
-  }, [activeTab, newsFilter, newsCountry]);
+  const scrollToTop = () => {
+    if (scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   const handleCountryChange = (countryCode) => {
     setNewsCountry(countryCode);
@@ -360,13 +956,14 @@ export default function LiveFootballAndNews() {
         setNewsList(data);
       }
       setLastUpdated('Just now');
-      // Randomly simulate fresh live match ticker
+      // Increment live match minutes and refresh ticker
       setMatches((prev) =>
         prev.map((m) => {
           if (m.isLive && m.minute) {
             return {
               ...m,
               minute: Math.min(89, m.minute + 1),
+              status: `LIVE ${Math.min(89, m.minute + 1)}'`,
             };
           }
           return m;
@@ -379,10 +976,28 @@ export default function LiveFootballAndNews() {
     }
   };
 
+  // Filter matches by League, Status, and Search Query
   const filteredMatches = matches.filter((m) => {
-    if (leagueFilter === 'all') return true;
-    if (leagueFilter === 'live') return m.isLive;
-    return m.leagueCode === leagueFilter;
+    // 1. League Filter
+    if (leagueFilter === 'live' && !m.isLive) return false;
+    if (leagueFilter !== 'all' && leagueFilter !== 'live' && m.leagueCode !== leagueFilter) {
+      return false;
+    }
+
+    // 2. Status Filter
+    if (statusFilter === 'live' && !m.isLive) return false;
+    if (statusFilter === 'ft' && m.status !== 'FT') return false;
+    if (statusFilter === 'upcoming' && (m.isLive || m.status === 'FT')) return false;
+
+    // 3. Search Query Filter
+    if (matchSearch.trim()) {
+      const q = matchSearch.trim().toLowerCase();
+      const matchText = `${m.homeTeam} ${m.awayTeam} ${m.league} ${m.homeCode} ${m.awayCode} ${m.stadium}`.toLowerCase();
+      const scorerText = m.scorers.map((s) => s.player).join(' ').toLowerCase();
+      return matchText.includes(q) || scorerText.includes(q);
+    }
+
+    return true;
   });
 
   const liveMatchesCount = matches.filter((m) => m.isLive).length;
@@ -438,32 +1053,95 @@ export default function LiveFootballAndNews() {
       </div>
 
       {/* =========================================================================
-          TAB 1: LIVE FOOTBALL SCORES & MATCHES
+          TAB 1: LIVE FOOTBALL SCORES & EXTENSIVE SCROLLABLE SCOREBOARD
           ========================================================================= */}
       {activeTab === 'football' && (
         <div className="football-feed-section">
-          {/* League Filter Chips */}
+          {/* Live Summary Banner */}
+          <div className="football-summary-banner">
+            <div className="football-live-count-pill">
+              <span className="status-live-dot" />
+              <span>{liveMatchesCount} Matches Currently Live</span>
+            </div>
+            <span className="football-total-badge">{matches.length} Total Matches</span>
+          </div>
+
+          {/* Quick Search Bar */}
+          <div className="football-search-wrapper">
+            <i className="fa-solid fa-magnifying-glass search-icon" />
+            <input
+              type="text"
+              className="football-search-input"
+              value={matchSearch}
+              onChange={(e) => setMatchSearch(e.target.value)}
+              placeholder="Search team, league or player..."
+            />
+            {matchSearch && (
+              <button
+                type="button"
+                className="football-search-clear"
+                onClick={() => setMatchSearch('')}
+                title="Clear search"
+              >
+                <i className="fa-solid fa-xmark" />
+              </button>
+            )}
+          </div>
+
+          {/* Status Quick Filter Buttons */}
+          <div className="football-status-filter-row">
+            <button
+              type="button"
+              className={`status-pill-btn ${statusFilter === 'all' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('all')}
+            >
+              All ({matches.length})
+            </button>
+            <button
+              type="button"
+              className={`status-pill-btn live ${statusFilter === 'live' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('live')}
+            >
+              🔴 Live ({liveMatchesCount})
+            </button>
+            <button
+              type="button"
+              className={`status-pill-btn ${statusFilter === 'ft' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('ft')}
+            >
+              Finished ({matches.filter((m) => m.status === 'FT').length})
+            </button>
+            <button
+              type="button"
+              className={`status-pill-btn ${statusFilter === 'upcoming' ? 'active' : ''}`}
+              onClick={() => setStatusFilter('upcoming')}
+            >
+              Scheduled ({matches.filter((m) => !m.isLive && m.status !== 'FT').length})
+            </button>
+          </div>
+
+          {/* League Filter Chips (Scrollable) */}
           <div className="football-chips-row">
             <button
               type="button"
               className={`football-chip ${leagueFilter === 'all' ? 'active' : ''}`}
               onClick={() => setLeagueFilter('all')}
             >
-              All Matches
+              All Leagues
             </button>
             <button
               type="button"
               className={`football-chip live-chip ${leagueFilter === 'live' ? 'active' : ''}`}
               onClick={() => setLeagueFilter('live')}
             >
-              🔴 Live ({liveMatchesCount})
+              🔴 Live Only
             </button>
             <button
               type="button"
               className={`football-chip ${leagueFilter === 'ucl' ? 'active' : ''}`}
               onClick={() => setLeagueFilter('ucl')}
             >
-              🏆 UCL
+              🏆 Champions League
             </button>
             <button
               type="button"
@@ -479,71 +1157,155 @@ export default function LiveFootballAndNews() {
             >
               🇪🇸 La Liga
             </button>
+            <button
+              type="button"
+              className={`football-chip ${leagueFilter === 'seriea' ? 'active' : ''}`}
+              onClick={() => setLeagueFilter('seriea')}
+            >
+              🇮🇹 Serie A
+            </button>
+            <button
+              type="button"
+              className={`football-chip ${leagueFilter === 'bundesliga' ? 'active' : ''}`}
+              onClick={() => setLeagueFilter('bundesliga')}
+            >
+              🇩🇪 Bundesliga
+            </button>
+            <button
+              type="button"
+              className={`football-chip ${leagueFilter === 'ligue1' ? 'active' : ''}`}
+              onClick={() => setLeagueFilter('ligue1')}
+            >
+              🇫🇷 Ligue 1
+            </button>
+            <button
+              type="button"
+              className={`football-chip ${leagueFilter === 'intl' ? 'active' : ''}`}
+              onClick={() => setLeagueFilter('intl')}
+            >
+              🌍 International
+            </button>
           </div>
 
-          {/* Matches List */}
-          <div className="football-matches-list">
-            {filteredMatches.map((m) => (
-              <div
-                key={m.id}
-                className={`football-match-card ${m.isLive ? 'is-live-card' : ''}`}
-                onClick={() => setSelectedMatch(m)}
-                title="Click for full match stats, lineups & commentary"
-              >
-                {/* Competition Bar */}
-                <div className="match-comp-row">
-                  <span className="match-league-name">
-                    {m.leagueFlag} {m.league}
-                  </span>
-                  <span className={`match-status-badge ${m.isLive ? 'live-badge' : m.status === 'FT' ? 'ft-badge' : 'upcoming-badge'}`}>
-                    {m.isLive && <span className="status-live-dot" />}
-                    {m.status}
-                  </span>
-                </div>
-
-                {/* Teams & Live Score Row */}
-                <div className="match-score-board">
-                  {/* Home Team */}
-                  <div className="team-col home-col">
-                    <span className="team-crest">{m.homeCrest}</span>
-                    <span className="team-name">{m.homeTeam}</span>
-                  </div>
-
-                  {/* Score */}
-                  <div className="score-center-col">
-                    {m.status.includes('TODAY') ? (
-                      <span className="match-time-upcoming">{m.status.replace('TODAY ', '')}</span>
-                    ) : (
-                      <div className="score-pill">
-                        <span className="score-num">{m.homeScore}</span>
-                        <span className="score-divider">-</span>
-                        <span className="score-num">{m.awayScore}</span>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Away Team */}
-                  <div className="team-col away-col">
-                    <span className="team-crest">{m.awayCrest}</span>
-                    <span className="team-name">{m.awayTeam}</span>
-                  </div>
-                </div>
-
-                {/* Scorers Summary Bar */}
-                {m.scorers.length > 0 && (
-                  <div className="match-scorers-ticker">
-                    <i className="fa-solid fa-futbol"></i>
-                    <span className="scorers-text">
-                      {m.scorers.map((s, idx) => (
-                        <span key={idx} className="scorer-item">
-                          {s.player} {s.minute}{idx < m.scorers.length - 1 ? ' • ' : ''}
-                        </span>
-                      ))}
-                    </span>
-                  </div>
-                )}
+          {/* Scrollable Matches Viewport Container */}
+          <div
+            className="football-matches-scroll-container"
+            ref={scrollContainerRef}
+            onScroll={handleScroll}
+          >
+            {filteredMatches.length === 0 ? (
+              <div className="football-empty-state">
+                <i className="fa-solid fa-futbol empty-icon" />
+                <p>No matches found matching your filters</p>
+                <button
+                  type="button"
+                  className="reset-filters-btn"
+                  onClick={() => {
+                    setLeagueFilter('all');
+                    setStatusFilter('all');
+                    setMatchSearch('');
+                  }}
+                >
+                  Reset all filters
+                </button>
               </div>
-            ))}
+            ) : (
+              <div className="football-matches-list">
+                {filteredMatches.map((m) => {
+                  const homeLeading = m.homeScore > m.awayScore;
+                  const awayLeading = m.awayScore > m.homeScore;
+
+                  return (
+                    <div
+                      key={m.id}
+                      className={`football-match-card ${m.isLive ? 'is-live-card' : ''}`}
+                      onClick={() => setSelectedMatch(m)}
+                      title="Click for full match stats, lineups & live commentary"
+                    >
+                      {/* Competition Bar */}
+                      <div className="match-comp-row">
+                        <span className="match-league-name">
+                          {m.leagueFlag} {m.league}
+                        </span>
+                        <span
+                          className={`match-status-badge ${
+                            m.isLive ? 'live-badge' : m.status === 'FT' ? 'ft-badge' : 'upcoming-badge'
+                          }`}
+                        >
+                          {m.isLive && <span className="status-live-dot" />}
+                          {m.status}
+                        </span>
+                      </div>
+
+                      {/* Teams & Live Score Row */}
+                      <div className="match-score-board">
+                        {/* Home Team */}
+                        <div className={`team-col home-col ${homeLeading ? 'is-winner' : ''}`}>
+                          <span className="team-crest">{m.homeCrest}</span>
+                          <span className="team-name">{m.homeTeam}</span>
+                        </div>
+
+                        {/* Score Center */}
+                        <div className="score-center-col">
+                          {m.status.includes('TODAY') ? (
+                            <span className="match-time-upcoming">{m.status.replace('TODAY ', '')}</span>
+                          ) : (
+                            <div className={`score-pill ${m.isLive ? 'live-score-pill' : ''}`}>
+                              <span className={`score-num ${homeLeading ? 'winner-num' : ''}`}>
+                                {m.homeScore}
+                              </span>
+                              <span className="score-divider">-</span>
+                              <span className={`score-num ${awayLeading ? 'winner-num' : ''}`}>
+                                {m.awayScore}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Away Team */}
+                        <div className={`team-col away-col ${awayLeading ? 'is-winner' : ''}`}>
+                          <span className="team-crest">{m.awayCrest}</span>
+                          <span className="team-name">{m.awayTeam}</span>
+                        </div>
+                      </div>
+
+                      {/* Scorers Summary Bar */}
+                      {m.scorers.length > 0 && (
+                        <div className="match-scorers-ticker">
+                          <i className="fa-solid fa-futbol" />
+                          <span className="scorers-text">
+                            {m.scorers.map((s, idx) => (
+                              <span key={idx} className="scorer-item">
+                                {s.player} {s.minute}
+                                {idx < m.scorers.length - 1 ? ' • ' : ''}
+                              </span>
+                            ))}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Scroll to Top Floating Button */}
+          {showScrollTop && (
+            <button
+              type="button"
+              className="football-scroll-top-btn"
+              onClick={scrollToTop}
+              title="Scroll to top of scores"
+              aria-label="Scroll to top"
+            >
+              <i className="fa-solid fa-arrow-up" />
+            </button>
+          )}
+
+          {/* Footer count indicator */}
+          <div className="football-footer-indicator">
+            <span>Showing {filteredMatches.length} of {matches.length} matches • Tap match for live stats</span>
           </div>
         </div>
       )}

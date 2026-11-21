@@ -1,20 +1,34 @@
 import { useState, useEffect, useRef } from 'react';
-import { INITIAL_MATCHES } from '../utils/liveMatchesData';
+import { INITIAL_MATCHES, LEAGUES } from '../utils/liveMatchesData';
 import '../styles/liveScoresAndNews.css';
 
 export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live' }) {
   const [matches, setMatches] = useState(INITIAL_MATCHES);
-  const [leagueFilter, setLeagueFilter] = useState('all');
-  const [statusFilter, setStatusFilter] = useState(initialFilter); // 'all' | 'live' | 'ft' | 'upcoming'
+  const [activeDateTab, setActiveDateTab] = useState('today'); // 'yesterday' | 'today' | 'tomorrow'
+  const [liveOnly, setLiveOnly] = useState(initialFilter === 'live');
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
+  const [favorites, setFavorites] = useState(() => {
+    try {
+      const saved = localStorage.getItem('gio_favorite_matches');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [selectedLeague, setSelectedLeague] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMatch, setSelectedMatch] = useState(null);
+  const [activeDetailTab, setActiveDetailTab] = useState('overview'); // 'overview' | 'stats' | 'lineups'
+  const [collapsedLeagues, setCollapsedLeagues] = useState({});
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
   const scrollRef = useRef(null);
 
   useEffect(() => {
     if (isOpen) {
-      setStatusFilter(initialFilter || 'live');
+      if (initialFilter === 'live') {
+        setLiveOnly(true);
+      }
     }
   }, [isOpen, initialFilter]);
 
@@ -44,6 +58,24 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
 
   if (!isOpen) return null;
 
+  const toggleFavorite = (e, matchId) => {
+    e.stopPropagation();
+    setFavorites((prev) => {
+      const next = prev.includes(matchId) ? prev.filter((id) => id !== matchId) : [...prev, matchId];
+      try {
+        localStorage.setItem('gio_favorite_matches', JSON.stringify(next));
+      } catch {}
+      return next;
+    });
+  };
+
+  const toggleLeagueCollapse = (leagueCode) => {
+    setCollapsedLeagues((prev) => ({
+      ...prev,
+      [leagueCode]: !prev[leagueCode],
+    }));
+  };
+
   const handleRefresh = () => {
     setIsRefreshing(true);
     setTimeout(() => {
@@ -61,7 +93,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
         })
       );
       setIsRefreshing(false);
-    }, 600);
+    }, 500);
   };
 
   const handleScroll = (e) => {
@@ -78,17 +110,16 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
     }
   };
 
-  // Filter matches
+  // Filter matches based on Date, Live toggle, Favorites, League, and Search
   const filteredMatches = matches.filter((m) => {
-    // League
-    if (leagueFilter !== 'all' && m.leagueCode !== leagueFilter) {
-      return false;
-    }
+    // Live toggle
+    if (liveOnly && !m.isLive) return false;
 
-    // Status
-    if (statusFilter === 'live' && !m.isLive) return false;
-    if (statusFilter === 'ft' && m.status !== 'FT') return false;
-    if (statusFilter === 'upcoming' && (m.isLive || m.status === 'FT')) return false;
+    // Favorites
+    if (favoritesOnly && !favorites.includes(m.id)) return false;
+
+    // League
+    if (selectedLeague !== 'all' && m.leagueCode !== selectedLeague) return false;
 
     // Search query
     if (searchQuery.trim()) {
@@ -101,47 +132,77 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
     return true;
   });
 
-  const liveMatchesCount = matches.filter((m) => m.isLive).length;
-  const ftMatchesCount = matches.filter((m) => m.status === 'FT').length;
-  const upcomingMatchesCount = matches.filter((m) => !m.isLive && m.status !== 'FT').length;
+  // Group matches by league (Sofascore architecture)
+  const groupedByLeague = LEAGUES.map((league) => {
+    const leagueMatches = filteredMatches.filter((m) => m.leagueCode === league.code);
+    return {
+      ...league,
+      matches: leagueMatches,
+    };
+  }).filter((group) => group.matches.length > 0);
+
+  const totalLiveMatches = matches.filter((m) => m.isLive).length;
 
   return (
-    <div className="scores-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="scores-modal-container" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="scores-modal-header">
-          <div className="scores-modal-title-group">
-            <div className="scores-modal-icon-badge">
+    <div className="sofascore-modal-overlay" onClick={onClose} role="dialog" aria-modal="true">
+      <div className="sofascore-modal-container" onClick={(e) => e.stopPropagation()}>
+        {/* =========================================================================
+            SOFASCORE TOP NAV BAR
+            ========================================================================= */}
+        <header className="sofascore-header">
+          {/* Logo & Brand */}
+          <div className="sofascore-brand-group">
+            <div className="sofascore-logo-badge">
               <i className="fa-solid fa-futbol"></i>
             </div>
-            <div>
-              <div className="scores-modal-title">
-                <span>Live Football Scoreboard</span>
-                <span className="scores-modal-live-pill">
-                  <span className="status-live-dot"></span>
-                  {liveMatchesCount} LIVE NOW
-                </span>
-              </div>
-              <div className="scores-modal-subtitle">
-                Real-time scores, goal alerts & matchday statistics
-              </div>
+            <div className="sofascore-brand-text">
+              <span className="sofascore-title">
+                SOFASCORE <span className="sofascore-live-tag">LIVE</span>
+              </span>
+              <span className="sofascore-subtitle">Football Scores, xG & Real-Time Statistics</span>
             </div>
           </div>
 
-          <div className="scores-modal-header-actions">
+          {/* Date Selector Tabs */}
+          <div className="sofascore-date-picker">
             <button
               type="button"
-              className="scores-modal-refresh-btn"
-              onClick={handleRefresh}
-              title="Refresh match scores"
-              disabled={isRefreshing}
+              className={`sofascore-date-tab ${activeDateTab === 'yesterday' ? 'active' : ''}`}
+              onClick={() => setActiveDateTab('yesterday')}
             >
-              <i className={`fa-solid fa-arrows-rotate ${isRefreshing ? 'fa-spin' : ''}`}></i>
-              <span>Refresh</span>
+              Yesterday
             </button>
             <button
               type="button"
-              className="scores-modal-close-btn"
+              className={`sofascore-date-tab today ${activeDateTab === 'today' ? 'active' : ''}`}
+              onClick={() => setActiveDateTab('today')}
+            >
+              <span className="sofascore-live-dot"></span>
+              TODAY
+            </button>
+            <button
+              type="button"
+              className={`sofascore-date-tab ${activeDateTab === 'tomorrow' ? 'active' : ''}`}
+              onClick={() => setActiveDateTab('tomorrow')}
+            >
+              Tomorrow
+            </button>
+          </div>
+
+          {/* Action Tools */}
+          <div className="sofascore-header-actions">
+            <button
+              type="button"
+              className="sofascore-icon-btn refresh-btn"
+              onClick={handleRefresh}
+              title="Refresh match feeds"
+              disabled={isRefreshing}
+            >
+              <i className={`fa-solid fa-arrows-rotate ${isRefreshing ? 'fa-spin' : ''}`}></i>
+            </button>
+            <button
+              type="button"
+              className="sofascore-icon-btn close-btn"
               onClick={onClose}
               aria-label="Close"
               title="Close modal"
@@ -149,232 +210,249 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
               <i className="fa-solid fa-xmark"></i>
             </button>
           </div>
-        </div>
+        </header>
 
-        {/* Toolbar: Search & Filters */}
-        <div className="scores-modal-toolbar">
-          {/* Search Bar */}
-          <div className="scores-modal-search">
+        {/* =========================================================================
+            SOFASCORE CONTROL SUBBAR: LIVE SWITCH, FAVORITES & SEARCH
+            ========================================================================= */}
+        <div className="sofascore-subbar">
+          <div className="sofascore-quick-toggles">
+            {/* Sofascore Signature LIVE Toggle Button */}
+            <button
+              type="button"
+              className={`sofascore-live-toggle ${liveOnly ? 'is-active' : ''}`}
+              onClick={() => setLiveOnly((prev) => !prev)}
+              title="Toggle Live-only matches"
+            >
+              <span className="live-toggle-indicator">
+                <span className="status-live-dot" />
+              </span>
+              <span className="live-toggle-label">LIVE</span>
+              <span className="live-toggle-count">{totalLiveMatches}</span>
+            </button>
+
+            {/* Favorites Filter */}
+            <button
+              type="button"
+              className={`sofascore-filter-pill ${favoritesOnly ? 'active' : ''}`}
+              onClick={() => setFavoritesOnly((prev) => !prev)}
+              title="Filter by bookmarked matches"
+            >
+              <i className={`fa-${favoritesOnly ? 'solid' : 'regular'} fa-star`}></i>
+              <span>Favorites ({favorites.length})</span>
+            </button>
+
+            {/* Clear Filters (if active) */}
+            {(liveOnly || favoritesOnly || selectedLeague !== 'all' || searchQuery) && (
+              <button
+                type="button"
+                className="sofascore-reset-filters-btn"
+                onClick={() => {
+                  setLiveOnly(false);
+                  setFavoritesOnly(false);
+                  setSelectedLeague('all');
+                  setSearchQuery('');
+                }}
+              >
+                Reset All
+              </button>
+            )}
+          </div>
+
+          {/* Sofascore Search Box */}
+          <div className="sofascore-search-box">
             <i className="fa-solid fa-magnifying-glass search-icon"></i>
             <input
               type="text"
-              className="scores-modal-search-input"
+              className="sofascore-search-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search team, league, stadium, or scorer..."
+              placeholder="Search team, league, player or stadium..."
             />
             {searchQuery && (
               <button
                 type="button"
-                className="scores-search-clear-btn"
+                className="sofascore-clear-btn"
                 onClick={() => setSearchQuery('')}
-                title="Clear search"
+                title="Clear"
               >
                 <i className="fa-solid fa-xmark"></i>
               </button>
             )}
           </div>
-
-          {/* Status Pills */}
-          <div className="scores-modal-status-row">
-            <button
-              type="button"
-              className={`scores-status-pill ${statusFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setStatusFilter('all')}
-            >
-              All Matches ({matches.length})
-            </button>
-            <button
-              type="button"
-              className={`scores-status-pill live-pill ${statusFilter === 'live' ? 'active' : ''}`}
-              onClick={() => setStatusFilter('live')}
-            >
-              🔴 Live ({liveMatchesCount})
-            </button>
-            <button
-              type="button"
-              className={`scores-status-pill ${statusFilter === 'ft' ? 'active' : ''}`}
-              onClick={() => setStatusFilter('ft')}
-            >
-              Finished ({ftCountMatches(matches)})
-            </button>
-            <button
-              type="button"
-              className={`scores-status-pill ${statusFilter === 'upcoming' ? 'active' : ''}`}
-              onClick={() => setStatusFilter('upcoming')}
-            >
-              Upcoming ({upcomingMatchesCount})
-            </button>
-          </div>
-
-          {/* League Filter Chips */}
-          <div className="scores-modal-leagues-row">
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'all' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('all')}
-            >
-              All Competitions
-            </button>
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'ucl' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('ucl')}
-            >
-              🏆 Champions League
-            </button>
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'epl' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('epl')}
-            >
-              🏴󠁧󠁢󠁥󠁮󠁧󠁿 Premier League
-            </button>
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'laliga' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('laliga')}
-            >
-              🇪🇸 La Liga
-            </button>
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'seriea' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('seriea')}
-            >
-              🇮🇹 Serie A
-            </button>
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'bundesliga' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('bundesliga')}
-            >
-              🇩🇪 Bundesliga
-            </button>
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'ligue1' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('ligue1')}
-            >
-              🇫🇷 Ligue 1
-            </button>
-            <button
-              type="button"
-              className={`scores-league-chip ${leagueFilter === 'intl' ? 'active' : ''}`}
-              onClick={() => setLeagueFilter('intl')}
-            >
-              🌍 World Matches
-            </button>
-          </div>
         </div>
 
-        {/* Scrollable Matches Board Viewport */}
+        {/* =========================================================================
+            SOFASCORE HORIZONTAL LEAGUE SELECTOR
+            ========================================================================= */}
+        <div className="sofascore-leagues-scroll">
+          <button
+            type="button"
+            className={`sofascore-league-item ${selectedLeague === 'all' ? 'active' : ''}`}
+            onClick={() => setSelectedLeague('all')}
+          >
+            All Leagues
+          </button>
+          {LEAGUES.map((l) => (
+            <button
+              key={l.code}
+              type="button"
+              className={`sofascore-league-item ${selectedLeague === l.code ? 'active' : ''}`}
+              onClick={() => setSelectedLeague(l.code)}
+            >
+              <span>{l.flag}</span>
+              <span>{l.name}</span>
+            </button>
+          ))}
+        </div>
+
+        {/* =========================================================================
+            SOFASCORE LEAGUE-GROUPED MATCH LIST (Scrollable Viewport)
+            ========================================================================= */}
         <div
-          className="scores-modal-scroll-area"
+          className="sofascore-matches-scroll-area"
           ref={scrollRef}
           onScroll={handleScroll}
         >
-          {filteredMatches.length === 0 ? (
-            <div className="scores-modal-empty">
+          {groupedByLeague.length === 0 ? (
+            <div className="sofascore-empty-state">
               <i className="fa-solid fa-futbol empty-ball"></i>
               <h3>No matches found</h3>
-              <p>Try searching for a different club name or resetting the filters</p>
+              <p>No games matched your current filters or search terms.</p>
               <button
                 type="button"
-                className="scores-reset-btn"
+                className="sofascore-reset-action-btn"
                 onClick={() => {
-                  setLeagueFilter('all');
-                  setStatusFilter('all');
+                  setLiveOnly(false);
+                  setFavoritesOnly(false);
+                  setSelectedLeague('all');
                   setSearchQuery('');
                 }}
               >
-                Reset Filters
+                View All Matches ({matches.length})
               </button>
             </div>
           ) : (
-            <div className="scores-modal-matches-grid">
-              {filteredMatches.map((m) => {
-                const homeLeading = m.homeScore > m.awayScore;
-                const awayLeading = m.awayScore > m.homeScore;
+            groupedByLeague.map((group) => {
+              const isCollapsed = Boolean(collapsedLeagues[group.code]);
 
-                return (
+              return (
+                <div key={group.code} className="sofascore-league-block">
+                  {/* Sofascore League Section Header */}
                   <div
-                    key={m.id}
-                    className={`scores-popup-card ${m.isLive ? 'is-live-card' : ''}`}
-                    onClick={() => setSelectedMatch(m)}
-                    title="Click for full match stats, possession & commentary"
+                    className="sofascore-league-header"
+                    onClick={() => toggleLeagueCollapse(group.code)}
+                    title="Click to collapse/expand league"
                   >
-                    {/* Top League & Status Row */}
-                    <div className="scores-card-top-row">
-                      <span className="scores-card-league">
-                        {m.leagueFlag} {m.league}
-                      </span>
-                      <span
-                        className={`scores-card-status-badge ${
-                          m.isLive ? 'live-badge' : m.status === 'FT' ? 'ft-badge' : 'upcoming-badge'
-                        }`}
-                      >
-                        {m.isLive && <span className="status-live-dot"></span>}
-                        {m.status}
-                      </span>
-                    </div>
-
-                    {/* Team & Scoreline Row */}
-                    <div className="scores-card-teams-row">
-                      {/* Home */}
-                      <div className={`scores-team-col home ${homeLeading ? 'leading' : ''}`}>
-                        <span className="scores-team-crest">{m.homeCrest}</span>
-                        <span className="scores-team-name">{m.homeTeam}</span>
-                      </div>
-
-                      {/* Score Pill */}
-                      <div className="scores-center-pill-wrap">
-                        {m.status.includes('TODAY') ? (
-                          <span className="scores-time-tag">{m.status.replace('TODAY ', '')}</span>
-                        ) : (
-                          <div className={`scores-big-pill ${m.isLive ? 'live-pill' : ''}`}>
-                            <span className={`scores-num ${homeLeading ? 'winner-num' : ''}`}>
-                              {m.homeScore}
-                            </span>
-                            <span className="scores-divider">-</span>
-                            <span className={`scores-num ${awayLeading ? 'winner-num' : ''}`}>
-                              {m.awayScore}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Away */}
-                      <div className={`scores-team-col away ${awayLeading ? 'leading' : ''}`}>
-                        <span className="scores-team-crest">{m.awayCrest}</span>
-                        <span className="scores-team-name">{m.awayTeam}</span>
+                    <div className="sofascore-league-info">
+                      <span className="league-flag">{group.flag}</span>
+                      <div className="league-titles">
+                        <span className="league-name">{group.name}</span>
+                        <span className="league-country">{group.country} • {group.round}</span>
                       </div>
                     </div>
 
-                    {/* Scorers Summary */}
-                    {m.scorers.length > 0 && (
-                      <div className="scores-card-scorers">
-                        <i className="fa-solid fa-futbol"></i>
-                        <span className="scores-scorers-text">
-                          {m.scorers.map((s, idx) => (
-                            <span key={idx} className="scores-scorer-item">
-                              {s.player} {s.minute}
-                              {idx < m.scorers.length - 1 ? ' • ' : ''}
-                            </span>
-                          ))}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Stadium location info */}
-                    <div className="scores-card-stadium-row">
-                      <i className="fa-solid fa-location-dot"></i>
-                      <span>{m.stadium}</span>
+                    <div className="sofascore-league-actions">
+                      <span className="league-match-count">{group.matches.length} matches</span>
+                      <i className={`fa-solid fa-chevron-${isCollapsed ? 'down' : 'up'} collapse-icon`}></i>
                     </div>
                   </div>
-                );
-              })}
-            </div>
+
+                  {/* League Matches Table (Sofascore Rows) */}
+                  {!isCollapsed && (
+                    <div className="sofascore-matches-table">
+                      {group.matches.map((m) => {
+                        const isFav = favorites.includes(m.id);
+                        const homeWinner = m.homeScore > m.awayScore;
+                        const awayWinner = m.awayScore > m.homeScore;
+
+                        return (
+                          <div
+                            key={m.id}
+                            className={`sofascore-match-row ${m.isLive ? 'is-live-row' : ''}`}
+                            onClick={() => {
+                              setSelectedMatch(m);
+                              setActiveDetailTab('overview');
+                            }}
+                            title="Click for Sofascore match center & ratings"
+                          >
+                            {/* Left Column: Match Status & Minute */}
+                            <div className="sofascore-status-col">
+                              {m.isLive ? (
+                                <div className="sofascore-live-badge">
+                                  <span className="sofascore-minute">{m.minute}'</span>
+                                  <span className="status-live-dot"></span>
+                                </div>
+                              ) : m.status === 'FT' ? (
+                                <span className="sofascore-ft-badge">FT</span>
+                              ) : (
+                                <span className="sofascore-time-badge">
+                                  {m.status.replace('TODAY ', '')}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Center Column: Teams & Scores (2 Clean Rows) */}
+                            <div className="sofascore-teams-col">
+                              {/* Home Team Row */}
+                              <div className={`sofascore-team-line ${homeWinner ? 'is-leading' : ''}`}>
+                                <div className="team-meta">
+                                  <span className="team-crest">{m.homeCrest}</span>
+                                  <span className="team-name">{m.homeTeam}</span>
+                                </div>
+                                <span className={`team-score ${homeWinner ? 'leading-score' : ''}`}>
+                                  {m.status.includes('TODAY') ? '-' : m.homeScore}
+                                </span>
+                              </div>
+
+                              {/* Away Team Row */}
+                              <div className={`sofascore-team-line ${awayWinner ? 'is-leading' : ''}`}>
+                                <div className="team-meta">
+                                  <span className="team-crest">{m.awayCrest}</span>
+                                  <span className="team-name">{m.awayTeam}</span>
+                                </div>
+                                <span className={`team-score ${awayWinner ? 'leading-score' : ''}`}>
+                                  {m.status.includes('TODAY') ? '-' : m.awayScore}
+                                </span>
+                              </div>
+                            </div>
+
+                            {/* Right Column: xG Badge, Scorers preview & Star */}
+                            <div className="sofascore-meta-col">
+                              {/* xG pill */}
+                              {m.stats?.expectedGoals && !m.status.includes('TODAY') && (
+                                <span className="sofascore-xg-pill" title="Expected Goals (xG)">
+                                  xG: {m.stats.expectedGoals[0]} - {m.stats.expectedGoals[1]}
+                                </span>
+                              )}
+
+                              {/* Scorers Preview */}
+                              {m.scorers?.length > 0 && (
+                                <span className="sofascore-scorers-preview" title="Goalscorers">
+                                  ⚽ {m.scorers[m.scorers.length - 1].player} {m.scorers[m.scorers.length - 1].minute}
+                                  {m.scorers.length > 1 && ` (+${m.scorers.length - 1})`}
+                                </span>
+                              )}
+
+                              {/* Bookmark Star */}
+                              <button
+                                type="button"
+                                className={`sofascore-star-btn ${isFav ? 'starred' : ''}`}
+                                onClick={(e) => toggleFavorite(e, m.id)}
+                                title={isFav ? 'Remove from favorites' : 'Add to favorites'}
+                                aria-label="Favorite"
+                              >
+                                <i className={`fa-${isFav ? 'solid' : 'regular'} fa-star`}></i>
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })
           )}
         </div>
 
@@ -382,7 +460,7 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
         {showScrollTop && (
           <button
             type="button"
-            className="scores-modal-scroll-top"
+            className="sofascore-scroll-top-btn"
             onClick={scrollToTop}
             title="Scroll to top"
             aria-label="Scroll to top"
@@ -391,32 +469,38 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
           </button>
         )}
 
-        {/* Footer info bar */}
-        <div className="scores-modal-footer">
-          <span>
-            Displaying {filteredMatches.length} of {matches.length} matches • Auto-refreshes every 45s
+        {/* Sofascore Footer */}
+        <footer className="sofascore-footer">
+          <div className="sofascore-footer-stats">
+            <span>
+              <strong>{filteredMatches.length}</strong> matches shown • <strong>{totalLiveMatches}</strong> live now
+            </span>
+          </div>
+          <span className="sofascore-footer-brand">
+            Powered by Sofascore-style Live Engine • Real-time Ticker
           </span>
-          <span className="scores-modal-footer-hint">Tap any match card for live stats & commentary</span>
-        </div>
+        </footer>
       </div>
 
-      {/* Embedded Match Stats Details Drawer */}
+      {/* =========================================================================
+          SOFASCORE MATCH CENTER MODAL (Overview, Stats Comparison, Lineups)
+          ========================================================================= */}
       {selectedMatch && (
-        <div className="match-modal-backdrop" onClick={() => setSelectedMatch(null)}>
-          <div className="match-modal-card" onClick={(e) => e.stopPropagation()}>
+        <div className="sofascore-center-backdrop" onClick={() => setSelectedMatch(null)}>
+          <div className="sofascore-center-card" onClick={(e) => e.stopPropagation()}>
             {/* Header */}
-            <div className="match-modal-header">
-              <div className="match-modal-title-group">
-                <span className="match-modal-league">
-                  {selectedMatch.leagueFlag} {selectedMatch.league}
+            <div className="sofascore-center-header">
+              <div className="center-header-info">
+                <span className="center-league">
+                  {selectedMatch.leagueFlag} {selectedMatch.league} • {selectedMatch.round}
                 </span>
-                <span className="match-modal-stadium">
-                  <i className="fa-solid fa-location-dot"></i> {selectedMatch.stadium}
+                <span className="center-venue">
+                  <i className="fa-solid fa-location-dot"></i> {selectedMatch.stadium} • Ref: {selectedMatch.referee || 'Official'}
                 </span>
               </div>
               <button
                 type="button"
-                className="match-modal-close-btn"
+                className="sofascore-center-close"
                 onClick={() => setSelectedMatch(null)}
                 aria-label="Close"
               >
@@ -424,97 +508,257 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
               </button>
             </div>
 
-            {/* Big Match Score Board */}
-            <div className="match-modal-scoreboard">
-              <div className="modal-team-block">
-                <span className="modal-team-crest">{selectedMatch.homeCrest}</span>
-                <strong className="modal-team-name">{selectedMatch.homeTeam}</strong>
+            {/* Sofascore Scoreboard Hero */}
+            <div className="sofascore-center-scoreboard">
+              {/* Home Team Block */}
+              <div className="center-team-block home">
+                <span className="center-crest">{selectedMatch.homeCrest}</span>
+                <strong className="center-team-name">{selectedMatch.homeTeam}</strong>
+                <span className="center-team-code">{selectedMatch.homeCode}</span>
               </div>
 
-              <div className="modal-score-block">
-                <span className={`modal-status-badge ${selectedMatch.isLive ? 'live-badge' : 'ft-badge'}`}>
+              {/* Big Score Block */}
+              <div className="center-score-block">
+                <span className={`center-live-pill ${selectedMatch.isLive ? 'is-live' : ''}`}>
                   {selectedMatch.isLive && <span className="status-live-dot" />}
                   {selectedMatch.status}
                 </span>
-                <div className="modal-big-score">
-                  <span>{selectedMatch.homeScore}</span>
-                  <span className="modal-score-sep">-</span>
-                  <span>{selectedMatch.awayScore}</span>
+                <div className="center-score-numbers">
+                  <span className={selectedMatch.homeScore > selectedMatch.awayScore ? 'winner' : ''}>
+                    {selectedMatch.homeScore}
+                  </span>
+                  <span className="center-sep">-</span>
+                  <span className={selectedMatch.awayScore > selectedMatch.homeScore ? 'winner' : ''}>
+                    {selectedMatch.awayScore}
+                  </span>
                 </div>
+                {selectedMatch.stats?.expectedGoals && (
+                  <span className="center-xg-sub">
+                    xG: {selectedMatch.stats.expectedGoals[0]} - {selectedMatch.stats.expectedGoals[1]}
+                  </span>
+                )}
               </div>
 
-              <div className="modal-team-block">
-                <span className="modal-team-crest">{selectedMatch.awayCrest}</span>
-                <strong className="modal-team-name">{selectedMatch.awayTeam}</strong>
+              {/* Away Team Block */}
+              <div className="center-team-block away">
+                <span className="center-crest">{selectedMatch.awayCrest}</span>
+                <strong className="center-team-name">{selectedMatch.awayTeam}</strong>
+                <span className="center-team-code">{selectedMatch.awayCode}</span>
               </div>
             </div>
 
-            {/* Scorers Timeline */}
-            {selectedMatch.scorers.length > 0 && (
-              <div className="match-modal-section">
-                <span className="match-section-title">Match Goals & Scorers</span>
-                <div className="modal-scorers-list">
-                  {selectedMatch.scorers.map((s, idx) => (
-                    <div key={idx} className={`modal-scorer-pill ${s.team}`}>
-                      <i className="fa-solid fa-futbol"></i>
-                      <span>{s.player}</span>
-                      <strong>{s.minute}</strong>
+            {/* Sofascore Navigation Tabs */}
+            <div className="sofascore-center-tabs">
+              <button
+                type="button"
+                className={`sofascore-tab-item ${activeDetailTab === 'overview' ? 'active' : ''}`}
+                onClick={() => setActiveDetailTab('overview')}
+              >
+                📊 Overview
+              </button>
+              <button
+                type="button"
+                className={`sofascore-tab-item ${activeDetailTab === 'stats' ? 'active' : ''}`}
+                onClick={() => setActiveDetailTab('stats')}
+              >
+                📈 Statistics
+              </button>
+              <button
+                type="button"
+                className={`sofascore-tab-item ${activeDetailTab === 'lineups' ? 'active' : ''}`}
+                onClick={() => setActiveDetailTab('lineups')}
+              >
+                👥 Lineups & Ratings
+              </button>
+            </div>
+
+            {/* Tab 1: Overview */}
+            {activeDetailTab === 'overview' && (
+              <div className="sofascore-tab-content">
+                {/* Goals Timeline */}
+                {selectedMatch.scorers?.length > 0 && (
+                  <div className="center-section">
+                    <span className="center-section-heading">Goals & Scorers</span>
+                    <div className="center-goals-list">
+                      {selectedMatch.scorers.map((s, idx) => (
+                        <div key={idx} className={`center-goal-pill ${s.team}`}>
+                          <i className="fa-solid fa-futbol"></i>
+                          <span className="goal-player">{s.player}</span>
+                          <span className="goal-min">{s.minute}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
+                  </div>
+                )}
+
+                {/* Sofascore Attack Momentum Visualizer */}
+                <div className="center-section">
+                  <div className="momentum-heading-row">
+                    <span className="center-section-heading">Attack Momentum</span>
+                    <span className="momentum-legend">Pressure throughout match</span>
+                  </div>
+                  <div className="sofascore-momentum-graph">
+                    <div className="momentum-axis-center"></div>
+                    {/* Simulated momentum bars */}
+                    <div className="momentum-bars-track">
+                      {[40, -25, 60, 30, -50, 70, 45, -30, 80, 20, -40, 65, 50, -20, 85, 30].map((val, i) => (
+                        <div
+                          key={i}
+                          className={`momentum-bar ${val > 0 ? 'home' : 'away'}`}
+                          style={{
+                            height: `${Math.abs(val) * 0.7}px`,
+                            alignSelf: val > 0 ? 'flex-end' : 'flex-start',
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Key Match Commentary Feed */}
+                <div className="center-section">
+                  <span className="center-section-heading">Key Match Events</span>
+                  <div className="center-commentary-feed">
+                    {selectedMatch.commentary?.map((c, idx) => (
+                      <div key={idx} className="center-commentary-row">
+                        <span className="commentary-min">{c.minute}</span>
+                        <span className="commentary-text">{c.text}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
 
-            {/* Match Statistics Bars */}
-            <div className="match-modal-section">
-              <span className="match-section-title">Live Match Statistics</span>
-              <div className="match-stats-table">
-                {/* Possession */}
-                <div className="stat-row">
-                  <span className="stat-val home">{selectedMatch.stats.possession[0]}%</span>
-                  <span className="stat-label">Ball Possession</span>
-                  <span className="stat-val away">{selectedMatch.stats.possession[1]}%</span>
-                </div>
-                <div className="stat-bar-track">
-                  <div className="stat-bar-fill home" style={{ width: `${selectedMatch.stats.possession[0]}%` }}></div>
-                  <div className="stat-bar-fill away" style={{ width: `${selectedMatch.stats.possession[1]}%` }}></div>
-                </div>
+            {/* Tab 2: Statistics Comparison Bars (Sofascore Signature!) */}
+            {activeDetailTab === 'stats' && (
+              <div className="sofascore-tab-content">
+                <div className="sofascore-stat-bars-container">
+                  {/* Expected Goals (xG) */}
+                  {selectedMatch.stats?.expectedGoals && (
+                    <SofascoreStatBar
+                      label="Expected Goals (xG)"
+                      homeVal={selectedMatch.stats.expectedGoals[0]}
+                      awayVal={selectedMatch.stats.expectedGoals[1]}
+                      homeRatio={selectedMatch.stats.expectedGoals[0] / (selectedMatch.stats.expectedGoals[0] + selectedMatch.stats.expectedGoals[1])}
+                    />
+                  )}
 
-                {/* Shots on Target */}
-                <div className="stat-row">
-                  <span className="stat-val home">{selectedMatch.stats.shotsOnTarget[0]}</span>
-                  <span className="stat-label">Shots on Target</span>
-                  <span className="stat-val away">{selectedMatch.stats.shotsOnTarget[1]}</span>
-                </div>
+                  {/* Ball Possession */}
+                  <SofascoreStatBar
+                    label="Ball Possession"
+                    homeVal={`${selectedMatch.stats.possession[0]}%`}
+                    awayVal={`${selectedMatch.stats.possession[1]}%`}
+                    homeRatio={selectedMatch.stats.possession[0] / 100}
+                  />
 
-                {/* Corner Kicks */}
-                <div className="stat-row">
-                  <span className="stat-val home">{selectedMatch.stats.corners[0]}</span>
-                  <span className="stat-label">Corner Kicks</span>
-                  <span className="stat-val away">{selectedMatch.stats.corners[1]}</span>
-                </div>
+                  {/* Shots on Target */}
+                  <SofascoreStatBar
+                    label="Shots on Target"
+                    homeVal={selectedMatch.stats.shotsOnTarget[0]}
+                    awayVal={selectedMatch.stats.shotsOnTarget[1]}
+                    homeRatio={selectedMatch.stats.shotsOnTarget[0] / (selectedMatch.stats.shotsOnTarget[0] + selectedMatch.stats.shotsOnTarget[1] || 1)}
+                  />
 
-                {/* Fouls */}
-                <div className="stat-row">
-                  <span className="stat-val home">{selectedMatch.stats.fouls[0]}</span>
-                  <span className="stat-label">Fouls</span>
-                  <span className="stat-val away">{selectedMatch.stats.fouls[1]}</span>
+                  {/* Total Shots */}
+                  {selectedMatch.stats?.totalShots && (
+                    <SofascoreStatBar
+                      label="Total Shots"
+                      homeVal={selectedMatch.stats.totalShots[0]}
+                      awayVal={selectedMatch.stats.totalShots[1]}
+                      homeRatio={selectedMatch.stats.totalShots[0] / (selectedMatch.stats.totalShots[0] + selectedMatch.stats.totalShots[1] || 1)}
+                    />
+                  )}
+
+                  {/* Big Chances */}
+                  {selectedMatch.stats?.bigChances && (
+                    <SofascoreStatBar
+                      label="Big Chances"
+                      homeVal={selectedMatch.stats.bigChances[0]}
+                      awayVal={selectedMatch.stats.bigChances[1]}
+                      homeRatio={selectedMatch.stats.bigChances[0] / (selectedMatch.stats.bigChances[0] + selectedMatch.stats.bigChances[1] || 1)}
+                    />
+                  )}
+
+                  {/* Corners */}
+                  <SofascoreStatBar
+                    label="Corner Kicks"
+                    homeVal={selectedMatch.stats.corners[0]}
+                    awayVal={selectedMatch.stats.corners[1]}
+                    homeRatio={selectedMatch.stats.corners[0] / (selectedMatch.stats.corners[0] + selectedMatch.stats.corners[1] || 1)}
+                  />
+
+                  {/* Fouls */}
+                  <SofascoreStatBar
+                    label="Fouls"
+                    homeVal={selectedMatch.stats.fouls[0]}
+                    awayVal={selectedMatch.stats.fouls[1]}
+                    homeRatio={selectedMatch.stats.fouls[0] / (selectedMatch.stats.fouls[0] + selectedMatch.stats.fouls[1] || 1)}
+                  />
+
+                  {/* Yellow Cards */}
+                  <SofascoreStatBar
+                    label="Yellow Cards"
+                    homeVal={selectedMatch.stats.yellowCards[0]}
+                    awayVal={selectedMatch.stats.yellowCards[1]}
+                    homeRatio={selectedMatch.stats.yellowCards[0] / (selectedMatch.stats.yellowCards[0] + selectedMatch.stats.yellowCards[1] || 1)}
+                  />
+
+                  {/* Goalkeeper Saves */}
+                  {selectedMatch.stats?.goalkeeperSaves && (
+                    <SofascoreStatBar
+                      label="Goalkeeper Saves"
+                      homeVal={selectedMatch.stats.goalkeeperSaves[0]}
+                      awayVal={selectedMatch.stats.goalkeeperSaves[1]}
+                      homeRatio={selectedMatch.stats.goalkeeperSaves[0] / (selectedMatch.stats.goalkeeperSaves[0] + selectedMatch.stats.goalkeeperSaves[1] || 1)}
+                    />
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Live Key Commentary */}
-            <div className="match-modal-section">
-              <span className="match-section-title">Key Match Events</span>
-              <div className="match-commentary-feed">
-                {selectedMatch.commentary.map((c, idx) => (
-                  <div key={idx} className="commentary-item">
-                    <span className="comm-min">{c.minute}</span>
-                    <span className="comm-text">{c.text}</span>
+            {/* Tab 3: Lineups & Player Ratings */}
+            {activeDetailTab === 'lineups' && (
+              <div className="sofascore-tab-content">
+                <div className="center-lineups-grid">
+                  {/* Home Team Lineup */}
+                  <div className="lineup-side-col">
+                    <div className="lineup-header">
+                      <strong>{selectedMatch.homeTeam}</strong>
+                      <span className="formation-badge">{selectedMatch.lineups?.homeFormation || '4-3-3'}</span>
+                    </div>
+                    <div className="ratings-list">
+                      {selectedMatch.lineups?.homeRatings?.map((p, idx) => (
+                        <div key={idx} className="player-rating-item">
+                          <span className="player-name">{p.name} ({p.pos})</span>
+                          <span className={`sofascore-rating-pill ${p.rating >= 8.0 ? 'exceptional' : p.rating >= 7.0 ? 'good' : 'average'}`}>
+                            {p.rating.toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                ))}
+
+                  {/* Away Team Lineup */}
+                  <div className="lineup-side-col">
+                    <div className="lineup-header">
+                      <strong>{selectedMatch.awayTeam}</strong>
+                      <span className="formation-badge">{selectedMatch.lineups?.awayFormation || '4-2-3-1'}</span>
+                    </div>
+                    <div className="ratings-list">
+                      {selectedMatch.lineups?.awayRatings?.map((p, idx) => (
+                        <div key={idx} className="player-rating-item">
+                          <span className="player-name">{p.name} ({p.pos})</span>
+                          <span className={`sofascore-rating-pill ${p.rating >= 8.0 ? 'exceptional' : p.rating >= 7.0 ? 'good' : 'average'}`}>
+                            {p.rating.toFixed(1)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -522,6 +766,23 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
   );
 }
 
-function ftCountMatches(matches) {
-  return matches.filter((m) => m.status === 'FT').length;
+// Sofascore-style Comparison Bar Helper
+function SofascoreStatBar({ label, homeVal, awayVal, homeRatio }) {
+  const safeRatio = Math.max(0.08, Math.min(0.92, homeRatio || 0.5));
+  const homePercent = (safeRatio * 100).toFixed(1);
+  const awayPercent = (100 - safeRatio * 100).toFixed(1);
+
+  return (
+    <div className="sofascore-stat-row">
+      <div className="stat-label-numbers">
+        <span className="stat-num home">{homeVal}</span>
+        <span className="stat-desc">{label}</span>
+        <span className="stat-num away">{awayVal}</span>
+      </div>
+      <div className="stat-dual-bar">
+        <div className="bar-fill home" style={{ width: `${homePercent}%` }}></div>
+        <div className="bar-fill away" style={{ width: `${awayPercent}%` }}></div>
+      </div>
+    </div>
+  );
 }

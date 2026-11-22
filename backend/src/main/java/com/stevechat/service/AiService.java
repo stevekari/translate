@@ -348,22 +348,6 @@ public class AiService {
             if (context != null && !context.isBlank()) {
                 return "In casual conversation, \"" + context + "\" conveys friendly agreement and positive acknowledgment.";
             }
-            return "This phrase expresses friendly, informal confirmation and warm tone in everyday chat.";
-        }
-
-        // Cultural context & etiquette
-        if (qLower.contains("cultural") || qLower.contains("etiquette") || qLower.contains("culture") || qLower.contains("polite") || qLower.contains("tips")) {
-            return "Polite tip: Start with a brief, friendly greeting before making requests to ensure warm cross-cultural connection.";
-        }
-
-        // Translation assistance
-        if (qLower.contains("how to say") || qLower.contains("how do you say") || qLower.contains("translate") || qLower.contains("spanish") || qLower.contains("french") || qLower.contains("german")) {
-            return "To translate any phrase instantly in your chats, tap the 🌍 icon on any message bubble.";
-        }
-
-        return "Here is your answer to \"" + question + "\". For full real-time details, connect to live network.";
-    }
-            }
             return "💡 **GioAI Slang & Nuance Guide:**\n\n" +
                     "Slang and idioms often carry subtle emotional tone that direct translations miss.\n" +
                     "• **Type any specific phrase** in the box above (e.g., *\"Explain no cap\"* or *\"What does 'catch up' mean?\"*) and I'll break down its tone, origin, and natural usage!";

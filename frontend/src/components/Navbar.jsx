@@ -11,6 +11,7 @@ import QRRoomModal from './QRRoomModal';
 import VoiceTranslateModal from './VoiceTranslateModal';
 import AiAssistantModal from './AiAssistantModal';
 import LiveScoresModal from './LiveScoresModal';
+import MobileMenuModal from './MobileMenuModal';
 import { getRealFootballScores } from '../api/footballApi';
 import { useWeather } from '../contexts/WeatherContext';
 
@@ -29,6 +30,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
   const [showVoiceTranslateModal, setShowVoiceTranslateModal] = useState(false);
   const [showAiModal, setShowAiModal] = useState(false);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [liveMatchesCount, setLiveMatchesCount] = useState(0);
 
   useEffect(() => {
@@ -45,13 +47,16 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
     // Listen to custom global events to trigger GioAI and Live Scores modals from anywhere (including mobile bottom nav)
     const handleOpenAi = () => setShowAiModal(true);
     const handleOpenLivescore = () => setShowLiveScoresModal(true);
+    const handleOpenMobileMenu = () => setShowMobileMenu(true);
     window.addEventListener('open-gioai-assistant', handleOpenAi);
     window.addEventListener('open-livescores-modal', handleOpenLivescore);
+    window.addEventListener('open-mobile-menu', handleOpenMobileMenu);
 
     return () => {
       isMounted = false;
       window.removeEventListener('open-gioai-assistant', handleOpenAi);
       window.removeEventListener('open-livescores-modal', handleOpenLivescore);
+      window.removeEventListener('open-mobile-menu', handleOpenMobileMenu);
     };
   }, []);
   const { weather, formatTemp, showWeatherModal, openWeatherModal, tWeather } = useWeather();
@@ -274,6 +279,17 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
             </Link>
           </div>
 
+          {/* Mobile Menu Hamburger Button */}
+          <button
+            type="button"
+            onClick={() => setShowMobileMenu(true)}
+            className="fb-circle-btn fb-mobile-menu-btn"
+            title="Menu - Live Scores, Weather, Settings & Tools"
+            aria-label="Open mobile menu"
+          >
+            <i className="fa-solid fa-bars" />
+          </button>
+
           {/* Logout Button */}
           <button
             onClick={handleLogout}
@@ -309,6 +325,26 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           isOpen={showLiveScoresModal}
           onClose={() => setShowLiveScoresModal(false)}
           initialFilter={liveMatchesCount > 0 ? 'live' : 'all'}
+        />
+      )}
+      {showMobileMenu && (
+        <MobileMenuModal
+          isOpen={showMobileMenu}
+          onClose={() => setShowMobileMenu(false)}
+          user={user}
+          onLogout={handleLogout}
+          onOpenLiveScores={() => setShowLiveScoresModal(true)}
+          onOpenWeather={openWeatherModal}
+          onOpenGioAi={() => setShowAiModal(true)}
+          onOpenVoiceTranslate={() => setShowVoiceTranslateModal(true)}
+          onOpenQR={() => setShowQRModal(true)}
+          theme={theme}
+          toggleTheme={toggleTheme}
+          myStatus={myStatus}
+          onStatusChange={handleStatusChange}
+          liveMatchesCount={liveMatchesCount}
+          weather={weather}
+          formatTemp={formatTemp}
         />
       )}
     </nav>

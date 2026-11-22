@@ -112,17 +112,20 @@ export default function MobileBottomNav() {
         <span className="mobile-nav-label">GioAI</span>
       </button>
 
-      {/* 6. Settings */}
+      {/* 6. More Menu */}
       <button
         type="button"
-        className={`mobile-nav-item ${isSettingsActive ? 'active' : ''}`}
-        onClick={() => navigate('/settings')}
-        aria-label={t('settings')}
+        className="mobile-nav-item mobile-nav-menu"
+        onClick={() => {
+          window.dispatchEvent(new CustomEvent('open-mobile-menu'));
+        }}
+        aria-label="Menu"
+        title="More Menu - Live Scores, Weather, Settings & Tools"
       >
         <div className="mobile-nav-icon-wrap">
-          <i className="fa-solid fa-gear" />
+          <i className="fa-solid fa-bars" />
         </div>
-        <span className="mobile-nav-label">{t('settings')}</span>
+        <span className="mobile-nav-label">Menu</span>
       </button>
     </nav>
   );

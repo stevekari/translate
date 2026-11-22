@@ -257,6 +257,10 @@
     border-color: rgba(24, 119, 242, 0.5);
 }
 
+.fb-mobile-menu-btn {
+    display: none !important;
+}
+
 /* Settings & Toggle Group placed closely together */
 .fb-nav-toggle-group {
     display: flex;
@@ -524,6 +528,21 @@
     .fb-profile-avatar {
         width: 32px;
         height: 32px;
+    }
+
+    .fb-mobile-menu-btn {
+        display: inline-flex !important;
+        align-items: center;
+        justify-content: center;
+        width: 34px !important;
+        height: 34px !important;
+        font-size: 0.95rem !important;
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--border);
+        border-radius: 50%;
+        cursor: pointer;
+        flex-shrink: 0;
     }
 }
 

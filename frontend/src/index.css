@@ -16,6 +16,7 @@
 @import './styles/voiceTranslate.css';
 @import './styles/liveScoresAndNews.css';
 @import './styles/weather.css';
+@import './styles/mobileMenu.css';
 
 /* LIGHT THEME - default */
 :root {

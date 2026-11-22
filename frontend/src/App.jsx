@@ -1,20 +1,12 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback, useEffect, lazy, Suspense } from 'react';
 import { Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from './hooks/useAuth';
 import { useDispatch } from 'react-redux';
 import { addMessage, setConversations } from './store/slices/chatSlice';
 import { getMyConversations } from './api/conversationApi';
 import api from './api/axios';
-// import { usePresenceSocket } from './hooks/usePresenceSocket'; // <-- comment this
 import Navbar from './components/Navbar';
 import MobileBottomNav from './components/MobileBottomNav';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import FriendsList from './pages/FriendsList';
-import Chat from './pages/Chat';
-import Calls from './pages/Calls';
-import Settings from './pages/Settings';
-import CommunityHome from './pages/CommunityHome';
 import Footer from './components/Footer';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import { LanguageProvider } from './contexts/LanguageContext';
@@ -22,6 +14,15 @@ import { useIncomingCallNotifications } from './hooks/useIncomingCallNotificatio
 import IncomingCallPopup from './components/IncomingCallPopup';
 import TopNotificationToast from './components/TopNotificationToast';
 import WeatherModal from './components/WeatherModal';
+
+// Dynamic code splitting via React.lazy for high-performance chunking
+const Login = lazy(() => import('./pages/Login'));
+const Register = lazy(() => import('./pages/Register'));
+const FriendsList = lazy(() => import('./pages/FriendsList'));
+const Chat = lazy(() => import('./pages/Chat'));
+const Calls = lazy(() => import('./pages/Calls'));
+const Settings = lazy(() => import('./pages/Settings'));
+const CommunityHome = lazy(() => import('./pages/CommunityHome'));
 
 function RequireAuth({ isAuthenticated, children }) {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -87,17 +88,23 @@ export default function App() {
         <WeatherModal />
         <IncomingCallManager user={user} />
         <main className="app-main">
-          <Routes>
-            <Route path="/login" element={isAuthenticated ? <Navigate to="/home" replace /> : <Login onLogin={loginUser} />} />
-            <Route path="/register" element={isAuthenticated ? <Navigate to="/home" replace /> : <Register onLogin={loginUser} />} />
-            <Route path="/home" element={<RequireAuth isAuthenticated={isAuthenticated}><CommunityHome user={user} /></RequireAuth>} />
-            <Route path="/feed" element={<RequireAuth isAuthenticated={isAuthenticated}><CommunityHome user={user} /></RequireAuth>} />
-            <Route path="/friends" element={<RequireAuth isAuthenticated={isAuthenticated}><FriendsList /></RequireAuth>} />
-            <Route path="/calls" element={<RequireAuth isAuthenticated={isAuthenticated}><Calls currentUserId={user?.userId || user?.id} /></RequireAuth>} />
-            <Route path="/chat/:conversationId" element={<RequireAuth isAuthenticated={isAuthenticated}><Chat currentUserId={user?.userId || user?.id} currentUser={user} /></RequireAuth>} />
-            <Route path="/settings" element={<RequireAuth isAuthenticated={isAuthenticated}><Settings user={user} onProfileUpdate={updateStoredUser} onLogout={logout} /></RequireAuth>} />
-            <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} replace />} />
-          </Routes>
+          <Suspense fallback={
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', color: 'var(--accent)' }}>
+              <i className="fa-solid fa-circle-notch fa-spin fa-2x"></i>
+            </div>
+          }>
+            <Routes>
+              <Route path="/login" element={isAuthenticated ? <Navigate to="/home" replace /> : <Login onLogin={loginUser} />} />
+              <Route path="/register" element={isAuthenticated ? <Navigate to="/home" replace /> : <Register onLogin={loginUser} />} />
+              <Route path="/home" element={<RequireAuth isAuthenticated={isAuthenticated}><CommunityHome user={user} /></RequireAuth>} />
+              <Route path="/feed" element={<RequireAuth isAuthenticated={isAuthenticated}><CommunityHome user={user} /></RequireAuth>} />
+              <Route path="/friends" element={<RequireAuth isAuthenticated={isAuthenticated}><FriendsList /></RequireAuth>} />
+              <Route path="/calls" element={<RequireAuth isAuthenticated={isAuthenticated}><Calls currentUserId={user?.userId || user?.id} /></RequireAuth>} />
+              <Route path="/chat/:conversationId" element={<RequireAuth isAuthenticated={isAuthenticated}><Chat currentUserId={user?.userId || user?.id} currentUser={user} /></RequireAuth>} />
+              <Route path="/settings" element={<RequireAuth isAuthenticated={isAuthenticated}><Settings user={user} onProfileUpdate={updateStoredUser} onLogout={logout} /></RequireAuth>} />
+              <Route path="*" element={<Navigate to={isAuthenticated ? '/home' : '/login'} replace />} />
+            </Routes>
+          </Suspense>
         </main>
         {isAuthenticated && !isChatOpen && <MobileBottomNav user={user} onLogout={logout} />}
         {!isChatOpen && <Footer />}

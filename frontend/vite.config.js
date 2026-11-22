@@ -66,5 +66,28 @@ export default defineConfig({
       "Cross-Origin-Opener-Policy": "same-origin-allow-popups",
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-framework': [
+            'react',
+            'react-dom',
+            'react-router-dom',
+            'react-redux',
+            '@reduxjs/toolkit',
+          ],
+          'vendor-firebase': ['firebase/app', 'firebase/auth'],
+          'vendor-networking': [
+            'axios',
+            'sockjs-client',
+            '@stomp/stompjs',
+            'socket.io-client',
+          ],
+        },
+      },
+    },
+  },
 });
 

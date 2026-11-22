@@ -2474,6 +2474,33 @@
   color: #ffffff;
 }
 
+.league-count-chip {
+  font-size: 0.68rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.12);
+  color: #f1f5f9;
+  margin-left: 2px;
+}
+
+:root[data-theme='light'] .league-count-chip {
+  background: rgba(0, 0, 0, 0.08);
+  color: #334155;
+}
+
+.league-live-chip {
+  font-size: 0.65rem;
+  font-weight: 800;
+  padding: 1px 6px;
+  border-radius: 9999px;
+  background: #ef4444;
+  color: #ffffff;
+  margin-left: 2px;
+  letter-spacing: 0.3px;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* ========================================================
    SOFASCORE LEAGUE BLOCKS & MATCH ROWS
    ======================================================== */
@@ -3470,7 +3497,6 @@ body.modal-open-lock {
     align-items: flex-end;
     padding: 0;
     overflow: hidden !important;
-    touch-action: none;
   }
 
   .sofascore-modal-container {
@@ -3487,6 +3513,7 @@ body.modal-open-lock {
     border-left: none;
     border-right: none;
     border-bottom: none;
+    touch-action: pan-y;
   }
 
   .sofascore-header {
@@ -3556,92 +3583,198 @@ body.modal-open-lock {
     -webkit-overflow-scrolling: touch !important;
     touch-action: pan-y !important;
     overscroll-behavior-y: contain !important;
-    padding: 10px 10px 40px;
+    padding: 10px 10px 95px !important;
   }
 
   .sofascore-league-block {
-    border-radius: 12px;
-    margin-bottom: 12px;
+    border-radius: 14px;
+    margin-bottom: 14px;
+    overflow: hidden;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    touch-action: pan-y;
   }
 
   .sofascore-league-header {
     padding: 10px 12px;
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    background: #0b1320;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  }
+
+  :root[data-theme='light'] .sofascore-league-header {
+    background: #f1f5f9;
+    border-bottom-color: #e2e8f0;
   }
 
   .sofascore-matches-table {
     max-height: none !important;
+    touch-action: pan-y;
   }
 
   .sofascore-match-row {
-    padding: 12px 14px;
-    min-height: 68px;
+    padding: 10px 10px;
+    min-height: 72px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    touch-action: pan-y;
+    width: 100%;
+    box-sizing: border-box;
   }
 
   .sofascore-status-col {
-    width: 58px;
+    width: 48px;
+    min-width: 48px;
+    flex-shrink: 0;
+    padding-right: 6px;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+
+  :root[data-theme='light'] .sofascore-status-col {
+    border-right-color: #e2e8f0;
   }
 
   .sofascore-status-col .sofascore-minute {
-    font-size: 0.88rem;
+    font-size: 0.84rem;
+    font-weight: 800;
   }
 
   .sofascore-status-col .sofascore-ft-badge {
-    font-size: 0.76rem;
-    padding: 2px 7px;
+    font-size: 0.72rem;
+    padding: 2px 5px;
+    font-weight: 800;
   }
 
   .sofascore-status-col .sofascore-time-badge {
-    font-size: 0.82rem;
+    font-size: 0.78rem;
+    font-weight: 700;
+    text-align: center;
   }
 
   .sofascore-teams-col {
-    gap: 8px;
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
+    overflow: visible;
   }
 
   .sofascore-team-line {
-    min-height: 26px;
-    gap: 10px;
+    min-height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
   }
 
   .sofascore-team-line .team-meta {
-    gap: 9px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    flex: 1 1 auto;
+    overflow: visible;
   }
 
-  .sofascore-team-line .team-crest {
-    font-size: 1.22rem;
-    width: 24px;
-    height: 24px;
+  .sofascore-team-line .team-crest,
+  .sofascore-team-line .team-crest-img {
+    font-size: 1.25rem;
+    width: 22px;
+    height: 22px;
+    min-width: 22px;
+    flex-shrink: 0;
   }
 
   .sofascore-team-line .team-name {
-    font-size: 0.98rem;
+    font-size: 0.94rem;
     font-weight: 700;
+    color: #f1f5f9;
+    line-height: 1.25;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    word-break: break-word;
+    white-space: normal;
+    flex: 1 1 auto;
+    letter-spacing: 0.1px;
+  }
+
+  :root[data-theme='light'] .sofascore-team-line .team-name {
+    color: #0f172a;
   }
 
   .sofascore-team-line.is-leading .team-name {
-    font-size: 1.02rem;
+    font-size: 0.96rem;
     font-weight: 800;
+    color: #ffffff;
+  }
+
+  :root[data-theme='light'] .sofascore-team-line.is-leading .team-name {
+    color: #020617;
   }
 
   .sofascore-team-line .team-score {
-    font-size: 1.25rem;
-    font-weight: 800;
-    min-width: 26px;
+    font-size: 1.28rem;
+    font-weight: 900;
+    min-width: 28px;
+    height: 26px;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    flex-shrink: 0;
+    font-variant-numeric: tabular-nums;
+    background: rgba(255, 255, 255, 0.06);
+    color: #cbd5e1;
+  }
+
+  :root[data-theme='light'] .sofascore-team-line .team-score {
+    background: #f1f5f9;
+    color: #334155;
   }
 
   .sofascore-team-line.is-leading .team-score,
   .sofascore-team-line .team-score.leading-score {
-    font-size: 1.32rem;
+    font-size: 1.34rem;
     font-weight: 900;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.16);
   }
 
   .sofascore-meta-col {
-    margin-left: 8px;
+    margin-left: 2px;
+    width: 28px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 
   .sofascore-meta-col .sofascore-xg-pill,
   .sofascore-meta-col .sofascore-scorers-preview {
     display: none;
+  }
+
+  .sofascore-star-btn {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+    font-size: 0.8rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
   }
 
   .center-lineups-grid {

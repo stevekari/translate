@@ -56,6 +56,13 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
     }
   }, [isOpen, initialFilter]);
 
+  // Reset scroll to top when changing league, date, or filter
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTo({ top: 0, behavior: 'instant' });
+    }
+  }, [selectedLeague, activeDateTab, liveOnly, favoritesOnly]);
+
   // Load real matches for the selected date (Today, Yesterday, Tomorrow)
   useEffect(() => {
     if (!isOpen) return;
@@ -382,19 +389,31 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
             className={`sofascore-league-item ${selectedLeague === 'all' ? 'active' : ''}`}
             onClick={() => setSelectedLeague('all')}
           >
-            All Leagues
+            <span>All Leagues</span>
+            {filteredMatches.length > 0 && (
+              <span className="league-count-chip">{filteredMatches.length}</span>
+            )}
           </button>
-          {LEAGUES.map((l) => (
-            <button
-              key={l.code}
-              type="button"
-              className={`sofascore-league-item ${selectedLeague === l.code ? 'active' : ''}`}
-              onClick={() => setSelectedLeague(l.code)}
-            >
-              <span>{l.flag}</span>
-              <span>{l.name}</span>
-            </button>
-          ))}
+          {LEAGUES.map((l) => {
+            const leagueMatchesCount = matches.filter((m) => m.leagueCode === l.code).length;
+            const leagueLiveCount = matches.filter((m) => m.leagueCode === l.code && m.isLive).length;
+            return (
+              <button
+                key={l.code}
+                type="button"
+                className={`sofascore-league-item ${selectedLeague === l.code ? 'active' : ''}`}
+                onClick={() => setSelectedLeague(l.code)}
+              >
+                <span>{l.flag}</span>
+                <span>{l.name}</span>
+                {leagueLiveCount > 0 ? (
+                  <span className="league-live-chip">{leagueLiveCount} LIVE</span>
+                ) : leagueMatchesCount > 0 ? (
+                  <span className="league-count-chip">{leagueMatchesCount}</span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
 
         {/* =========================================================================

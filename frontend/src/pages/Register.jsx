@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { register, checkDeletedAccount } from '../api/authApi';
+import { uploadMedia } from '../api/mediaApi';
 import { useLanguage } from '../contexts/LanguageContext';
 import GoogleSignInButton from '../components/GoogleSignInButton';
 import PasswordStrengthMeter, { evaluatePasswordStrength } from '../components/PasswordStrengthMeter';
@@ -14,12 +15,48 @@ export default function Register({ onLogin }) {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
   const [error, setError] = useState('');
   const [deletedAccountNotice, setDeletedAccountNotice] = useState(null);
   const navigate = useNavigate();
   const { language, setLanguage, languageOptions, t } = useLanguage();
 
   const strength = evaluatePasswordStrength(password, username, email);
+
+  // Handle optional profile photo selection
+  const handlePhotoChange = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file (PNG, JPG, WEBP).');
+      return;
+    }
+
+    const objectUrl = URL.createObjectURL(file);
+    setAvatarPreview(objectUrl);
+    setIsUploadingPhoto(true);
+
+    try {
+      const res = await uploadMedia(file, 'image');
+      if (res && res.url) {
+        setAvatarUrl(res.url);
+      }
+    } catch (err) {
+      console.warn('Photo upload error:', err);
+    } finally {
+      setIsUploadingPhoto(false);
+    }
+  };
+
+  const handleRemovePhoto = () => {
+    setAvatarPreview('');
+    setAvatarUrl('');
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
 
   // Detect in real-time if this person's email previously belonged to a deleted account
   useEffect(() => {
@@ -65,7 +102,7 @@ export default function Register({ onLogin }) {
     }
 
     try {
-      const response = await register(username.trim(), email.trim(), password, name.trim());
+      const response = await register(username.trim(), email.trim(), password, name.trim(), avatarUrl || null);
       onLogin(response);
 
       if (response?.previouslyDeleted) {
@@ -127,10 +164,70 @@ export default function Register({ onLogin }) {
         <GoogleSignInButton
           onSuccess={handleGoogleSuccess}
           onError={(errMsg) => setError(errMsg)}
+          customPhotoUrl={avatarUrl}
         />
 
         <div className="auth-divider">
           <span>{t('or')}</span>
+        </div>
+
+        {/* Optional Profile Photo Picker (Works for both manual registration and Google) */}
+        <div className="auth-avatar-picker-wrap">
+          <input
+            type="file"
+            ref={fileInputRef}
+            accept="image/*"
+            style={{ display: 'none' }}
+            onChange={handlePhotoChange}
+          />
+          <div
+            className="auth-avatar-preview-box"
+            onClick={() => fileInputRef.current?.click()}
+            title="Click to choose a photo (Optional)"
+          >
+            {avatarPreview ? (
+              <img src={avatarPreview} alt="Profile Preview" className="auth-avatar-img" />
+            ) : (
+              <div className="auth-avatar-empty">
+                <i className="fa-solid fa-user"></i>
+              </div>
+            )}
+            <div className="auth-avatar-camera-badge">
+              <i className={isUploadingPhoto ? 'fa-solid fa-spinner fa-spin' : 'fa-solid fa-camera'}></i>
+            </div>
+          </div>
+
+          <div className="auth-avatar-meta">
+            <span className="auth-avatar-label">
+              Profile Photo <span className="auth-avatar-optional-tag">Optional</span>
+            </span>
+            <span className="auth-avatar-hint">
+              {avatarPreview
+                ? isUploadingPhoto
+                  ? 'Uploading photo...'
+                  : 'Photo added to your profile'
+                : 'Upload your photo now or skip and add it later'}
+            </span>
+          </div>
+
+          {avatarPreview && (
+            <div className="auth-avatar-actions">
+              <button
+                type="button"
+                className="auth-avatar-action-btn"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Change Photo
+              </button>
+              <button
+                type="button"
+                className="auth-avatar-action-btn auth-avatar-remove-btn"
+                onClick={handleRemovePhoto}
+              >
+                Remove
+              </button>
+            </div>
+          )}
         </div>
 
         <label htmlFor="language">{t('language')}</label>

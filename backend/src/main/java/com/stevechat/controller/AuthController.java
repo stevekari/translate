@@ -136,6 +136,15 @@ public class AuthController {
                 ? request.getDisplayName().trim()
                 : username;
         user.setDisplayName(displayName);
+
+        if (request.getAvatarUrl() != null && !request.getAvatarUrl().trim().isBlank()) {
+            String avatarUrl = request.getAvatarUrl().trim();
+            if (avatarUrl.length() > 2000) {
+                avatarUrl = avatarUrl.substring(0, 2000);
+            }
+            user.setAvatarUrl(avatarUrl);
+        }
+
         user.setAutoTranslate(true);
         user.setPreviouslyDeleted(wasDeleted);
         userRepository.save(user);

@@ -3,7 +3,7 @@ import { signInWithGoogle } from '../firebase';
 import { loginWithGoogleApi } from '../api/authApi';
 import { useLanguage } from '../contexts/LanguageContext';
 
-export default function GoogleSignInButton({ onSuccess, onError }) {
+export default function GoogleSignInButton({ onSuccess, onError, customPhotoUrl }) {
   const [loading, setLoading] = useState(false);
   const lang = useLanguage();
   const t = lang?.t || ((k) => k);
@@ -15,6 +15,9 @@ export default function GoogleSignInButton({ onSuccess, onError }) {
 
     try {
       const googleUser = await signInWithGoogle();
+      if (customPhotoUrl && customPhotoUrl.trim()) {
+        googleUser.photoUrl = customPhotoUrl.trim();
+      }
       const response = await loginWithGoogleApi(googleUser);
       onSuccess?.(response);
     } catch (err) {

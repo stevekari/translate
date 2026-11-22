@@ -1,7 +1,7 @@
 import api from './axios';
 
-export function register(username, email, password, displayName) {
-  return api.post('/auth/register', { username, email, password, displayName }).then((res) => res.data);
+export function register(username, email, password, displayName, avatarUrl) {
+  return api.post('/auth/register', { username, email, password, displayName, avatarUrl }).then((res) => res.data);
 }
 
 export function login(username, password) {

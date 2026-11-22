@@ -7,6 +7,7 @@ import PasswordStrengthMeter, { evaluatePasswordStrength } from '../components/P
 import gcLogo from '../assets/gc.png';
 
 export default function Register({ onLogin }) {
+  const [name, setName] = useState('');
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -18,7 +19,7 @@ export default function Register({ onLogin }) {
   const navigate = useNavigate();
   const { language, setLanguage, languageOptions, t } = useLanguage();
 
-  const strength = evaluatePasswordStrength(password, username);
+  const strength = evaluatePasswordStrength(password, username, email);
 
   // Detect in real-time if this person's email previously belonged to a deleted account
   useEffect(() => {
@@ -51,13 +52,20 @@ export default function Register({ onLogin }) {
       return;
     }
 
+    const cleanEmail = email.toLowerCase().trim();
+    const emailPrefix = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
+    if (cleanEmail && (password.toLowerCase().includes(cleanEmail) || (emailPrefix.length >= 3 && password.toLowerCase().includes(emailPrefix)))) {
+      setError('For your security, your password must NOT contain your email address or email name. Please create a unique password for Giochat.');
+      return;
+    }
+
     if (!strength.isStrong) {
-      setError('Password is too weak. Please fulfill all 5 security requirements to protect against hackers.');
+      setError('Password is too weak. Please fulfill all security requirements to protect against hackers.');
       return;
     }
 
     try {
-      const response = await register(username.trim(), email.trim(), password);
+      const response = await register(username.trim(), email.trim(), password, name.trim());
       onLogin(response);
 
       if (response?.previouslyDeleted) {
@@ -140,6 +148,15 @@ export default function Register({ onLogin }) {
           ))}
         </select>
 
+        <label>Full Name</label>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g. John Doe"
+          required
+        />
+
         <label>{t('username')}</label>
         <input
           value={username}
@@ -156,6 +173,19 @@ export default function Register({ onLogin }) {
           placeholder="your.email@example.com"
           required
         />
+
+        {/* Security protection alert: Warning not to use original email password */}
+        <div className="auth-security-notice">
+          <div className="auth-security-icon">
+            <i className="fa-solid fa-shield-halved"></i>
+          </div>
+          <div className="auth-security-content">
+            <strong>Security Alert: Protect Your Account</strong>
+            <p>
+              Please create a <strong>new, unique password</strong> for Giochat. Do <strong>NOT</strong> enter your original personal email password (such as your Gmail, Outlook, or Yahoo password). A unique password prevents hackers from compromising your personal email.
+            </p>
+          </div>
+        </div>
 
         {deletedAccountNotice && (
           <div className="auth-returning-banner">
@@ -174,13 +204,15 @@ export default function Register({ onLogin }) {
           </div>
         )}
 
-        <label>{t('password')}</label>
+        <label>
+          {t('password')} <span className="auth-pwd-subtitle">(New password for Giochat only)</span>
+        </label>
         <div className="pwd-input-wrapper">
           <input
             type={showPassword ? 'text' : 'password'}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            placeholder="Create a strong password"
+            placeholder="Create a strong, unique password"
             required
           />
           <button
@@ -194,7 +226,7 @@ export default function Register({ onLogin }) {
         </div>
 
         {/* Real-time Password Strength Meter & Checklist */}
-        <PasswordStrengthMeter password={password} username={username} />
+        <PasswordStrengthMeter password={password} username={username} email={email} />
 
         <label>Confirm Password</label>
         <div className="pwd-input-wrapper">

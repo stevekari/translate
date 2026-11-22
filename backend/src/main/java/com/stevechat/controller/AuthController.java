@@ -98,7 +98,7 @@ public class AuthController {
         }
 
         try {
-            passwordValidator.validate(request.getPassword(), request.getUsername().trim());
+            passwordValidator.validate(request.getPassword(), request.getUsername().trim(), request.getEmail().trim());
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.badRequest().body(ex.getMessage());
         }
@@ -132,6 +132,10 @@ public class AuthController {
                 email,
                 passwordEncoder.encode(request.getPassword())
         );
+        String displayName = request.getDisplayName() != null && !request.getDisplayName().trim().isBlank()
+                ? request.getDisplayName().trim()
+                : username;
+        user.setDisplayName(displayName);
         user.setAutoTranslate(true);
         user.setPreviouslyDeleted(wasDeleted);
         userRepository.save(user);

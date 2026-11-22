@@ -27,6 +27,10 @@ public class PasswordValidator {
     );
 
     public void validate(String password, String username) {
+        validate(password, username, null);
+    }
+
+    public void validate(String password, String username, String email) {
         if (password == null || password.trim().isEmpty()) {
             throw new IllegalArgumentException("Password cannot be empty.");
         }
@@ -56,6 +60,16 @@ public class PasswordValidator {
             String cleanUser = username.trim().toLowerCase();
             if (cleanUser.length() >= 3 && password.toLowerCase().contains(cleanUser)) {
                 missing.add("must not contain your username");
+            }
+        }
+
+        if (email != null && !email.isBlank()) {
+            String cleanEmail = email.trim().toLowerCase();
+            String prefix = cleanEmail.contains("@") ? cleanEmail.split("@")[0] : cleanEmail;
+            if (cleanEmail.length() >= 4 && password.toLowerCase().contains(cleanEmail)) {
+                missing.add("must not contain your email address");
+            } else if (prefix.length() >= 3 && password.toLowerCase().contains(prefix)) {
+                missing.add("must not contain your email name/prefix");
             }
         }
 

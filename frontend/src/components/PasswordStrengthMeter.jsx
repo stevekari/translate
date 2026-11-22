@@ -1,14 +1,24 @@
 import { useMemo } from 'react';
 
-export function evaluatePasswordStrength(password = '', username = '') {
+export function evaluatePasswordStrength(password = '', username = '', email = '') {
   const p = password || '';
+  const cleanEmail = (email || '').toLowerCase().trim();
+  const emailPrefix = cleanEmail.includes('@') ? cleanEmail.split('@')[0] : cleanEmail;
+
+  const notEmail = !cleanEmail || (
+    !p.toLowerCase().includes(cleanEmail) &&
+    (emailPrefix.length < 3 || !p.toLowerCase().includes(emailPrefix))
+  );
+  const notUsername = !username || !p.toLowerCase().includes(username.toLowerCase().trim());
+
   const checks = {
     length: p.length >= 8,
     uppercase: /[A-Z]/.test(p),
     lowercase: /[a-z]/.test(p),
     number: /[0-9]/.test(p),
     special: /[!@#$%^&*()_+\-=[\]{}|;:,.<>?/~`]/.test(p),
-    notUsername: !username || !p.toLowerCase().includes(username.toLowerCase().trim()),
+    notUsername,
+    notEmail,
   };
 
   const passedCount = [
@@ -45,7 +55,7 @@ export function evaluatePasswordStrength(password = '', username = '') {
     color = '#10b981'; // Emerald Green
   }
 
-  const isStrong = passedCount === 5 && checks.notUsername;
+  const isStrong = passedCount === 5 && checks.notUsername && checks.notEmail;
 
   return {
     score,
@@ -57,10 +67,10 @@ export function evaluatePasswordStrength(password = '', username = '') {
   };
 }
 
-export default function PasswordStrengthMeter({ password = '', username = '', showChecklist = true }) {
+export default function PasswordStrengthMeter({ password = '', username = '', email = '', showChecklist = true }) {
   const { score, label, color, checks } = useMemo(
-    () => evaluatePasswordStrength(password, username),
-    [password, username]
+    () => evaluatePasswordStrength(password, username, email),
+    [password, username, email]
   );
 
   if (!password) {
@@ -118,6 +128,10 @@ export default function PasswordStrengthMeter({ password = '', username = '', sh
           <li className={checks.special ? 'checked' : 'unchecked'}>
             <i className={`fa-solid ${checks.special ? 'fa-circle-check' : 'fa-circle-xmark'}`}></i>
             <span>Special symbol (!@#$%^&*)</span>
+          </li>
+          <li className={checks.notEmail ? 'checked' : 'unchecked'}>
+            <i className={`fa-solid ${checks.notEmail ? 'fa-circle-check' : 'fa-circle-xmark'}`}></i>
+            <span>Must NOT contain your email or email name</span>
           </li>
         </ul>
       )}

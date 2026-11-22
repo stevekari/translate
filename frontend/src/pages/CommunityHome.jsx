@@ -1069,7 +1069,7 @@ export default function CommunityHome({ user }) {
           <div className="creator-input-wrap">
             <textarea
               className="creator-textarea"
-              placeholder={`What's happening, ${user?.displayName || user?.username || 'friend'}? Share a thought, photo, or Gio video...`}
+              placeholder={`What's on your mind, ${user?.displayName || user?.username || 'friend'}?`}
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
               rows={postText.length > 80 ? 3 : 2}
@@ -1366,7 +1366,11 @@ export default function CommunityHome({ user }) {
                           </span>
                         )}
                       </div>
-                      <span className="post-time">{formatTimeAgo(post.createdAt)}</span>
+                      <div className="author-meta-subrow">
+                        <span className="post-time">{formatTimeAgo(post.createdAt)}</span>
+                        <span className="post-privacy-dot">•</span>
+                        <i className="fa-solid fa-earth-americas post-privacy-icon" title="Public post" />
+                      </div>
                     </div>
                   </div>
 
@@ -1479,45 +1483,61 @@ export default function CommunityHome({ user }) {
                   </div>
                 )}
 
-                {/* Post Interactive Footer Bar */}
-                <footer className="post-card-footer">
+                {/* Facebook Reaction & Comment Counters Row */}
+                {(post.likeCount > 0 || post.commentsCount > 0) && (
+                  <div className="post-metrics-row">
+                    <div className="metrics-likes">
+                      {post.likeCount > 0 && (
+                        <span className="metrics-badge" title={`${post.likeCount} Likes`}>
+                          <span className="fb-like-circle">
+                            <i className="fa-solid fa-thumbs-up" />
+                          </span>
+                          <span className="metrics-count">{post.likeCount}</span>
+                        </span>
+                      )}
+                    </div>
+                    <div className="metrics-comments-shares">
+                      {post.commentsCount > 0 && (
+                        <button
+                          type="button"
+                          className="metrics-text-btn"
+                          onClick={() => handleToggleComments(post.id)}
+                        >
+                          {post.commentsCount} {post.commentsCount === 1 ? 'comment' : 'comments'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Facebook Post Interactive Action Footer Bar */}
+                <footer className="post-card-footer fb-style-footer">
                   {/* Like Button */}
                   <button
                     type="button"
-                    className={`post-action-btn like-action ${post.likedByMe ? 'liked' : ''}`}
+                    className={`post-action-btn like-action fb-like-btn ${post.likedByMe ? 'liked' : ''}`}
                     onClick={() => handleToggleLike(post.id)}
                     title={post.likedByMe ? 'Unlike' : 'Like'}
                   >
-                    <i className={`fa-${post.likedByMe ? 'solid' : 'regular'} fa-heart heart-icon`}></i>
-                    <span className="action-count">{post.likeCount || 0}</span>
+                    <i className={`fa-${post.likedByMe ? 'solid' : 'regular'} fa-thumbs-up fb-action-icon`}></i>
+                    <span className="action-label">Like</span>
                   </button>
 
                   {/* Comment Button */}
                   <button
                     type="button"
-                    className={`post-action-btn comment-action ${commentsInfo.open ? 'active' : ''}`}
+                    className={`post-action-btn comment-action fb-comment-btn ${commentsInfo.open ? 'active' : ''}`}
                     onClick={() => handleToggleComments(post.id)}
                     title="View & Add Comments"
                   >
-                    <i className="fa-regular fa-comment"></i>
-                    <span className="action-count">{post.commentsCount || 0}</span>
-                  </button>
-
-                  {/* Join / Connect Chat Button */}
-                  <button
-                    type="button"
-                    className="post-action-btn connect-action"
-                    onClick={() => handleStartChatWithUser({ id: post.userId, username: post.username, displayName: post.displayName, avatarUrl: post.avatarUrl })}
-                    title={`Chat with ${post.displayName || post.username}`}
-                  >
-                    <i className="fa-solid fa-paper-plane"></i>
-                    <span>Connect</span>
+                    <i className="fa-regular fa-message fb-action-icon"></i>
+                    <span className="action-label">Comment</span>
                   </button>
 
                   {/* Share Post */}
                   <button
                     type="button"
-                    className="post-action-btn share-action"
+                    className="post-action-btn share-action fb-share-btn"
                     onClick={() => {
                       if (navigator.share) {
                         navigator.share({
@@ -1531,7 +1551,19 @@ export default function CommunityHome({ user }) {
                     }}
                     title="Share Post"
                   >
-                    <i className="fa-solid fa-share"></i>
+                    <i className="fa-solid fa-share fb-action-icon"></i>
+                    <span className="action-label">Share</span>
+                  </button>
+
+                  {/* Join / Connect Chat Button */}
+                  <button
+                    type="button"
+                    className="post-action-btn connect-action fb-connect-btn"
+                    onClick={() => handleStartChatWithUser({ id: post.userId, username: post.username, displayName: post.displayName, avatarUrl: post.avatarUrl })}
+                    title={`Chat with ${post.displayName || post.username}`}
+                  >
+                    <i className="fa-solid fa-paper-plane fb-action-icon"></i>
+                    <span className="action-label">Chat</span>
                   </button>
                 </footer>
 

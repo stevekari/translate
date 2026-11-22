@@ -163,12 +163,18 @@
 .post-creator-card {
   background: var(--bg-card, #1e293b);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-  border-radius: 18px;
+  border-radius: 14px;
   padding: 1rem 1.15rem;
-  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
+}
+
+:root[data-theme='light'] .post-creator-card {
+  background: #ffffff;
+  border-color: #e4e6eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
 }
 
 .creator-top-row {
@@ -493,13 +499,27 @@
 .post-card {
   background: var(--bg-card, #1e293b);
   border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-  border-radius: 18px;
+  border-radius: 14px;
   padding: 1.15rem;
   box-shadow: 0 4px 15px rgba(0, 0, 0, 0.12);
   display: flex;
   flex-direction: column;
   gap: 0.9rem;
   transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+:root[data-theme='light'] .post-card {
+  background: #ffffff;
+  border-color: #e4e6eb;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+}
+
+:root[data-theme='light'] .author-display-name {
+  color: #050505;
+}
+
+:root[data-theme='light'] .post-text-content {
+  color: #050505;
 }
 
 /* Post Header */
@@ -740,79 +760,161 @@
   pointer-events: none;
 }
 
-/* Post Footer Bar */
-.post-card-footer {
+/* ========================================================
+   FACEBOOK POST METRICS ROW (👍 Likes & Comments Counters)
+   ======================================================== */
+.post-metrics-row {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding-top: 0.6rem;
-  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+  justify-content: space-between;
+  padding: 6px 4px 2px;
+  font-size: 0.86rem;
+  color: var(--text-secondary, #b0b3b8);
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+:root[data-theme='light'] .post-metrics-row {
+  color: #65676b;
+  border-bottom-color: #e4e6eb;
+}
+
+.metrics-likes {
+  display: flex;
+  align-items: center;
+}
+
+.metrics-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.fb-like-circle {
+  width: 19px;
+  height: 19px;
+  border-radius: 50%;
+  background: #1877f2;
+  color: #ffffff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  box-shadow: 0 1px 3px rgba(24, 119, 242, 0.4);
+}
+
+.metrics-count {
+  font-weight: 600;
+  font-size: 0.84rem;
+}
+
+.metrics-text-btn {
+  background: transparent;
+  border: none;
+  font-size: 0.84rem;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+  text-decoration: none;
+}
+
+.metrics-text-btn:hover {
+  text-decoration: underline;
+}
+
+/* ========================================================
+   FACEBOOK POST INTERACTIVE FOOTER BAR (Like, Comment, Share, Chat)
+   ======================================================== */
+.post-card-footer,
+.post-card-footer.fb-style-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 4px 0;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  gap: 4px;
+  margin-top: 2px;
+}
+
+:root[data-theme='light'] .post-card-footer,
+:root[data-theme='light'] .post-card-footer.fb-style-footer {
+  border-top-color: #e4e6eb;
+  border-bottom-color: #e4e6eb;
 }
 
 .post-action-btn {
-  background: transparent;
-  border: none;
-  color: var(--text-secondary, #94a3b8);
-  font-size: 0.88rem;
-  font-weight: 600;
-  padding: 0.4rem 0.7rem;
-  border-radius: 8px;
+  flex: 1;
+  height: 38px;
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
+  justify-content: center;
+  gap: 7px;
+  font-size: 0.86rem;
+  font-weight: 600;
+  border-radius: 6px;
+  color: var(--text-secondary, #b0b3b8);
+  background: transparent;
+  border: none;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease;
+  -webkit-tap-highlight-color: transparent;
 }
 
-.post-action-btn:hover {
-  background: var(--bg-hover, rgba(255, 255, 255, 0.06));
-  color: var(--text-primary, #f1f5f9);
+:root[data-theme='light'] .post-action-btn {
+  color: #65676b;
 }
 
-/* Twitter / X Brand Action Interaction Colors */
+.post-action-btn:hover,
+.post-action-btn:active {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:root[data-theme='light'] .post-action-btn:hover,
+:root[data-theme='light'] .post-action-btn:active {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+/* Facebook Like Active State (#1877f2) */
+.like-action.liked,
+.like-action.fb-like-btn.liked {
+  color: #1877f2 !important;
+}
+
+.like-action.liked .fb-action-icon,
+.like-action.fb-like-btn.liked .fb-action-icon {
+  animation: fbLikePop 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes fbLikePop {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.35) rotate(-12deg); }
+  100% { transform: scale(1) rotate(0deg); }
+}
+
+/* Facebook Comment & Share Active States */
 .comment-action:hover,
-.comment-action.active {
-  color: #1d9bf0 !important;
+.comment-action.active,
+.fb-comment-btn:hover,
+.fb-comment-btn.active {
+  color: #1877f2 !important;
 }
 
 .share-action:hover,
-.share-action:active {
-  color: #00ba7c !important;
+.fb-share-btn:hover {
+  color: #1877f2 !important;
 }
 
-.like-action:hover {
-  color: #f91880;
+.connect-action,
+.fb-connect-btn {
+  color: #1877f2;
 }
 
-.like-action.liked {
-  color: #ef4444;
-}
-
-.like-action.liked .heart-icon {
-  animation: heartPop 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
-
-@keyframes heartPop {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.4); }
-  100% { transform: scale(1); }
-}
-
-.quick-read-action:hover,
-.quick-read-action:active {
-  color: var(--accent, #d97706) !important;
-}
-
-.connect-action {
-  color: #eab308;
-  margin-left: auto;
-  background: rgba(234, 179, 8, 0.08);
-  border: 1px solid rgba(234, 179, 8, 0.2);
-}
-
-.connect-action:hover {
-  background: rgba(234, 179, 8, 0.2);
-  color: #fbbf24;
+.connect-action:hover,
+.fb-connect-btn:hover {
+  background: rgba(24, 119, 242, 0.12) !important;
+  color: #1877f2 !important;
 }
 
 /* Comments Drawer */
@@ -2392,22 +2494,25 @@
     justify-content: center;
   }
 
-  /* Twitter / X Style Post Composer */
+  /* Facebook Style Post Composer on Mobile */
   .post-creator-card {
-    border-radius: 16px;
-    padding: 12px 14px;
-    gap: 10px;
+    border-radius: 12px;
+    padding: 10px 12px;
+    gap: 8px;
     box-sizing: border-box;
   }
   .creator-textarea {
-    font-size: 0.95rem;
-    min-height: 55px;
-    line-height: 1.45;
+    font-size: 0.92rem;
+    min-height: 42px;
+    line-height: 1.4;
+    border-radius: 20px;
+    padding: 8px 14px;
   }
   .creator-bottom-bar {
     gap: 6px;
     align-items: center;
     flex-wrap: wrap;
+    padding-top: 6px;
   }
   .creator-tools {
     gap: 4px;
@@ -2423,22 +2528,24 @@
     padding: 6px 10px;
     font-size: 0.78rem;
     flex-shrink: 0;
-    border-radius: 8px;
+    border-radius: 6px;
   }
   .submit-post-btn {
     padding: 6px 16px;
     font-size: 0.84rem;
-    border-radius: 9999px;
+    border-radius: 6px;
     font-weight: 700;
+    background: #1877f2;
+    color: #ffffff;
     flex-shrink: 0;
     margin-left: auto;
   }
 
-  /* Twitter / X Style Post Cards */
+  /* Facebook Style Post Cards on Mobile */
   .post-card {
-    border-radius: 16px;
-    padding: 12px 14px;
-    gap: 10px;
+    border-radius: 12px;
+    padding: 12px 12px 8px;
+    gap: 9px;
     max-width: 100%;
     box-sizing: border-box;
   }
@@ -2446,76 +2553,100 @@
     gap: 8px;
   }
   .post-author-info {
-    gap: 8px;
+    gap: 10px;
   }
   .author-avatar-wrap {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
   }
   .author-display-name {
-    font-size: 0.88rem;
+    font-size: 0.92rem;
     font-weight: 700;
   }
   .author-handle {
     font-size: 0.78rem;
   }
+  .author-meta-subrow {
+    font-size: 0.74rem;
+    gap: 4px;
+  }
   .post-text-content {
-    font-size: 0.92rem;
-    line-height: 1.48;
+    font-size: 0.94rem;
+    line-height: 1.5;
   }
   .post-image-wrap {
-    border-radius: 12px;
-    max-height: 280px;
+    border-radius: 10px;
+    max-height: 320px;
   }
   .post-image-wrap img {
-    max-height: 280px;
+    max-height: 320px;
     object-fit: cover;
   }
   .post-video-player {
-    max-height: 280px;
-    border-radius: 12px;
+    max-height: 320px;
+    border-radius: 10px;
   }
 
-  /* Twitter / X Touch-Action Footer Bar */
-  .post-card-footer {
+  /* Facebook Reactions Counter on Mobile */
+  .post-metrics-row {
+    padding: 6px 2px 4px;
+    font-size: 0.8rem;
+  }
+  .fb-like-circle {
+    width: 18px;
+    height: 18px;
+    font-size: 0.6rem;
+  }
+
+  /* Facebook Touch-Action Footer Bar on Mobile */
+  .post-card-footer,
+  .post-card-footer.fb-style-footer {
     display: flex;
     justify-content: space-between;
     align-items: center;
     width: 100%;
     gap: 2px;
-    padding-top: 8px;
-    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.06));
+    padding: 3px 0;
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
   }
   .post-action-btn {
     flex: 1;
-    min-height: 38px;
-    padding: 6px 2px;
+    min-height: 36px;
+    padding: 4px 2px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
-    font-size: 0.8rem;
-    border-radius: 8px;
+    gap: 4px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    border-radius: 6px;
     -webkit-tap-highlight-color: transparent;
   }
-  .post-action-btn i {
-    font-size: 0.9rem;
+  .post-action-btn .fb-action-icon {
+    font-size: 0.88rem;
   }
-  .post-action-btn .action-count {
+  .post-action-btn .action-label {
     font-size: 0.76rem;
   }
-  .comment-action:active {
-    color: #1d9bf0 !important;
-    background: rgba(29, 155, 240, 0.1) !important;
+  .like-action.fb-like-btn.liked {
+    color: #1877f2 !important;
   }
-  .share-action:active {
-    color: #00ba7c !important;
-    background: rgba(0, 186, 124, 0.1) !important;
+  .comment-action:active,
+  .fb-comment-btn:active {
+    color: #1877f2 !important;
+    background: rgba(24, 119, 242, 0.1) !important;
   }
-  .like-action:active {
-    color: #f91880 !important;
-    background: rgba(249, 24, 128, 0.1) !important;
+  .share-action:active,
+  .fb-share-btn:active {
+    color: #1877f2 !important;
+    background: rgba(24, 119, 242, 0.1) !important;
+  }
+  .connect-action:active,
+  .fb-connect-btn:active {
+    color: #1877f2 !important;
+    background: rgba(24, 119, 242, 0.1) !important;
   }
 
   /* Twitter / X Style News Header & Cards on Mobile */

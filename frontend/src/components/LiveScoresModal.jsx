@@ -46,9 +46,13 @@ export default function LiveScoresModal({ isOpen, onClose, initialFilter = 'live
 
   useEffect(() => {
     if (isOpen) {
+      document.body.classList.add('modal-open-lock');
       if (initialFilter === 'live') {
         setLiveOnly(true);
       }
+      return () => {
+        document.body.classList.remove('modal-open-lock');
+      };
     }
   }, [isOpen, initialFilter]);
 

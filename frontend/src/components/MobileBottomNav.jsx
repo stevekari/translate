@@ -3,12 +3,14 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { useSelector } from 'react-redux';
 import { useTheme } from '../contexts/ThemeContext';
 import { useLanguage } from '../contexts/LanguageContext';
+import { useAuth } from '../hooks/useAuth';
 
 export default function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
   const { t } = useLanguage();
+  const { user } = useAuth();
 
   const conversations = useSelector((state) => state.chat?.conversations || {});
 
@@ -16,6 +18,15 @@ export default function MobileBottomNav() {
   const totalUnread = useMemo(() => {
     return Object.values(conversations).reduce((sum, conv) => sum + (conv.unread || 0), 0);
   }, [conversations]);
+
+  const pendingRequestsCount = useMemo(() => {
+    const myId = user?.userId || user?.id;
+    return Object.values(conversations).filter(
+      (c) => c.status === 'PENDING' && c.initiatorId != null && String(c.initiatorId) !== String(myId)
+    ).length;
+  }, [conversations, user]);
+
+  const friendsBadgeCount = totalUnread + pendingRequestsCount;
 
   const isHomeActive = location.pathname === '/home' || location.pathname === '/feed';
   const isFriendsActive = location.pathname === '/friends';
@@ -76,8 +87,8 @@ export default function MobileBottomNav() {
       >
         <div className="mobile-nav-icon-wrap">
           <i className="fa-solid fa-comments" />
-          {totalUnread > 0 && (
-            <span className="mobile-nav-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+          {friendsBadgeCount > 0 && (
+            <span className="mobile-nav-badge">{friendsBadgeCount > 99 ? '99+' : friendsBadgeCount}</span>
           )}
         </div>
         <span className="mobile-nav-label">{t('chats')}</span>

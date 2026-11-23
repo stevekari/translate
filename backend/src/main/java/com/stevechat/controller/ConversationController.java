@@ -95,6 +95,7 @@ public class ConversationController {
 
             Map<String, Object> event = new HashMap<>();
             event.put("type", "CONVERSATION_PENDING");
+            event.put("action", "FRIEND_REQUEST");
             event.put("conversationId", conversation.getId());
             event.put("status", "PENDING");
             event.put("initiatorId", me.getId());
@@ -102,6 +103,8 @@ public class ConversationController {
             messagingTemplate.convertAndSend("/topic/conversation." + conversation.getId(), event);
             messagingTemplate.convertAndSend("/topic/user." + friendId + ".conversations", event);
             messagingTemplate.convertAndSend("/topic/user." + me.getId() + ".conversations", event);
+
+            sendFriendRequestNotification(friendId, me, conversation.getId());
         } else if (!"ACCEPTED".equalsIgnoreCase(conversation.getStatus())) {
             conversation.setStatus("PENDING");
             conversation.setInitiatorId(me.getId());
@@ -109,6 +112,7 @@ public class ConversationController {
 
             Map<String, Object> event = new HashMap<>();
             event.put("type", "CONVERSATION_PENDING");
+            event.put("action", "FRIEND_REQUEST");
             event.put("conversationId", conversation.getId());
             event.put("status", "PENDING");
             event.put("initiatorId", me.getId());
@@ -116,6 +120,8 @@ public class ConversationController {
             messagingTemplate.convertAndSend("/topic/conversation." + conversation.getId(), event);
             messagingTemplate.convertAndSend("/topic/user." + friendId + ".conversations", event);
             messagingTemplate.convertAndSend("/topic/user." + me.getId() + ".conversations", event);
+
+            sendFriendRequestNotification(friendId, me, conversation.getId());
         }
 
         Map<String, Object> resp = new HashMap<>();
@@ -152,6 +158,7 @@ public class ConversationController {
 
         Map<String, Object> event = new HashMap<>();
         event.put("type", "CONVERSATION_PENDING");
+        event.put("action", "FRIEND_REQUEST");
         event.put("conversationId", conversation.getId());
         event.put("status", "PENDING");
         event.put("initiatorId", me.getId());
@@ -159,6 +166,8 @@ public class ConversationController {
         messagingTemplate.convertAndSend("/topic/conversation." + conversation.getId(), event);
         messagingTemplate.convertAndSend("/topic/user." + friendId + ".conversations", event);
         messagingTemplate.convertAndSend("/topic/user." + me.getId() + ".conversations", event);
+
+        sendFriendRequestNotification(friendId, me, conversation.getId());
 
         Map<String, Object> resp = new HashMap<>();
         resp.put("conversationId", conversation.getId());
@@ -183,12 +192,20 @@ public class ConversationController {
         conv.setInitiatorId(me.getId());
         conversationRepository.save(conv);
 
+        Long friendId = conv.getUserAId().equals(me.getId()) ? conv.getUserBId() : conv.getUserAId();
+
         Map<String, Object> event = new HashMap<>();
         event.put("type", "CONVERSATION_PENDING");
+        event.put("action", "FRIEND_REQUEST");
         event.put("conversationId", id);
         event.put("status", "PENDING");
         event.put("initiatorId", me.getId());
+        event.put("fromUser", new UserDto(me));
         messagingTemplate.convertAndSend("/topic/conversation." + id, event);
+        messagingTemplate.convertAndSend("/topic/user." + conv.getUserAId() + ".conversations", event);
+        messagingTemplate.convertAndSend("/topic/user." + conv.getUserBId() + ".conversations", event);
+
+        sendFriendRequestNotification(friendId, me, id);
 
         return ResponseEntity.ok(Map.of("success", true, "status", "PENDING", "conversationId", id));
     }
@@ -267,12 +284,16 @@ public class ConversationController {
 
         Map<String, Object> event = new HashMap<>();
         event.put("type", "CONVERSATION_ACCEPTED");
+        event.put("action", "FRIEND_ACCEPT");
         event.put("conversationId", id);
         event.put("status", "ACCEPTED");
         event.put("acceptedBy", me.getId());
         messagingTemplate.convertAndSend("/topic/conversation." + id, event);
         messagingTemplate.convertAndSend("/topic/user." + conv.getUserAId() + ".conversations", event);
         messagingTemplate.convertAndSend("/topic/user." + conv.getUserBId() + ".conversations", event);
+
+        Long targetUserId = conv.getUserAId().equals(me.getId()) ? conv.getUserBId() : conv.getUserAId();
+        sendFriendAcceptNotification(targetUserId, me, id);
 
         return ResponseEntity.ok(Map.of("success", true, "status", "ACCEPTED", "conversationId", id));
     }
@@ -637,5 +658,35 @@ public class ConversationController {
         });
 
         return callLogs;
+    }
+
+    private void sendFriendRequestNotification(Long friendId, User me, Long conversationId) {
+        try {
+            Map<String, Object> notif = new HashMap<>();
+            notif.put("type", "FRIEND_REQUEST");
+            notif.put("senderId", me.getId());
+            notif.put("senderName", me.getDisplayName() != null ? me.getDisplayName() : me.getUsername());
+            notif.put("senderUsername", me.getUsername());
+            notif.put("senderAvatarUrl", me.getAvatarUrl());
+            notif.put("conversationId", conversationId);
+            notif.put("message", (me.getDisplayName() != null ? me.getDisplayName() : "@" + me.getUsername()) + " sent you a friend request");
+            notif.put("timestamp", LocalDateTime.now().toString());
+            messagingTemplate.convertAndSend("/topic/user." + friendId + ".notifications", notif);
+        } catch (Exception ignored) {}
+    }
+
+    private void sendFriendAcceptNotification(Long targetUserId, User me, Long conversationId) {
+        try {
+            Map<String, Object> notif = new HashMap<>();
+            notif.put("type", "FRIEND_ACCEPT");
+            notif.put("senderId", me.getId());
+            notif.put("senderName", me.getDisplayName() != null ? me.getDisplayName() : me.getUsername());
+            notif.put("senderUsername", me.getUsername());
+            notif.put("senderAvatarUrl", me.getAvatarUrl());
+            notif.put("conversationId", conversationId);
+            notif.put("message", (me.getDisplayName() != null ? me.getDisplayName() : "@" + me.getUsername()) + " accepted your friend request");
+            notif.put("timestamp", LocalDateTime.now().toString());
+            messagingTemplate.convertAndSend("/topic/user." + targetUserId + ".notifications", notif);
+        } catch (Exception ignored) {}
     }
 }

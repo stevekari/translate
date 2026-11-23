@@ -43,13 +43,17 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
   useEffect(() => {
     const friendId = profile?.id || userId;
     if (friendId) {
-      getConversationWithUser(friendId)
-        .then((rel) => {
-          if (rel && rel.status) {
-            setRelationship(rel);
-          }
-        })
-        .catch(() => {});
+      const syncRel = () => {
+        getConversationWithUser(friendId)
+          .then((rel) => {
+            if (rel && rel.status) {
+              setRelationship(rel);
+            }
+          })
+          .catch(() => {});
+      };
+
+      syncRel();
 
       checkIsBlocked(friendId)
         .then((res) => {
@@ -58,6 +62,9 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
           }
         })
         .catch(() => {});
+
+      window.addEventListener('giochat-conversations-updated', syncRel);
+      return () => window.removeEventListener('giochat-conversations-updated', syncRel);
     }
   }, [profile, userId]);
 
@@ -83,6 +90,7 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
         conversationId: res?.conversationId || relationship?.conversationId,
       });
       setActionSuccessMsg('Friend request sent!');
+      window.dispatchEvent(new CustomEvent('giochat-conversations-updated'));
       setTimeout(() => setActionSuccessMsg(''), 3500);
     } catch (err) {
       console.error('Failed to send friend request', err);
@@ -97,6 +105,7 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
       await acceptChatRequest(relationship.conversationId);
       setRelationship((prev) => ({ ...prev, status: 'ACCEPTED' }));
       setActionSuccessMsg('Request accepted!');
+      window.dispatchEvent(new CustomEvent('giochat-conversations-updated'));
       setTimeout(() => setActionSuccessMsg(''), 3500);
     } catch (err) {
       console.error('Failed to accept request', err);
@@ -110,6 +119,7 @@ export default function UserProfileModal({ user, userId, onClose, onStartCall })
       setRelLoading(true);
       await declineChatRequest(relationship.conversationId);
       setRelationship((prev) => ({ ...prev, status: 'DECLINED' }));
+      window.dispatchEvent(new CustomEvent('giochat-conversations-updated'));
     } catch (err) {
       console.error('Failed to decline request', err);
     } finally {

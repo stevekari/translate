@@ -81,6 +81,12 @@ export default function TopNotificationToast() {
   if (!activeNotif) return null;
 
   const getBadgeInfo = () => {
+    if (activeNotif.type === 'FRIEND_REQUEST') {
+      return { icon: 'fa-solid fa-user-plus', label: 'Friend Request', color: '#1877f2', bg: 'rgba(24, 119, 242, 0.2)' };
+    }
+    if (activeNotif.type === 'FRIEND_ACCEPT') {
+      return { icon: 'fa-solid fa-user-check', label: 'Request Accepted', color: '#22c55e', bg: 'rgba(34, 197, 94, 0.2)' };
+    }
     if (activeNotif.type === 'POST_LIKE') {
       return { icon: 'fa-solid fa-heart', label: 'Liked your post', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.2)' };
     }
@@ -97,7 +103,11 @@ export default function TopNotificationToast() {
 
   const handleToastClick = () => {
     dismissToast();
-    navigate('/home');
+    if (activeNotif.type === 'FRIEND_REQUEST' || activeNotif.type === 'FRIEND_ACCEPT') {
+      navigate('/friends');
+    } else {
+      navigate('/home');
+    }
   };
 
   return (

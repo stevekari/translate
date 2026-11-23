@@ -5,7 +5,7 @@ import SockJS from 'sockjs-client';
 import { getMyConversations } from '../api/conversationApi';
 import { getWsUrl } from '../utils/apiBaseUrl';
 import { setUserStatus, setUserStatuses, setTyping, clearTyping } from '../store/slices/presenceSlice';
-import { updateMessage, markMessagesAsReadInConv } from '../store/slices/chatSlice';
+import { updateMessage, markMessagesAsReadInConv, setConversations as setReduxConversations } from '../store/slices/chatSlice';
 import { callSounds } from '../utils/callSounds';
 
 export function useIncomingCallNotifications(userId, onMessage) {
@@ -27,7 +27,11 @@ export function useIncomingCallNotifications(userId, onMessage) {
 
     getMyConversations()
       .then((items) => {
-        if (!cancelled) setConversations(items);
+        if (!cancelled) {
+          const safeItems = Array.isArray(items) ? items : [];
+          setConversations(safeItems);
+          dispatch(setReduxConversations(safeItems));
+        }
       })
       .catch(() => {
         if (!cancelled) setConversations([]);
@@ -206,13 +210,23 @@ export function useIncomingCallNotifications(userId, onMessage) {
           }
         });
 
-        // User-specific real-time notifications (Post likes, comment likes, comments, mentions)
+        // User-specific real-time notifications (Post likes, comment likes, comments, friend requests)
         client.subscribe(`/topic/user.${userId}.notifications`, (frame) => {
           try {
             const notif = JSON.parse(frame.body);
             if (notif) {
               window.dispatchEvent(new CustomEvent('giochat-notification', { detail: notif }));
               window.dispatchEvent(new CustomEvent('tranchat-notification', { detail: notif }));
+
+              // Instantly refresh conversations & friend requests on real-time request/acceptance
+              if (notif.type === 'FRIEND_REQUEST' || notif.type === 'FRIEND_ACCEPT' || notif.type === 'FRIEND_DECLINE') {
+                getMyConversations().then((items) => {
+                  const safeItems = Array.isArray(items) ? items : [];
+                  setConversations(safeItems);
+                  dispatch(setReduxConversations(safeItems));
+                  window.dispatchEvent(new CustomEvent('giochat-conversations-updated', { detail: safeItems }));
+                }).catch(() => {});
+              }
             }
           } catch (e) {
             console.warn('Notification parse error', e);
@@ -231,8 +245,12 @@ export function useIncomingCallNotifications(userId, onMessage) {
               }
               onMessageRef.current?.(data);
             }
+            // Always sync both local subscriptions and Redux store for zero-refresh friend requests
             getMyConversations().then((items) => {
-              setConversations(items);
+              const safeItems = Array.isArray(items) ? items : [];
+              setConversations(safeItems);
+              dispatch(setReduxConversations(safeItems));
+              window.dispatchEvent(new CustomEvent('giochat-conversations-updated', { detail: safeItems }));
             }).catch(() => {});
           } catch (e) {
             console.warn('User conversation update error', e);

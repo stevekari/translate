@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { searchUsers, getPresenceMap, blockUser } from "../api/userApi";
 import { getMyConversations, startConversation, acceptChatRequest, declineChatRequest, deleteConversation, deleteConversationWithUser } from "../api/conversationApi";
@@ -99,22 +99,31 @@ export default function FriendsList() {
     }
   };
 
+  const fetchConversations = useCallback(async (showLoading = false) => {
+    if (showLoading) setLoading(true);
+    try {
+      const items = await getMyConversations();
+      const filtered = Array.isArray(items)
+        ? items.filter((c) => {
+            if (!c?.otherUser || isFriendDeleted(c.otherUser)) return false;
+            const otherId = c.otherUser.id || c.otherUser.userId;
+            if (otherId && currentUserId && String(otherId) === String(currentUserId)) return false;
+            if (c.otherUser.username && user?.username && c.otherUser.username.trim().toLowerCase() === user.username.trim().toLowerCase()) return false;
+            return true;
+          })
+        : [];
+      setConversations(filtered);
+      dispatch(setConversationState(filtered));
+    } catch (err) {
+      console.warn('Failed to fetch conversations:', err);
+    } finally {
+      if (showLoading) setLoading(false);
+    }
+  }, [currentUserId, dispatch, user?.username]);
+
+  // Initial load on mount
   useEffect(() => {
-    getMyConversations()
-     .then((items) => {
-       const filtered = Array.isArray(items)
-         ? items.filter((c) => {
-             if (!c?.otherUser || isFriendDeleted(c.otherUser)) return false;
-             const otherId = c.otherUser.id || c.otherUser.userId;
-             if (otherId && currentUserId && String(otherId) === String(currentUserId)) return false;
-             if (c.otherUser.username && user?.username && c.otherUser.username.trim().toLowerCase() === user.username.trim().toLowerCase()) return false;
-             return true;
-           })
-         : [];
-       setConversations(filtered);
-       dispatch(setConversationState(filtered));
-     })
-     .finally(() => setLoading(false));
+    fetchConversations(true);
 
     getPresenceMap()
       .then((presence) => {
@@ -123,7 +132,38 @@ export default function FriendsList() {
         }
       })
       .catch(() => {});
-  }, [dispatch]);
+  }, [fetchConversations, dispatch]);
+
+  // Real-time synchronization: listen for live friend requests and updates without page refresh
+  useEffect(() => {
+    const handleUpdated = (e) => {
+      const items = e?.detail;
+      if (Array.isArray(items)) {
+        const filtered = items.filter((c) => {
+          if (!c?.otherUser || isFriendDeleted(c.otherUser)) return false;
+          const otherId = c.otherUser.id || c.otherUser.userId;
+          if (otherId && currentUserId && String(otherId) === String(currentUserId)) return false;
+          if (c.otherUser.username && user?.username && c.otherUser.username.trim().toLowerCase() === user.username.trim().toLowerCase()) return false;
+          return true;
+        });
+        setConversations(filtered);
+      } else {
+        fetchConversations(false);
+      }
+    };
+
+    window.addEventListener('giochat-conversations-updated', handleUpdated);
+
+    // Background poll every 4 seconds to guarantee zero-refresh friend request reception
+    const pollInterval = setInterval(() => {
+      fetchConversations(false);
+    }, 4000);
+
+    return () => {
+      window.removeEventListener('giochat-conversations-updated', handleUpdated);
+      clearInterval(pollInterval);
+    };
+  }, [fetchConversations, currentUserId, user?.username]);
 
   const sortedConversations = useMemo(() => {
     return [...conversations]
@@ -204,6 +244,7 @@ export default function FriendsList() {
         prev.map((c) => (c.conversationId === convId ? { ...c, status: 'ACCEPTED' } : c))
       );
       setRequestFeedback((prev) => ({ ...prev, [convId]: 'accepted' }));
+      window.dispatchEvent(new CustomEvent('giochat-conversations-updated'));
     } catch (err) {
       console.error('Failed to accept request:', err);
     }
@@ -217,6 +258,7 @@ export default function FriendsList() {
         prev.map((c) => (c.conversationId === convId ? { ...c, status: 'DECLINED' } : c))
       );
       setRequestFeedback((prev) => ({ ...prev, [convId]: 'declined' }));
+      window.dispatchEvent(new CustomEvent('giochat-conversations-updated'));
     } catch (err) {
       console.error('Failed to decline request:', err);
     }
@@ -227,6 +269,7 @@ export default function FriendsList() {
     try {
       await deleteConversation(convId);
       setConversations((prev) => prev.filter((c) => c.conversationId !== convId));
+      window.dispatchEvent(new CustomEvent('giochat-conversations-updated'));
     } catch (err) {
       console.error('Failed to cancel request:', err);
     }

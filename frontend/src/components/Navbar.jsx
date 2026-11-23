@@ -65,6 +65,15 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
     return Object.values(conversations).reduce((sum, conv) => sum + (conv.unread || 0), 0);
   }, [conversations]);
 
+  const pendingRequestsCount = useMemo(() => {
+    const myId = user?.userId || user?.id;
+    return Object.values(conversations).filter(
+      (c) => c.status === 'PENDING' && c.initiatorId != null && String(c.initiatorId) !== String(myId)
+    ).length;
+  }, [conversations, user]);
+
+  const friendsBadgeCount = totalUnread + pendingRequestsCount;
+
   const isHome = location.pathname === '/home' || location.pathname === '/feed';
   const isFriends = location.pathname === '/friends';
   const isCalls = location.pathname === '/calls';
@@ -133,8 +142,8 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           >
             <div className="fb-tab-icon-wrap">
               <i className="fa-solid fa-user-group" />
-              {totalUnread > 0 && (
-                <span className="fb-tab-badge">{totalUnread > 99 ? '99+' : totalUnread}</span>
+              {friendsBadgeCount > 0 && (
+                <span className="fb-tab-badge">{friendsBadgeCount > 99 ? '99+' : friendsBadgeCount}</span>
               )}
             </div>
           </Link>

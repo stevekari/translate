@@ -13,6 +13,7 @@ export default function CallPanel({
   currentUser,
   isMutedAudio = false,
   isMutedVideo = false,
+  facingMode = 'user',
   toggleMuteAudio,
   toggleMuteVideo,
   switchCamera,
@@ -106,13 +107,18 @@ export default function CallPanel({
   }, [remoteStream]);
 
   // Attach streams to main and PiP video elements based on isSwapped
+  // Directly set DOM node muted = (stream === localStream) to prevent mobile autoplay block & dark screen
   useEffect(() => {
     const mainStream = isSwapped ? localStream : remoteStream;
     const pipStream = isSwapped ? remoteStream : localStream;
 
     if (mainVideoRef.current) {
+      mainVideoRef.current.muted = (mainStream === localStream);
+      mainVideoRef.current.playsInline = true;
       if (mainStream) {
-        mainVideoRef.current.srcObject = mainStream;
+        if (mainVideoRef.current.srcObject !== mainStream) {
+          mainVideoRef.current.srcObject = mainStream;
+        }
         mainVideoRef.current.play().catch(() => {});
       } else {
         mainVideoRef.current.srcObject = null;
@@ -120,8 +126,12 @@ export default function CallPanel({
     }
 
     if (pipVideoRef.current) {
+      pipVideoRef.current.muted = (pipStream === localStream);
+      pipVideoRef.current.playsInline = true;
       if (pipStream) {
-        pipVideoRef.current.srcObject = pipStream;
+        if (pipVideoRef.current.srcObject !== pipStream) {
+          pipVideoRef.current.srcObject = pipStream;
+        }
         pipVideoRef.current.play().catch(() => {});
       } else {
         pipVideoRef.current.srcObject = null;
@@ -161,16 +171,22 @@ export default function CallPanel({
   const pipPersonAvatar = isSwapped ? friendAvatarSrc : myAvatarSrc;
   const pipPersonName = isSwapped ? friendDisplayName : myDisplayName;
 
-  const isMainVideoActive = isSwapped
-    ? Boolean(localStream && !isMutedVideo)
-    : Boolean(connected && hasRemoteVideo);
+  const hasLocalVideo = Boolean(
+    localStream &&
+    localStream.getVideoTracks().some((t) => t.enabled && t.readyState === 'live') &&
+    !isMutedVideo
+  );
 
-  const isPipVideoActive = isSwapped
-    ? Boolean(connected && hasRemoteVideo)
-    : Boolean(localStream && !isMutedVideo);
+  const isMainVideoActive = isSwapped ? hasLocalVideo : Boolean(connected && hasRemoteVideo);
+  const isPipVideoActive = isSwapped ? Boolean(connected && hasRemoteVideo) : hasLocalVideo;
+  const showAnyVideo = videoCall || hasLocalVideo || hasRemoteVideo;
+
+  // Check if main video is displaying local front camera to apply mirroring
+  const isMainLocalFront = isSwapped && facingMode === 'user';
+  const isPipLocalFront = !isSwapped && facingMode === 'user';
 
   return (
-    <div className={`whatsapp-call-overlay ${videoCall ? 'video-mode' : 'voice-mode'} state-${callState}`}>
+    <div className={`messenger-call-overlay ${showAnyVideo ? 'video-mode' : 'voice-mode'} state-${callState}`}>
       {/* Remote Audio Track */}
       <audio
         ref={attachRemoteAudio}
@@ -179,43 +195,45 @@ export default function CallPanel({
         onLoadedMetadata={(e) => e.target.play().catch(() => {})}
       />
 
-      {/* 1. Full-Screen Ambient Blurred Photo Backdrop (WhatsApp Luxury Look) */}
+      {/* 1. Ambient Blurred Backdrop */}
       <div
-        className="whatsapp-call-ambient-backdrop"
+        className="messenger-call-ambient-backdrop"
         style={friendAvatarSrc ? { backgroundImage: `url(${friendAvatarSrc})` } : undefined}
       />
 
-      {/* 2. Top Header Overlay: Name, Encryption Lock & Duration */}
-      <header className="whatsapp-call-top-bar">
-        <div className="whatsapp-top-info">
-          <div className="whatsapp-encrypted-pill">
-            <i className="fa-solid fa-lock" />
-            <span>End-to-end encrypted</span>
+      {/* 2. Messenger Top Header: Call Type Badge, Peer Name, Status */}
+      <header className="messenger-call-top-bar">
+        <div className="messenger-top-info">
+          <div className="messenger-call-badge">
+            <i className={`fa-solid ${showAnyVideo ? 'fa-video' : 'fa-phone'}`} />
+            <span>{showAnyVideo ? 'Messenger Video Call' : 'Messenger Audio Call'}</span>
           </div>
-          <h2 className="whatsapp-call-peer-name">{friendDisplayName}</h2>
-          <span className="whatsapp-call-status-pill">
+
+          <h2 className="messenger-call-peer-name">{friendDisplayName}</h2>
+
+          <span className="messenger-call-status-pill">
             {connected ? (
               <>
-                <span className="live-call-dot" />
-                <span>{formatDuration(durationSec)}</span>
+                <span className="messenger-live-dot" />
+                <span>{formatDuration(durationSec)} • Connected</span>
               </>
             ) : calling ? (
               <span>{t(isRinging ? 'ringing' : 'calling')}...</span>
             ) : incoming ? (
-              <span>{t(videoCall ? 'incomingVideoCall' : 'incomingVoiceCall')}</span>
+              <span>{showAnyVideo ? 'Incoming Video Call...' : 'Incoming Audio Call...'}</span>
             ) : (
-              <span>Connecting...</span>
+              <span>Connecting call...</span>
             )}
           </span>
         </div>
       </header>
 
-      {/* 3. Main Center View: Full-Screen Remote Video OR Large Photo of Person */}
-      <div className="whatsapp-main-viewport">
-        {videoCall && (
+      {/* 3. Main Center Viewport: Full-Screen Video OR Facebook Messenger Avatar Card */}
+      <div className="messenger-main-viewport">
+        {showAnyVideo && (
           <video
             ref={mainVideoRef}
-            className={`whatsapp-main-video ${isMainVideoActive ? 'is-visible' : 'is-hidden'}`}
+            className={`messenger-main-video ${isMainVideoActive ? 'is-visible' : 'is-hidden'} ${isMainLocalFront ? 'is-mirrored' : ''}`}
             autoPlay
             playsInline
             muted={isSwapped}
@@ -223,44 +241,44 @@ export default function CallPanel({
           />
         )}
 
-        {/* When video is not yet streaming, camera is off, or voice call: Show BIG Photo */}
-        {(!videoCall || !isMainVideoActive) && (
-          <div className="whatsapp-big-photo-card">
-            <div className="whatsapp-big-avatar-wrapper">
+        {/* When video is paused/off or in audio mode: Show Messenger Glowing Profile Card */}
+        {(!showAnyVideo || !isMainVideoActive) && (
+          <div className="messenger-big-photo-card">
+            <div className="messenger-big-avatar-wrapper">
               {bigPersonAvatar ? (
                 <img
                   src={bigPersonAvatar}
                   alt={bigPersonName}
-                  className="whatsapp-big-avatar-img"
+                  className="messenger-big-avatar-img"
                   onError={(e) => handleAvatarError(e, bigPersonName)}
                 />
               ) : (
-                <div className="whatsapp-big-avatar-fallback">
+                <div className="messenger-big-avatar-fallback">
                   {getInitials(bigPersonName)}
                 </div>
               )}
-              {/* WhatsApp Pulsing Emerald Wave Rings */}
-              <span className={`whatsapp-pulse-ring ring-1 ${connected ? 'connected-glow' : ''}`} />
-              <span className={`whatsapp-pulse-ring ring-2 ${connected ? 'connected-glow' : ''}`} />
+              {/* Facebook Messenger Pulsing Audio Wave Rings */}
+              <span className={`messenger-pulse-ring ring-1 ${connected ? 'connected-glow' : ''}`} />
+              <span className={`messenger-pulse-ring ring-2 ${connected ? 'connected-glow' : ''}`} />
             </div>
 
-            <h3 className="whatsapp-photo-name">{bigPersonName}</h3>
-            <p className="whatsapp-photo-subtext">
+            <h3 className="messenger-photo-name">{bigPersonName}</h3>
+            <p className="messenger-photo-subtext">
               {connected
-                ? (videoCall ? 'Video is connecting / camera paused' : `${formatDuration(durationSec)} • Voice Call`)
+                ? (showAnyVideo ? 'Camera is paused' : `${formatDuration(durationSec)} • Audio Call`)
                 : calling
-                  ? t(isRinging ? 'ringing' : 'calling')
+                  ? (isRinging ? 'Ringing...' : 'Calling...')
                   : incoming
-                    ? (videoCall ? 'Incoming WhatsApp Video Call...' : 'Incoming WhatsApp Voice Call...')
-                    : 'Connecting call...'}
+                    ? (showAnyVideo ? 'Incoming Messenger Video Call...' : 'Incoming Messenger Audio Call...')
+                    : 'Connecting...'}
             </p>
           </div>
         )}
 
-        {/* 4. Small Picture-in-Picture (PiP) Window (WhatsApp Floating Corner Card) */}
-        {videoCall && (
+        {/* 4. Small Picture-in-Picture (PiP) Window (Messenger Floating Corner Card) */}
+        {showAnyVideo && (
           <div
-            className="whatsapp-pip-container"
+            className="messenger-pip-container"
             onClick={() => setIsSwapped((prev) => !prev)}
             title="Tap to swap view"
             role="button"
@@ -268,7 +286,7 @@ export default function CallPanel({
           >
             <video
               ref={pipVideoRef}
-              className={`whatsapp-pip-video ${isPipVideoActive ? 'is-visible' : 'is-hidden'}`}
+              className={`messenger-pip-video ${isPipVideoActive ? 'is-visible' : 'is-hidden'} ${isPipLocalFront ? 'is-mirrored' : ''}`}
               autoPlay
               playsInline
               muted={!isSwapped}
@@ -276,26 +294,26 @@ export default function CallPanel({
             />
 
             {!isPipVideoActive && (
-              <div className="whatsapp-pip-placeholder">
+              <div className="messenger-pip-placeholder">
                 {pipPersonAvatar ? (
                   <img
                     src={pipPersonAvatar}
                     alt={pipPersonName}
-                    className="whatsapp-pip-avatar"
+                    className="messenger-pip-avatar"
                     onError={(e) => handleAvatarError(e, pipPersonName)}
                   />
                 ) : (
-                  <div className="whatsapp-pip-initial">
+                  <div className="messenger-pip-initial">
                     {getInitials(pipPersonName)}
                   </div>
                 )}
-                <span className="whatsapp-pip-cam-off-icon">
+                <span className="messenger-pip-cam-off-icon">
                   <i className="fa-solid fa-video-slash" />
                 </span>
               </div>
             )}
 
-            <div className="whatsapp-pip-swap-badge">
+            <div className="messenger-pip-swap-badge">
               <i className="fa-solid fa-arrows-rotate" />
               <span>Swap</span>
             </div>
@@ -303,27 +321,27 @@ export default function CallPanel({
         )}
       </div>
 
-      {error && <div className="whatsapp-call-error-toast">{error}</div>}
+      {error && <div className="messenger-call-error-toast">{error}</div>}
 
-      {/* 5. Floating Bottom Control Dock (WhatsApp Style) */}
-      <footer className="whatsapp-call-bottom-dock">
+      {/* 5. Floating Bottom Control Dock (Facebook Messenger Style) */}
+      <footer className="messenger-call-bottom-dock">
         {incoming ? (
-          <div className="whatsapp-incoming-actions">
+          <div className="messenger-incoming-actions">
             <button
               type="button"
-              className="whatsapp-ctrl-btn btn-accept-call pulse-accept"
+              className="messenger-ctrl-btn btn-accept-call pulse-accept"
               onClick={onAccept}
               title={`${t('accept')} (Enter / Space)`}
               aria-label={t('accept')}
               autoFocus
             >
-              <i className={`fa-solid ${videoCall ? 'fa-video' : 'fa-phone'}`} />
+              <i className={`fa-solid ${showAnyVideo ? 'fa-video' : 'fa-phone'}`} />
               <span className="btn-label">{t('accept')}</span>
             </button>
 
             <button
               type="button"
-              className="whatsapp-ctrl-btn btn-decline-call"
+              className="messenger-ctrl-btn btn-decline-call"
               onClick={onEnd}
               title={`${t('decline')} (Esc)`}
               aria-label={t('decline')}
@@ -333,12 +351,12 @@ export default function CallPanel({
             </button>
           </div>
         ) : (
-          <div className="whatsapp-active-controls">
+          <div className="messenger-active-controls">
             {/* Audio Mute Button */}
             {toggleMuteAudio && (
               <button
                 type="button"
-                className={`whatsapp-ctrl-btn ${isMutedAudio ? 'is-muted' : ''}`}
+                className={`messenger-ctrl-btn ${isMutedAudio ? 'is-muted' : ''}`}
                 onClick={toggleMuteAudio}
                 title={isMutedAudio ? t('unmute') : t('mute')}
                 aria-label={isMutedAudio ? t('unmute') : t('mute')}
@@ -348,25 +366,25 @@ export default function CallPanel({
               </button>
             )}
 
-            {/* Video Camera Toggle */}
-            {videoCall && toggleMuteVideo && (
+            {/* Video Camera Toggle (Available in BOTH audio & video calls, like Facebook Messenger) */}
+            {toggleMuteVideo && (
               <button
                 type="button"
-                className={`whatsapp-ctrl-btn ${isMutedVideo ? 'is-muted' : ''}`}
+                className={`messenger-ctrl-btn ${isMutedVideo || !hasLocalVideo ? 'is-muted' : ''}`}
                 onClick={toggleMuteVideo}
-                title={isMutedVideo ? t('turnCameraOn') : t('turnCameraOff')}
-                aria-label={isMutedVideo ? t('turnCameraOn') : t('turnCameraOff')}
+                title={hasLocalVideo && !isMutedVideo ? t('turnCameraOff') : t('turnCameraOn')}
+                aria-label={hasLocalVideo && !isMutedVideo ? t('turnCameraOff') : t('turnCameraOn')}
               >
-                <i className={`fa-solid ${isMutedVideo ? 'fa-video-slash' : 'fa-video'}`} />
-                <span className="btn-hint">{isMutedVideo ? 'Cam Off' : 'Cam On'}</span>
+                <i className={`fa-solid ${hasLocalVideo && !isMutedVideo ? 'fa-video' : 'fa-video-slash'}`} />
+                <span className="btn-hint">{hasLocalVideo && !isMutedVideo ? 'Cam Off' : 'Cam On'}</span>
               </button>
             )}
 
-            {/* Flip / Switch Camera Button */}
-            {videoCall && switchCamera && (
+            {/* Flip / Switch Camera Button (Front / Back switch with zero dark screen) */}
+            {switchCamera && (
               <button
                 type="button"
-                className="whatsapp-ctrl-btn btn-flip"
+                className="messenger-ctrl-btn btn-flip"
                 onClick={switchCamera}
                 title={t('switchCamera')}
                 aria-label={t('switchCamera')}
@@ -376,10 +394,24 @@ export default function CallPanel({
               </button>
             )}
 
-            {/* End Call Button (Big Red WhatsApp Hangup) */}
+            {/* Swap View Button (Swaps PiP and Main video without reload) */}
+            {showAnyVideo && (
+              <button
+                type="button"
+                className="messenger-ctrl-btn btn-swap"
+                onClick={() => setIsSwapped((prev) => !prev)}
+                title="Swap video views"
+                aria-label="Swap video views"
+              >
+                <i className="fa-solid fa-arrows-rotate" />
+                <span className="btn-hint">Swap</span>
+              </button>
+            )}
+
+            {/* End Call Button (Big Red Messenger Hangup) */}
             <button
               type="button"
-              className="whatsapp-ctrl-btn btn-hangup-call"
+              className="messenger-ctrl-btn btn-hangup-call"
               onClick={onEnd}
               title={t('endCall')}
               aria-label={t('endCall')}

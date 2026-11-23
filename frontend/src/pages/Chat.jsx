@@ -1270,6 +1270,7 @@ export default function Chat({ currentUserId, currentUser }) {
           currentUser={currentUser}
           isMutedAudio={call.isMutedAudio}
           isMutedVideo={call.isMutedVideo}
+          facingMode={call.facingMode}
           toggleMuteAudio={call.toggleMuteAudio}
           toggleMuteVideo={call.toggleMuteVideo}
           switchCamera={call.switchCamera}

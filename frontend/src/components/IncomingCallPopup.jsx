@@ -5,7 +5,7 @@ import { resolveAvatarUrl, handleAvatarError, getInitials } from '../utils/avata
 
 export default function IncomingCallPopup({ call, onAccept, onDecline }) {
   const { t } = useLanguage();
-  const videoCall = call.mediaType === 'video';
+  const videoCall = call?.mediaType === 'video';
 
   useEffect(() => {
     callSounds.startIncomingRingtone();
@@ -13,10 +13,10 @@ export default function IncomingCallPopup({ call, onAccept, onDecline }) {
     // Show browser notification if permitted
     if ('Notification' in window && Notification.permission === 'granted') {
       try {
-        const callerName = call.friend?.username || 'Someone';
-        const title = videoCall ? t('incomingVideoCall') : t('incomingVoiceCall');
+        const callerName = call.friend?.displayName || call.friend?.username || 'Someone';
+        const title = videoCall ? 'Incoming Messenger Video Call' : 'Incoming Messenger Audio Call';
         new Notification(title, {
-          body: `${callerName} is calling you`,
+          body: `${callerName} is calling you on Messenger`,
           icon: '/favicon.svg',
           tag: `call-${call.callId}`,
           renotify: true,
@@ -41,7 +41,7 @@ export default function IncomingCallPopup({ call, onAccept, onDecline }) {
       window.removeEventListener('keydown', handleKeyDown);
       callSounds.stop();
     };
-  }, [call.callId, call.friend?.username, t, videoCall]);
+  }, [call?.callId, call?.friend?.displayName, call?.friend?.username, t, videoCall]);
 
   const handleAccept = () => {
     callSounds.stop();
@@ -54,64 +54,74 @@ export default function IncomingCallPopup({ call, onAccept, onDecline }) {
     onDecline();
   };
 
-  const avatarSrc = resolveAvatarUrl(call.friend?.avatarUrl, call.friend?.username);
-  const friendName = call.friend?.displayName || call.friend?.username || 'Someone';
+  const avatarSrc = resolveAvatarUrl(call?.friend?.avatarUrl, call?.friend?.username);
+  const friendName = call?.friend?.displayName || call?.friend?.username || 'Someone';
 
   return (
-    <div className="incoming-call-popup" role="dialog" aria-modal="true" aria-label={videoCall ? t('incomingVideoCall') : t('incomingVoiceCall')}>
-      <div className="incoming-call-backdrop" onClick={handleDecline}></div>
-      <div className="incoming-call-card ringing-pulse">
-        <div className="incoming-call-avatar-wrapper">
-          {call.friend?.avatarUrl ? (
+    <div
+      className="incoming-call-popup messenger-incoming-overlay"
+      role="dialog"
+      aria-modal="true"
+      aria-label={videoCall ? 'Incoming Messenger Video Call' : 'Incoming Messenger Audio Call'}
+    >
+      <div className="incoming-call-backdrop" onClick={handleDecline} />
+      <div className="incoming-call-card messenger-incoming-card ringing-pulse">
+        {/* Messenger Call Type Pill */}
+        <div className="messenger-incoming-type-pill">
+          <i className={`fa-solid ${videoCall ? 'fa-video' : 'fa-phone'}`} />
+          <span>{videoCall ? 'Messenger Video Call' : 'Messenger Audio Call'}</span>
+        </div>
+
+        {/* Messenger Avatar with Glowing Rings */}
+        <div className="incoming-call-avatar-wrapper messenger-incoming-avatar-wrapper">
+          {avatarSrc ? (
             <img
               src={avatarSrc}
               alt={friendName}
-              className="incoming-call-avatar-img"
+              className="incoming-call-avatar-img messenger-incoming-avatar-img"
               onError={(e) => handleAvatarError(e, friendName)}
             />
           ) : (
-            <div className="incoming-call-avatar">
+            <div className="incoming-call-avatar messenger-incoming-avatar-fallback">
               {getInitials(friendName)}
             </div>
           )}
-          <span className="ringing-waves"></span>
-          <span className="ringing-waves waves-delay"></span>
+          <span className="messenger-incoming-wave wave-1" />
+          <span className="messenger-incoming-wave wave-2" />
         </div>
 
-        <div className="incoming-call-type-badge">
-          <i className={`fa-solid ${videoCall ? 'fa-video' : 'fa-phone'} call-icon`}></i>
-          <span>{t(videoCall ? 'videoCall' : 'voiceCall')}</span>
-        </div>
+        <strong className="incoming-caller-name messenger-incoming-name">{friendName}</strong>
+        <span className="incoming-call-status messenger-incoming-status">
+          {videoCall ? 'Incoming Video Call...' : 'Incoming Audio Call...'}
+        </span>
 
-        <strong className="incoming-caller-name">{friendName}</strong>
-        <span className="incoming-call-status">{t(videoCall ? 'incomingVideoCall' : 'incomingVoiceCall')}</span>
-
-        <div className="incoming-call-actions">
+        {/* Action Buttons: Accept & Decline */}
+        <div className="incoming-call-actions messenger-incoming-actions">
           <button
             type="button"
-            className="call-action-btn call-accept-large pulse-accept"
-            onClick={handleAccept}
-            title={`${t('accept')} (Press Enter or Space)`}
-            aria-label={t('accept')}
-            autoFocus
+            className="call-action-btn messenger-btn-decline"
+            onClick={handleDecline}
+            title={`${t('decline')} (Esc)`}
+            aria-label={t('decline')}
           >
-            <div className="call-btn-circle">
-              <i className={`fa-solid ${videoCall ? 'fa-video' : 'fa-phone'}`}></i>
+            <div className="call-btn-circle btn-decline-circle">
+              <i className="fa-solid fa-phone-slash" />
             </div>
-            <span className="call-btn-label">{t('accept')}</span>
+            <span className="call-btn-label">{t('decline')}</span>
           </button>
 
           <button
             type="button"
-            className="call-action-btn call-end-large"
-            onClick={handleDecline}
-            title={`${t('decline')} (Press Esc)`}
-            aria-label={t('decline')}
+            className="call-action-btn messenger-btn-accept pulse-accept"
+            onClick={handleAccept}
+            title={`${t('accept')} (Enter / Space)`}
+            aria-label={t('accept')}
+            autoFocus
           >
-            <div className="call-btn-circle">
-              <i className="fa-solid fa-phone-slash"></i>
+            <div className="call-btn-circle btn-accept-circle">
+              <i className={`fa-solid ${videoCall ? 'fa-video' : 'fa-phone'}`} />
             </div>
-            <span className="call-btn-label">{t('decline')}</span>
+            <span className="call-btn-label">{t('accept')}</span>
           </button>
         </div>
       </div>

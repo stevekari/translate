@@ -87,6 +87,79 @@ export function useWebRTCCall({ conversationId, currentUserId, sendSignal, onSig
     autoAcceptExecutedRef.current = false;
   }, [callState, callType, sendSignal, stopCallSounds, currentUserId]);
 
+  const getVideoTrackOnly = useCallback(async (facingMode = 'user') => {
+    log('Getting video-only track for facingMode:', facingMode);
+    // 1. Try ideal facingMode with standard mobile resolution
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: facingMode },
+          width: { ideal: 1280, max: 1920 },
+          height: { ideal: 720, max: 1080 },
+        },
+      });
+      const track = stream.getVideoTracks()[0];
+      if (track) return { stream, track };
+    } catch (e1) {
+      log('Ideal facingMode failed, trying basic facingMode:', e1);
+    }
+
+    // 2. Try exact/simple facingMode constraint
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: { facingMode },
+      });
+      const track = stream.getVideoTracks()[0];
+      if (track) return { stream, track };
+    } catch (e2) {
+      log('Basic facingMode failed, trying enumerateDevices:', e2);
+    }
+
+    // 3. Fallback: enumerate video inputs and select matching deviceId
+    try {
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      const videoDevices = devices.filter((d) => d.kind === 'videoinput');
+      if (videoDevices.length > 0) {
+        let chosen = videoDevices.find((d) =>
+          facingMode === 'environment'
+            ? /back|rear|environment/i.test(d.label)
+            : /front|user/i.test(d.label)
+        );
+        if (!chosen) {
+          chosen = facingMode === 'environment' && videoDevices.length > 1
+            ? videoDevices[1]
+            : videoDevices[0];
+        }
+        if (chosen?.deviceId) {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: { deviceId: { exact: chosen.deviceId } },
+          });
+          const track = stream.getVideoTracks()[0];
+          if (track) return { stream, track };
+        }
+      }
+    } catch (e3) {
+      log('enumerateDevices fallback failed:', e3);
+    }
+
+    // 4. Final fallback: simple video: true
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: true,
+      });
+      const track = stream.getVideoTracks()[0];
+      if (track) return { stream, track };
+    } catch (e4) {
+      log('Final video fallback failed:', e4);
+    }
+
+    return { stream: null, track: null };
+  }, []);
+
   const getMediaStream = useCallback(async (type, facingMode = 'user') => {
     log('Getting media stream for', type, 'facingMode', facingMode);
     const audioConstraints = {
@@ -189,6 +262,16 @@ export function useWebRTCCall({ conversationId, currentUserId, sendSignal, onSig
 
     stream.getTracks().forEach((track) => peer.addTrack(track, stream));
 
+    // Guarantee video transceiver exists so both audio and video calls can send & receive video dynamically
+    const hasVideoSender = peer.getSenders?.().some((s) => s.track?.kind === 'video');
+    if (!hasVideoSender && typeof peer.addTransceiver === 'function') {
+      try {
+        peer.addTransceiver('video', { direction: 'sendrecv' });
+      } catch (tErr) {
+        log('Transceiver add error:', tErr);
+      }
+    }
+
     peer.onicecandidate = (event) => {
       if (event.candidate && event.candidate.candidate) {
         log('Sending ICE candidate', event.candidate.candidate);
@@ -288,7 +371,7 @@ export function useWebRTCCall({ conversationId, currentUserId, sendSignal, onSig
       log('Peer created, creating offer');
       const offer = await peer.createOffer({
         offerToReceiveAudio: true,
-        offerToReceiveVideo: type === 'video',
+        offerToReceiveVideo: true,
       });
       await peer.setLocalDescription(offer);
       log('Local description set, sending signal');
@@ -386,47 +469,112 @@ export function useWebRTCCall({ conversationId, currentUserId, sendSignal, onSig
     }
   }, []);
 
-  const toggleMuteVideo = useCallback(() => {
-    if (localStreamRef.current) {
-      const videoTracks = localStreamRef.current.getVideoTracks();
-      if (videoTracks.length > 0) {
-        const nextEnabled = !videoTracks[0].enabled;
-        videoTracks.forEach((track) => {
-          track.enabled = nextEnabled;
-        });
-        setIsMutedVideo(!nextEnabled);
-        log('Video mute toggle, now muted:', !nextEnabled);
+  const toggleMuteVideo = useCallback(async () => {
+    if (!localStreamRef.current) return;
+
+    const videoTracks = localStreamRef.current.getVideoTracks();
+
+    // 1. In audio mode or if no local video track exists yet: acquire camera track & upgrade to video
+    if (videoTracks.length === 0) {
+      log('No video track in local stream, acquiring camera track to enable video...');
+      const { track: newTrack } = await getVideoTrackOnly(currentFacingModeRef.current);
+      if (!newTrack) {
+        log('Failed to acquire video track');
+        return;
       }
+      newTrack.enabled = true;
+      localStreamRef.current.addTrack(newTrack);
+      setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
+      setCallType('video');
+      setIsMutedVideo(false);
+
+      if (peerRef.current) {
+        const senders = peerRef.current.getSenders ? peerRef.current.getSenders() : [];
+        let videoSender = senders.find((s) => s.track && s.track.kind === 'video');
+        if (!videoSender) {
+          videoSender = senders.find((s) => !s.track);
+        }
+        if (videoSender && typeof videoSender.replaceTrack === 'function') {
+          await videoSender.replaceTrack(newTrack);
+          log('Replaced track on existing video sender');
+        } else if (typeof peerRef.current.addTrack === 'function') {
+          peerRef.current.addTrack(newTrack, localStreamRef.current);
+          log('Added video track to peer connection');
+        }
+      }
+
+      sendSignalRef.current?.({
+        callType: 'media-toggle',
+        callId: callIdRef.current || pendingOfferRef.current?.callId,
+        mediaType: 'video',
+        videoEnabled: true,
+      });
+      return;
     }
-  }, []);
+
+    // 2. Video track exists: toggle mute / pause camera
+    const nextEnabled = !videoTracks[0].enabled;
+    videoTracks.forEach((track) => {
+      track.enabled = nextEnabled;
+    });
+    setIsMutedVideo(!nextEnabled);
+    log('Video mute toggle, now muted:', !nextEnabled);
+
+    sendSignalRef.current?.({
+      callType: 'media-toggle',
+      callId: callIdRef.current || pendingOfferRef.current?.callId,
+      mediaType: nextEnabled ? 'video' : 'voice',
+      videoEnabled: nextEnabled,
+    });
+  }, [getVideoTrackOnly]);
 
   const switchCamera = useCallback(async () => {
-    if (callType !== 'video' || !peerRef.current || !localStreamRef.current) return;
+    if (!peerRef.current || !localStreamRef.current) return;
     try {
       const nextFacing = currentFacingModeRef.current === 'user' ? 'environment' : 'user';
+
+      // 1. Fetch the new video track FIRST, keeping the existing track untouched if it fails
+      const { track: newVideoTrack } = await getVideoTrackOnly(nextFacing);
+      if (!newVideoTrack) {
+        log('Could not obtain new camera track for facingMode', nextFacing);
+        return;
+      }
+
       currentFacingModeRef.current = nextFacing;
 
-      const newStream = await getMediaStream('video', nextFacing);
-      const newVideoTrack = newStream.getVideoTracks()[0];
-      if (!newVideoTrack) return;
+      // Keep user's current mute state
+      newVideoTrack.enabled = !isMutedVideo;
 
-      const oldVideoTrack = localStreamRef.current.getVideoTracks()[0];
-      if (oldVideoTrack) {
-        oldVideoTrack.stop();
-        localStreamRef.current.removeTrack(oldVideoTrack);
-      }
+      // 2. Now stop and remove old video tracks cleanly
+      const oldVideoTracks = localStreamRef.current.getVideoTracks();
+      oldVideoTracks.forEach((t) => {
+        try {
+          t.stop();
+        } catch (_) {}
+        localStreamRef.current.removeTrack(t);
+      });
+
+      // 3. Add new video track to local stream
       localStreamRef.current.addTrack(newVideoTrack);
       setLocalStream(new MediaStream(localStreamRef.current.getTracks()));
 
-      const sender = peerRef.current.getSenders().find((s) => s.track && s.track.kind === 'video');
-      if (sender) {
-        await sender.replaceTrack(newVideoTrack);
-        log('Switched camera to', nextFacing);
+      // 4. Replace track on RTCRtpSender
+      const senders = peerRef.current.getSenders ? peerRef.current.getSenders() : [];
+      let videoSender = senders.find((s) => s.track && s.track.kind === 'video');
+      if (!videoSender) {
+        videoSender = senders.find((s) => !s.track);
       }
+      if (videoSender && typeof videoSender.replaceTrack === 'function') {
+        await videoSender.replaceTrack(newVideoTrack);
+        log('Switched camera sender track to', nextFacing);
+      } else if (typeof peerRef.current.addTrack === 'function') {
+        peerRef.current.addTrack(newVideoTrack, localStreamRef.current);
+      }
+      log('Successfully switched camera to', nextFacing);
     } catch (err) {
       console.warn('Switch camera error:', err);
     }
-  }, [callType, getMediaStream]);
+  }, [isMutedVideo, getVideoTrackOnly]);
 
   // Handle incoming signals
   useEffect(() => {
@@ -489,6 +637,11 @@ export function useWebRTCCall({ conversationId, currentUserId, sendSignal, onSig
         }
         log('Received ICE candidate from remote');
       }
+    } else if (onSignal.callType === 'media-toggle') {
+      log('Received media-toggle signal:', onSignal);
+      if (onSignal.videoEnabled) {
+        setCallType('video');
+      }
     } else if (onSignal.callType === 'call-end') {
       log('Remote ended or cancelled call, tearing down local call');
       stopCallSounds();
@@ -550,5 +703,6 @@ export function useWebRTCCall({ conversationId, currentUserId, sendSignal, onSig
     toggleMuteAudio,
     toggleMuteVideo,
     switchCamera,
+    facingMode: currentFacingModeRef.current,
   };
 }

@@ -674,6 +674,7 @@ export default function CommunityHome({ user }) {
     if (filter === 'image') {
       return posts.filter((p) => p.mediaType === 'image');
     }
+    // 'all' and 'general' both show the full community wall, newest post first
     return posts;
   }, [posts, filter]);
 
@@ -1258,6 +1259,16 @@ export default function CommunityHome({ user }) {
 
         <button
           type="button"
+          className={`filter-tab ${filter === 'general' ? 'active' : ''} general-feedback-tab`}
+          onClick={() => setFilter('general')}
+          title="View your photos & messages on the General Feedback wall (newest posts on top)"
+        >
+          <i className="fa-solid fa-comments"></i>
+          <span>General Feedback</span>
+        </button>
+
+        <button
+          type="button"
           className={`filter-tab ${filter === 'video' ? 'active' : ''}`}
           onClick={() => setFilter('video')}
         >
@@ -1316,6 +1327,17 @@ export default function CommunityHome({ user }) {
 
       {/* 4. Feed Stream */}
       <section className="community-posts-stream">
+        {filter === 'general' && (
+          <div className="general-feedback-header">
+            <div className="general-feedback-badge">
+              <i className="fa-solid fa-comments"></i>
+              <span>General Feedback</span>
+            </div>
+            <p className="general-feedback-subtitle">
+              Your photos &amp; messages appear here, newest post on top (like Facebook). Older posts go down as new ones come in.
+            </p>
+          </div>
+        )}
         {filter === 'news' ? (
           <HomeNewsFeed user={user} />
         ) : (

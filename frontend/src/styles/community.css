@@ -468,6 +468,41 @@
   border-color: rgba(234, 179, 8, 0.3);
 }
 
+.general-feedback-tab {
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.15) 0%, rgba(202, 138, 4, 0.1) 100%);
+  color: #eab308;
+  border-color: rgba(234, 179, 8, 0.35);
+}
+
+/* General Feedback header */
+.general-feedback-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0.5rem 0 1rem 0;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(234, 179, 8, 0.10) 0%, rgba(16, 185, 129, 0.06) 100%);
+  border: 1px dashed rgba(234, 179, 8, 0.35);
+  border-radius: 12px;
+}
+
+.general-feedback-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  font-weight: 700;
+  color: #eab308;
+}
+
+.general-feedback-subtitle {
+  font-size: 0.88rem;
+  color: var(--text-secondary, #94a3b8);
+  margin: 0;
+  line-height: 1.45;
+}
+
 /* 4. Posts Stream */
 .community-posts-stream {
   display: flex;

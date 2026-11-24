@@ -9,6 +9,7 @@ export default function MobileMenuModal({
   onClose,
   user,
   onLogout,
+  onOpenGlobalCommunity,
   onOpenLiveScores,
   onOpenWeather,
   onOpenGioAi,
@@ -122,8 +123,28 @@ export default function MobileMenuModal({
           )}
 
           {/* Core Apps & Tools Grid */}
-          <div className="mobile-menu-section-label">Shortcuts & Live Tools</div>
+          <div className="mobile-menu-section-label">Shortcuts &amp; Live Tools</div>
           <div className="mobile-menu-grid">
+            {/* ✨ 0. Global Community & Friends */}
+            <div
+              className="mobile-menu-card card-community clickable"
+              onClick={() => {
+                onClose();
+                onOpenGlobalCommunity && onOpenGlobalCommunity();
+              }}
+            >
+              <div className="menu-card-icon-wrap icon-community" style={{ background: 'rgba(59, 130, 246, 0.18)', color: '#3b82f6' }}>
+                <i className="fa-solid fa-users-rays" />
+              </div>
+              <div className="menu-card-text">
+                <div className="menu-card-title">Global Community</div>
+                <div className="menu-card-sub">Select friends &amp; share invite</div>
+              </div>
+              <span className="menu-card-badge badge-community" style={{ background: 'rgba(59, 130, 246, 0.15)', color: '#3b82f6', border: '1px solid rgba(59, 130, 246, 0.3)' }}>
+                ✨ Share
+              </span>
+            </div>
+
             {/* ⚽ 1. Live Football Scores */}
             <div
               className="mobile-menu-card card-football clickable"

@@ -12,6 +12,7 @@ import VoiceTranslateModal from './VoiceTranslateModal';
 import AiAssistantModal from './AiAssistantModal';
 import LiveScoresModal from './LiveScoresModal';
 import MobileMenuModal from './MobileMenuModal';
+import GlobalCommunityModal from './GlobalCommunityModal';
 import { getRealFootballScores } from '../api/footballApi';
 import { useWeather } from '../contexts/WeatherContext';
 
@@ -31,6 +32,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
   const [showAiModal, setShowAiModal] = useState(false);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showGlobalCommunityModal, setShowGlobalCommunityModal] = useState(false);
   const [liveMatchesCount, setLiveMatchesCount] = useState(0);
 
   useEffect(() => {
@@ -44,19 +46,23 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
       })
       .catch(() => {});
 
-    // Listen to custom global events to trigger GioAI and Live Scores modals from anywhere (including mobile bottom nav)
+    // Listen to custom global events to trigger modals from anywhere
     const handleOpenAi = () => setShowAiModal(true);
     const handleOpenLivescore = () => setShowLiveScoresModal(true);
     const handleOpenMobileMenu = () => setShowMobileMenu(true);
+    const handleOpenCommunity = () => setShowGlobalCommunityModal(true);
+
     window.addEventListener('open-gioai-assistant', handleOpenAi);
     window.addEventListener('open-livescores-modal', handleOpenLivescore);
     window.addEventListener('open-mobile-menu', handleOpenMobileMenu);
+    window.addEventListener('open-global-community-modal', handleOpenCommunity);
 
     return () => {
       isMounted = false;
       window.removeEventListener('open-gioai-assistant', handleOpenAi);
       window.removeEventListener('open-livescores-modal', handleOpenLivescore);
       window.removeEventListener('open-mobile-menu', handleOpenMobileMenu);
+      window.removeEventListener('open-global-community-modal', handleOpenCommunity);
     };
   }, []);
   const { weather, formatTemp, showWeatherModal, openWeatherModal, tWeather } = useWeather();
@@ -177,6 +183,21 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               )}
             </div>
           </button>
+
+          {/* Global Community & Friends Tab */}
+          <button
+            type="button"
+            className={`fb-tab global-community-nav-tab ${showGlobalCommunityModal ? 'active' : ''}`}
+            onClick={() => setShowGlobalCommunityModal(true)}
+            title="✨ Global Community & Friends - Click to Select or Share"
+            aria-label="Global Community & Friends"
+          >
+            <div className="fb-tab-icon-wrap global-community-tab-icon-wrap">
+              <i className="fa-solid fa-users-rays" />
+              <span className="global-community-nav-text">Community</span>
+              <span className="global-community-nav-sparkle">✨</span>
+            </div>
+          </button>
         </div>
       )}
 
@@ -185,6 +206,19 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         <div className="fb-nav-right">
           {/* Settings & Toggle placed right next to each other */}
           <div className="fb-nav-toggle-group">
+            {/* ✨ Top Navbar Global Community & Friends Button */}
+            <button
+              type="button"
+              onClick={() => setShowGlobalCommunityModal(true)}
+              className={`top-navbar-community-btn ${showGlobalCommunityModal ? 'active' : ''}`}
+              title="✨ Global Community & Friends - Click to Select or Share"
+              aria-label="Global Community & Friends"
+            >
+              <i className="fa-solid fa-users-rays" />
+              <span className="top-community-text">Community</span>
+              <span className="sparkle-badge">✨</span>
+            </button>
+
             {/* ⚽ Top Navbar Live Football Scores - placed on left of GioAI, reduced height, always visible */}
             <button
               type="button"
@@ -342,6 +376,7 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           onClose={() => setShowMobileMenu(false)}
           user={user}
           onLogout={handleLogout}
+          onOpenGlobalCommunity={() => setShowGlobalCommunityModal(true)}
           onOpenLiveScores={() => setShowLiveScoresModal(true)}
           onOpenWeather={openWeatherModal}
           onOpenGioAi={() => setShowAiModal(true)}
@@ -354,6 +389,13 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
           liveMatchesCount={liveMatchesCount}
           weather={weather}
           formatTemp={formatTemp}
+        />
+      )}
+      {showGlobalCommunityModal && (
+        <GlobalCommunityModal
+          isOpen={showGlobalCommunityModal}
+          onClose={() => setShowGlobalCommunityModal(false)}
+          user={user}
         />
       )}
     </nav>

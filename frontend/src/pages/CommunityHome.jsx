@@ -43,6 +43,25 @@ export default function CommunityHome({ user }) {
   const [isCreateReelOpen, setIsCreateReelOpen] = useState(false);
   const [activeReelIndex, setActiveReelIndex] = useState(null);
 
+  // 30-Second Auto-Dismissing Welcome Greeting State
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
+  const [welcomeSecondsLeft, setWelcomeSecondsLeft] = useState(30);
+
+  useEffect(() => {
+    if (!showWelcomeBanner) return;
+    const interval = setInterval(() => {
+      setWelcomeSecondsLeft((prev) => {
+        if (prev <= 1) {
+          setShowWelcomeBanner(false);
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [showWelcomeBanner]);
+
   useEffect(() => {
     const handleOpenReels = (e) => {
       const idx = typeof e.detail?.index === 'number' ? e.detail.index : 0;
@@ -1091,130 +1110,140 @@ export default function CommunityHome({ user }) {
           onSelectReel={(idx) => setActiveReelIndex(idx)}
         />
 
-        {/* Personalized Welcome Banner with User's Name */}
-        <div className="home-welcome-widget">
-          <div className="home-welcome-left">
-            <div className="home-welcome-avatar-wrap">
-              <img
-                src={resolveAvatarUrl(user?.avatarUrl, user?.displayName || user?.username)}
-                alt={user?.username}
-                className="home-welcome-avatar"
-                onError={(e) => handleAvatarError(e, user?.displayName || user?.username)}
-              />
-              <span className="welcome-avatar-pulse"></span>
+        {/* 30-Second Auto-Dismissing Welcome Greeting Widget */}
+        {showWelcomeBanner ? (
+          <div className="home-welcome-widget animate-fade-in">
+            <div className="home-welcome-top-row">
+              <div className="home-welcome-left">
+                <div className="home-welcome-avatar-wrap">
+                  <img
+                    src={resolveAvatarUrl(user?.avatarUrl, user?.displayName || user?.username)}
+                    alt={user?.username}
+                    className="home-welcome-avatar"
+                    onError={(e) => handleAvatarError(e, user?.displayName || user?.username)}
+                  />
+                  <span className="welcome-avatar-pulse"></span>
+                </div>
+                <div className="home-welcome-text">
+                  <h2 className="home-welcome-title">
+                    Welcome, <span className="welcome-user-name">{user?.displayName || user?.username || 'Friend'}</span>! 👋
+                  </h2>
+                  <p className="home-welcome-desc">
+                    Connect with friends, share your photos &amp; messages, and catch real-time news.
+                  </p>
+                </div>
+              </div>
+
+              <div className="home-welcome-top-actions">
+                <span className="welcome-countdown-chip" title="This welcome popup closes automatically in 30 seconds">
+                  <i className="fa-solid fa-clock-rotate-left"></i>
+                  <span>Hiding in {welcomeSecondsLeft}s</span>
+                </span>
+                <button
+                  type="button"
+                  className="welcome-close-btn"
+                  onClick={() => setShowWelcomeBanner(false)}
+                  title="Close welcome message"
+                  aria-label="Close"
+                >
+                  <i className="fa-solid fa-xmark"></i>
+                </button>
+              </div>
             </div>
-            <div className="home-welcome-text">
-              <h2 className="home-welcome-title">
-                Welcome, <span className="welcome-user-name">{user?.displayName || user?.username || 'Friend'}</span>! 👋
-              </h2>
-              <p className="home-welcome-desc">
-                Connect with friends, share your photos &amp; messages, and catch real-time news.
+
+            <div className="home-welcome-pills">
+              <button
+                type="button"
+                className={`welcome-nav-pill ${filter === 'wall' ? 'active' : ''}`}
+                onClick={() => {
+                  setFilter('wall');
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
+                }}
+                title="Open My Personal Wall"
+              >
+                <i className="fa-solid fa-address-card"></i>
+                <span>My Wall</span>
+              </button>
+              <button
+                type="button"
+                className={`welcome-nav-pill ${filter === 'general' ? 'active' : ''}`}
+                onClick={() => {
+                  setFilter('general');
+                  window.scrollTo({ top: 380, behavior: 'smooth' });
+                }}
+                title="View General Feedback Timeline"
+              >
+                <i className="fa-solid fa-comments"></i>
+                <span>General Feed</span>
+              </button>
+              <button
+                type="button"
+                className="welcome-nav-pill live-scores-pill"
+                onClick={() => setShowLiveScoresModal(true)}
+                title="Open Live Football Scores"
+              >
+                <span className="live-pill-red-dot"></span>
+                <span>⚽ Live Scores</span>
+              </button>
+            </div>
+
+            {/* 30-Second Countdown Progress Bar */}
+            <div className="welcome-progress-track">
+              <div
+                className="welcome-progress-fill"
+                style={{ width: `${(welcomeSecondsLeft / 30) * 100}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="home-welcome-minibar">
+            <button
+              type="button"
+              className="welcome-reopen-btn"
+              onClick={() => {
+                setShowWelcomeBanner(true);
+                setWelcomeSecondsLeft(30);
+              }}
+              title="Show welcome greeting again"
+            >
+              <span>👋 Welcome back, {user?.displayName || user?.username}</span>
+              <span className="welcome-reopen-hint">Tap to expand</span>
+            </button>
+          </div>
+        )}
+
+        {/* Global Community & Friends Quick Interactive Trigger Bar */}
+        <div
+          className="community-global-trigger-bar clickable"
+          onClick={() => window.dispatchEvent(new CustomEvent('open-global-community-modal'))}
+          title="Click to open Global Community & Friends popup"
+        >
+          <div className="cgt-left">
+            <span className="cgt-sparkle">✨</span>
+            <div className="cgt-text-col">
+              <div className="cgt-title-row">
+                <span className="cgt-title">Global Community &amp; Friends</span>
+                <span className="cgt-badge">Worldwide</span>
+              </div>
+              <p className="cgt-desc">
+                Select friends to chat &amp; call, or share your invite link via WhatsApp &amp; Telegram
               </p>
             </div>
           </div>
-          <div className="home-welcome-pills">
+          <div className="cgt-right">
             <button
               type="button"
-              className={`welcome-nav-pill ${filter === 'wall' ? 'active' : ''}`}
-              onClick={() => {
-                setFilter('wall');
-                window.scrollTo({ top: 380, behavior: 'smooth' });
+              className="cgt-btn"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.dispatchEvent(new CustomEvent('open-global-community-modal'));
               }}
-              title="Open My Personal Wall"
             >
-              <i className="fa-solid fa-address-card"></i>
-              <span>My Wall</span>
-            </button>
-            <button
-              type="button"
-              className={`welcome-nav-pill ${filter === 'general' ? 'active' : ''}`}
-              onClick={() => {
-                setFilter('general');
-                window.scrollTo({ top: 380, behavior: 'smooth' });
-              }}
-              title="View General Feedback Timeline"
-            >
-              <i className="fa-solid fa-comments"></i>
-              <span>General Feed</span>
-            </button>
-            <button
-              type="button"
-              className="welcome-nav-pill live-scores-pill"
-              onClick={() => setShowLiveScoresModal(true)}
-              title="Open Live Football Scores"
-            >
-              <span className="live-pill-red-dot"></span>
-              <span>⚽ Live Scores</span>
+              <i className="fa-solid fa-share-nodes" />
+              <span>Select or Share</span>
             </button>
           </div>
         </div>
-
-        {/* 1. Top Hero & Invite Friends Banner */}
-        <section className="community-hero-card">
-        <div className="community-hero-content">
-          <div className="community-hero-badge">
-            <span className="hero-sparkle">✨</span> Global Community & Friends
-          </div>
-          <h1 className="community-hero-title">
-            Connect & Chat with Friends Worldwide 🌍
-          </h1>
-          <p className="community-hero-subtitle">
-            Share moments, voice & Gio video walkie-talkies, and break language barriers instantly with AI live translation.
-          </p>
-        </div>
-
-        {/* Invite Friends Action Capsule */}
-        <div className="community-invite-box">
-          <div className="invite-box-header">
-            <i className="fa-solid fa-user-plus invite-icon"></i>
-            <span><strong>Invite your friends to join Giochat:</strong></span>
-          </div>
-
-          <div className="invite-actions-row">
-            <button
-              type="button"
-              className={`invite-btn copy-btn ${copiedLink ? 'copied' : ''}`}
-              onClick={handleCopyInviteLink}
-              title="Copy your personal invite link"
-            >
-              <i className={`fa-solid ${copiedLink ? 'fa-check' : 'fa-copy'}`}></i>
-              <span>{copiedLink ? 'Link Copied!' : 'Copy Invite Link'}</span>
-            </button>
-
-            <a
-              href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="invite-btn whatsapp-btn"
-              title="Share via WhatsApp"
-            >
-              <i className="fa-brands fa-whatsapp"></i>
-              <span>WhatsApp</span>
-            </a>
-
-            <a
-              href={`https://t.me/share/url?url=${encodeURIComponent(shareLink)}&text=${encodeURIComponent('Join me on Giochat!')}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="invite-btn telegram-btn"
-              title="Share via Telegram"
-            >
-              <i className="fa-brands fa-telegram"></i>
-              <span>Telegram</span>
-            </a>
-
-            <button
-              type="button"
-              className="invite-btn share-native-btn"
-              onClick={handleNativeShare}
-              title="More Share Options"
-            >
-              <i className="fa-solid fa-share-nodes"></i>
-              <span>Share...</span>
-            </button>
-          </div>
-        </div>
-      </section>
 
       {/* 2. Post Creator Card */}
       <section className="post-creator-card">

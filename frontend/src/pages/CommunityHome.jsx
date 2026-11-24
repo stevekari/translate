@@ -19,6 +19,7 @@ import StoriesReelsTray from '../components/StoriesReelsTray';
 import CreateReelModal from '../components/CreateReelModal';
 import InstagramReelsViewer from '../components/InstagramReelsViewer';
 import { getActiveReels, fetchRealReels, saveNewReel, toggleLikeReel, getWatchedReelIds } from '../utils/reelsData';
+import { getLiveNews, FALLBACK_NEWS } from '../api/newsApi';
 import { useWeather } from '../contexts/WeatherContext';
 import { isFriendDeleted, markFriendAsDeleted, unmarkFriendDeleted } from '../utils/deletedFriends';
 import '../styles/community.css';
@@ -29,8 +30,10 @@ export default function CommunityHome({ user }) {
   const { weather, formatTemp, openWeatherModal, tWeather } = useWeather();
 
   const [posts, setPosts] = useState([]);
+  const [liveNews, setLiveNews] = useState(FALLBACK_NEWS);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState('all'); // 'all' | 'video' | 'image' | 'text'
+  const [newsLoading, setNewsLoading] = useState(false);
+  const [filter, setFilter] = useState('all'); // 'all' | 'wall' | 'general' | 'video' | 'image' | 'news'
   const [showMobileLiveHub, setShowMobileLiveHub] = useState(false);
   const [showLiveScoresModal, setShowLiveScoresModal] = useState(false);
 
@@ -249,7 +252,21 @@ export default function CommunityHome({ user }) {
     }
   };
 
-  // Load Posts
+  // Load Posts and Live Breaking News for blended feed
+  const fetchLiveNewsData = async () => {
+    try {
+      setNewsLoading(true);
+      const data = await getLiveNews('all', 'ALL');
+      if (Array.isArray(data) && data.length > 0) {
+        setLiveNews(data);
+      }
+    } catch (err) {
+      console.warn('Error fetching live news for feed:', err);
+    } finally {
+      setNewsLoading(false);
+    }
+  };
+
   const fetchPosts = async () => {
     try {
       setLoading(true);
@@ -260,6 +277,7 @@ export default function CommunityHome({ user }) {
     } finally {
       setLoading(false);
     }
+    fetchLiveNewsData();
   };
 
   useEffect(() => {
@@ -666,17 +684,104 @@ export default function CommunityHome({ user }) {
     return date.toLocaleDateString();
   };
 
+  const currentUserId = user?.userId || user?.id;
+
+  const myPosts = useMemo(() => {
+    if (!currentUserId) return [];
+    return posts.filter((p) => String(p.userId) === String(currentUserId));
+  }, [posts, currentUserId]);
+
+  const myPhotosCount = useMemo(() => {
+    return myPosts.filter((p) => p.mediaType === 'image').length;
+  }, [myPosts]);
+
+  const getPostTimestamp = (post) => {
+    if (!post) return 0;
+    if (post.createdAt) {
+      const t = new Date(post.createdAt).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    return Date.now() - 3600000;
+  };
+
+  const getNewsTimestamp = (article, idx) => {
+    if (!article) return 0;
+    if (article.pubDate) {
+      const t = new Date(article.pubDate).getTime();
+      if (!isNaN(t) && t > 0) return t;
+    }
+    if (article.timeAgo) {
+      const matchMin = article.timeAgo.match(/(\d+)\s*m/);
+      if (matchMin) return Date.now() - parseInt(matchMin[1], 10) * 60 * 1000;
+      const matchHour = article.timeAgo.match(/(\d+)\s*h/);
+      if (matchHour) return Date.now() - parseInt(matchHour[1], 10) * 3600 * 1000;
+      const matchDay = article.timeAgo.match(/(\d+)\s*d/);
+      if (matchDay) return Date.now() - parseInt(matchDay[1], 10) * 86400 * 1000;
+      if (article.timeAgo.toLowerCase().includes('just now')) return Date.now() - 60 * 1000;
+    }
+    return Date.now() - (idx + 1) * 14 * 60 * 1000;
+  };
+
   // Filtered Posts
   const filteredPosts = useMemo(() => {
+    if (filter === 'wall') {
+      return myPosts;
+    }
     if (filter === 'video') {
       return posts.filter((p) => p.mediaType === 'video' || p.mediaType === 'polo');
     }
     if (filter === 'image') {
       return posts.filter((p) => p.mediaType === 'image');
     }
-    // 'all' and 'general' both show the full community wall, newest post first
     return posts;
-  }, [posts, filter]);
+  }, [posts, filter, myPosts]);
+
+  // Facebook-Style Blended Chronological Feed Timeline (Posts + Live Breaking News)
+  const feedTimeline = useMemo(() => {
+    if (filter === 'wall') {
+      return myPosts.map((p) => ({
+        type: 'post',
+        post: p,
+        timestamp: getPostTimestamp(p),
+        id: `post-${p.id}`,
+      }));
+    }
+    if (filter === 'video') {
+      return posts
+        .filter((p) => p.mediaType === 'video' || p.mediaType === 'polo')
+        .map((p) => ({
+          type: 'post',
+          post: p,
+          timestamp: getPostTimestamp(p),
+          id: `post-${p.id}`,
+        }));
+    }
+    if (filter === 'image') {
+      return posts
+        .filter((p) => p.mediaType === 'image')
+        .map((p) => ({
+          type: 'post',
+          post: p,
+          timestamp: getPostTimestamp(p),
+          id: `post-${p.id}`,
+        }));
+    }
+    // 'all' and 'general': blend community posts and live breaking news chronologically!
+    const postItems = posts.map((p) => ({
+      type: 'post',
+      post: p,
+      timestamp: getPostTimestamp(p),
+      id: `post-${p.id}`,
+    }));
+    const newsItems = (liveNews || []).slice(0, 16).map((n, idx) => ({
+      type: 'news',
+      article: n,
+      timestamp: getNewsTimestamp(n, idx),
+      id: `news-${n.id || idx}`,
+    }));
+
+    return [...postItems, ...newsItems].sort((a, b) => b.timestamp - a.timestamp);
+  }, [posts, liveNews, filter, myPosts]);
 
   return (
     <div className="community-home-wrapper">
@@ -986,6 +1091,64 @@ export default function CommunityHome({ user }) {
           onSelectReel={(idx) => setActiveReelIndex(idx)}
         />
 
+        {/* Personalized Welcome Banner with User's Name */}
+        <div className="home-welcome-widget">
+          <div className="home-welcome-left">
+            <div className="home-welcome-avatar-wrap">
+              <img
+                src={resolveAvatarUrl(user?.avatarUrl, user?.displayName || user?.username)}
+                alt={user?.username}
+                className="home-welcome-avatar"
+                onError={(e) => handleAvatarError(e, user?.displayName || user?.username)}
+              />
+              <span className="welcome-avatar-pulse"></span>
+            </div>
+            <div className="home-welcome-text">
+              <h2 className="home-welcome-title">
+                Welcome, <span className="welcome-user-name">{user?.displayName || user?.username || 'Friend'}</span>! 👋
+              </h2>
+              <p className="home-welcome-desc">
+                Connect with friends, share your photos &amp; messages, and catch real-time news.
+              </p>
+            </div>
+          </div>
+          <div className="home-welcome-pills">
+            <button
+              type="button"
+              className={`welcome-nav-pill ${filter === 'wall' ? 'active' : ''}`}
+              onClick={() => {
+                setFilter('wall');
+                window.scrollTo({ top: 380, behavior: 'smooth' });
+              }}
+              title="Open My Personal Wall"
+            >
+              <i className="fa-solid fa-address-card"></i>
+              <span>My Wall</span>
+            </button>
+            <button
+              type="button"
+              className={`welcome-nav-pill ${filter === 'general' ? 'active' : ''}`}
+              onClick={() => {
+                setFilter('general');
+                window.scrollTo({ top: 380, behavior: 'smooth' });
+              }}
+              title="View General Feedback Timeline"
+            >
+              <i className="fa-solid fa-comments"></i>
+              <span>General Feed</span>
+            </button>
+            <button
+              type="button"
+              className="welcome-nav-pill live-scores-pill"
+              onClick={() => setShowLiveScoresModal(true)}
+              title="Open Live Football Scores"
+            >
+              <span className="live-pill-red-dot"></span>
+              <span>⚽ Live Scores</span>
+            </button>
+          </div>
+        </div>
+
         {/* 1. Top Hero & Invite Friends Banner */}
         <section className="community-hero-card">
         <div className="community-hero-content">
@@ -1070,7 +1233,11 @@ export default function CommunityHome({ user }) {
           <div className="creator-input-wrap">
             <textarea
               className="creator-textarea"
-              placeholder={`What's on your mind, ${user?.displayName || user?.username || 'friend'}?`}
+              placeholder={
+                filter === 'wall'
+                  ? `Write something on your wall, ${user?.displayName || user?.username || 'friend'}... (Photos & posts also appear on General Feed)`
+                  : `What's on your mind, ${user?.displayName || user?.username || 'friend'}?`
+              }
               value={postText}
               onChange={(e) => setPostText(e.target.value)}
               rows={postText.length > 80 ? 3 : 2}
@@ -1250,21 +1417,31 @@ export default function CommunityHome({ user }) {
       <div className="community-filter-tabs">
         <button
           type="button"
-          className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
-          onClick={() => setFilter('all')}
+          className={`filter-tab my-wall-tab-btn ${filter === 'wall' ? 'active' : ''}`}
+          onClick={() => setFilter('wall')}
+          title="My Personal Wall - Share photos & messages on your timeline"
         >
-          <i className="fa-solid fa-globe"></i>
-          <span>All Posts ({posts.length})</span>
+          <i className="fa-solid fa-address-card"></i>
+          <span>My Wall ({myPosts.length})</span>
         </button>
 
         <button
           type="button"
           className={`filter-tab ${filter === 'general' ? 'active' : ''} general-feedback-tab`}
           onClick={() => setFilter('general')}
-          title="View your photos & messages on the General Feedback wall (newest posts on top)"
+          title="General Feedback - Facebook-style feed where posts and live news flow chronologically"
         >
           <i className="fa-solid fa-comments"></i>
           <span>General Feedback</span>
+        </button>
+
+        <button
+          type="button"
+          className={`filter-tab ${filter === 'all' ? 'active' : ''}`}
+          onClick={() => setFilter('all')}
+        >
+          <i className="fa-solid fa-globe"></i>
+          <span>All Feed ({posts.length})</span>
         </button>
 
         <button
@@ -1321,20 +1498,75 @@ export default function CommunityHome({ user }) {
           onClick={fetchPosts}
           title="Refresh Feed"
         >
-          <i className={`fa-solid fa-rotate-right ${loading ? 'fa-spin' : ''}`}></i>
+          <i className={`fa-solid fa-rotate-right ${loading || newsLoading ? 'fa-spin' : ''}`}></i>
         </button>
       </div>
 
       {/* 4. Feed Stream */}
       <section className="community-posts-stream">
+        {filter === 'wall' && (
+          <div className="my-wall-profile-header">
+            <div className="my-wall-cover">
+              <div className="my-wall-cover-badge">
+                <i className="fa-solid fa-id-badge"></i>
+                <span>My Personal Wall &amp; Timeline</span>
+              </div>
+            </div>
+            <div className="my-wall-profile-bar">
+              <div className="my-wall-avatar-container">
+                <img
+                  src={resolveAvatarUrl(user?.avatarUrl, user?.displayName || user?.username)}
+                  alt={user?.username}
+                  className="my-wall-avatar"
+                  onError={(e) => handleAvatarError(e, user?.displayName || user?.username)}
+                />
+                <span className="my-wall-status-badge online" />
+              </div>
+              <div className="my-wall-info">
+                <div className="my-wall-name-row">
+                  <h2 className="my-wall-display-name">{user?.displayName || user?.username}</h2>
+                  {user?.displayName && user?.displayName !== user?.username && (
+                    <span className="my-wall-handle">@{user?.username}</span>
+                  )}
+                  <span className="my-wall-lang-badge">
+                    {(user?.preferredLanguage || currentLang || 'EN').toUpperCase()}
+                  </span>
+                </div>
+                <p className="my-wall-bio">
+                  Sharing my photos, moments &amp; updates on Giochat 🌍
+                </p>
+                <div className="my-wall-stats-row">
+                  <span className="my-wall-stat-item">
+                    <strong>{myPosts.length}</strong> Posts
+                  </span>
+                  <span className="my-wall-stat-dot">•</span>
+                  <span className="my-wall-stat-item">
+                    <strong>{myPhotosCount}</strong> Photos
+                  </span>
+                  <span className="my-wall-stat-dot">•</span>
+                  <span className="my-wall-stat-item">
+                    <strong>{friendsList.length}</strong> Friends
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="my-wall-notice-banner">
+              <i className="fa-solid fa-bullhorn"></i>
+              <span>
+                <strong>Wall to Feed Sync:</strong> Everything you post on your wall is automatically visible on <strong>General Feedback</strong> for all your friends to see!
+              </span>
+            </div>
+          </div>
+        )}
+
         {filter === 'general' && (
           <div className="general-feedback-header">
             <div className="general-feedback-badge">
               <i className="fa-solid fa-comments"></i>
-              <span>General Feedback</span>
+              <span>General Feedback Timeline</span>
             </div>
             <p className="general-feedback-subtitle">
-              Your photos &amp; messages appear here, newest post on top (like Facebook). Older posts go down as new ones come in.
+              Facebook-style live feed: Your wall photos &amp; posts appear here. Newer posts and live breaking news appear on top, while older posts flow down.
             </p>
           </div>
         )}
@@ -1347,15 +1579,111 @@ export default function CommunityHome({ user }) {
                 <i className="fa-solid fa-circle-notch fa-spin"></i>
                 <p>Loading global community posts...</p>
               </div>
+            ) : filter === 'wall' && myPosts.length === 0 ? (
+              <div className="my-wall-empty-state">
+                <div className="empty-wall-icon-wrap">
+                  <i className="fa-solid fa-camera-retro"></i>
+                </div>
+                <h3>Welcome to Your Personal Wall!</h3>
+                <p>You haven't posted any photos or messages yet. Write a post or upload a photo above to share with friends on your wall and General Feedback!</p>
+              </div>
             ) : (
-              filteredPosts.map((post) => {
-            const isMyPost = String(post.userId) === String(user?.userId || user?.id);
-            const translation = translations[post.id];
-            const isTranslating = translatingPostId === post.id;
-            const commentsInfo = commentsState[post.id] || { open: false, loading: false, list: [] };
+              feedTimeline.map((item) => {
+                if (item.type === 'news') {
+                  const article = item.article;
+                  return (
+                    <article key={item.id} className="post-card home-inline-news-card">
+                      <header className="post-card-header news-card-header">
+                        <div className="post-author-info">
+                          <div className="news-source-logo-wrap">
+                            <span className="news-source-flag">{article.sourceLogo || '📰'}</span>
+                          </div>
+                          <div className="author-meta">
+                            <div className="author-name-row">
+                              <span className="author-display-name">{article.source}</span>
+                              {article.verified && <i className="fa-solid fa-circle-check news-verified-badge" title="Verified source" />}
+                              {article.category && (
+                                <span className="post-lang-badge news-badge-cat">{article.category}</span>
+                              )}
+                            </div>
+                            <div className="author-meta-subrow">
+                              <span className="post-time">{article.timeAgo || 'Recent'}</span>
+                              <span className="post-privacy-dot">•</span>
+                              <span className="news-breaking-tag">⚡ Live Breaking News</span>
+                            </div>
+                          </div>
+                        </div>
+                        {article.url && (
+                          <a
+                            href={article.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="news-outlet-link-btn"
+                            title={`Open full story on ${article.source}`}
+                          >
+                            <i className="fa-solid fa-arrow-up-right-from-square"></i>
+                          </a>
+                        )}
+                      </header>
 
-            return (
-              <article key={post.id} className="post-card">
+                      <div className="post-card-content news-card-body">
+                        <h3 className="inline-news-title">
+                          <a href={article.url} target="_blank" rel="noopener noreferrer">
+                            {article.title}
+                          </a>
+                        </h3>
+                        {article.summary && (
+                          <p className="inline-news-summary">{article.summary}</p>
+                        )}
+                        {article.imageUrl && (
+                          <div className="inline-news-image-wrap">
+                            <img
+                              src={article.imageUrl}
+                              alt={article.title}
+                              loading="lazy"
+                              onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <footer className="post-card-footer news-card-footer">
+                        {article.url && (
+                          <a
+                            href={article.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="post-action-btn news-read-action-btn"
+                          >
+                            <i className="fa-solid fa-newspaper"></i>
+                            <span>Read on {article.source}</span>
+                          </a>
+                        )}
+                        <button
+                          type="button"
+                          className="post-action-btn news-share-to-wall-btn"
+                          onClick={() => {
+                            setPostText(`📰 Breaking from ${article.source}:\n"${article.title}"\n${article.url}`);
+                            window.scrollTo({ top: 350, behavior: 'smooth' });
+                          }}
+                          title="Share this news story to your wall and general feed"
+                        >
+                          <i className="fa-solid fa-share-nodes"></i>
+                          <span>Share to My Wall / Feed</span>
+                        </button>
+                      </footer>
+                    </article>
+                  );
+                }
+
+                const post = item.post;
+                const isMyPost = String(post.userId) === String(user?.userId || user?.id);
+                const translation = translations[post.id];
+                const isTranslating = translatingPostId === post.id;
+                const commentsInfo = commentsState[post.id] || { open: false, loading: false, list: [] };
+
+                return (
+                  <article key={post.id} className="post-card">
                 {/* Post Header */}
                 <header className="post-card-header">
                   <div
@@ -1765,8 +2093,10 @@ export default function CommunityHome({ user }) {
           })
         )}
 
-        {/* Live Spain & World Breaking News Feed directly under posts or filling the feed */}
-        <HomeNewsFeed user={user} hasCommunityPosts={filteredPosts.length > 0} />
+        {/* Live Spain & World Breaking News Feed directly under posts or filling the feed when not on My Wall */}
+        {filter !== 'wall' && (
+          <HomeNewsFeed user={user} hasCommunityPosts={feedTimeline.length > 0} />
+        )}
       </>
     )}
   </section>

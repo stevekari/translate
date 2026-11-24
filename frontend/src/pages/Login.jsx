@@ -37,8 +37,8 @@ export default function Login({ onLogin }) {
       <form className="auth-card" onSubmit={handleSubmit}>
         <div className="auth-header">
           <img src={gcLogo} alt="Giochat" className="auth-logo" />
-          <h1>{t('welcomeBack')}</h1>
-          <p className="auth-sub">Giochat • Connect & Chat</p>
+          <h1>Welcome to Giochat 👋</h1>
+          <p className="auth-sub">Connect, share your moments &amp; chat with friends worldwide</p>
         </div>
 
         {accountDeleted && (

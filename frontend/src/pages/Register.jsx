@@ -157,8 +157,8 @@ export default function Register({ onLogin }) {
       <form className="auth-card" onSubmit={handleSubmit}>
         <div className="auth-header">
           <img src={gcLogo} alt="Giochat" className="auth-logo" />
-          <h1>{t('createAccount')}</h1>
-          <p className="auth-sub">Giochat • Secure & Encrypted</p>
+          <h1>Welcome to Giochat 👋</h1>
+          <p className="auth-sub">Create your account • Connect &amp; share with friends worldwide</p>
         </div>
 
         <GoogleSignInButton

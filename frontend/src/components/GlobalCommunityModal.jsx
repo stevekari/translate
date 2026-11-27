@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import { getMyConversations, startConversation, sendMessageRest } from '../api/conversationApi';
 import { resolveAvatarUrl, handleAvatarError } from '../utils/avatarUrl';
@@ -168,21 +169,28 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
     return f.displayName?.toLowerCase().includes(q) || f.username?.toLowerCase().includes(q);
   });
 
-  return (
+  const modalContent = (
     <div className="gcm-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Global Community & Friends">
       <div className="gcm-modal-card" onClick={(e) => e.stopPropagation()}>
-        {/* Top Header - Weather UX Style */}
+        {/* Top Header - Scoreline & Facebook Style */}
         <div className="gcm-header">
           <div className="gcm-header-title-wrap">
-            <i className="fa-solid fa-users-rays gcm-header-icon" />
+            <div className="gcm-logo-badge">
+              <i className="fa-solid fa-users"></i>
+            </div>
             <div className="gcm-header-text">
-              <h2 className="gcm-title">Global Community &amp; Friends</h2>
-              <span className="gcm-sub">Select friends to chat &amp; share your invite link worldwide 🌍</span>
+              <div className="gcm-title-row">
+                <h2 className="gcm-title">Global Community &amp; Friends</h2>
+                <span className="gcm-live-tag">
+                  <span className="gcm-live-dot"></span>GLOBAL
+                </span>
+              </div>
+              <span className="gcm-sub">Connect worldwide, invite friends &amp; chat instantly</span>
             </div>
           </div>
           <button
             type="button"
-            className="weather-close-btn gcm-top-close-btn"
+            className="gcm-top-close-btn"
             onClick={onClose}
             title="Close (Esc)"
             aria-label="Close"
@@ -394,4 +402,6 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

@@ -199,90 +199,57 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         </div>
       )}
 
-      {/* 3. Facebook Right: Clean circular actions, Settings next to Toggle, Profile with Online status badge, Logout */}
+      {/* 3. Facebook Right: Clean circular actions, Messenger, GioAI, Profile with Online status badge, Logout */}
       {user && (
         <div className="fb-nav-right">
-          {/* Settings & Toggle placed right next to each other */}
-          <div className="fb-nav-toggle-group">
-            {/* Global Community Circular Action Button */}
-            <button
-              type="button"
-              onClick={() => setShowGlobalCommunityModal((prev) => !prev)}
-              className={`fb-circle-btn ${showGlobalCommunityModal ? 'active' : ''}`}
-              title="Global Community & Friends - Select & Share"
-              aria-label="Global Community & Friends"
-            >
-              <i className="fa-solid fa-users" />
-            </button>
+          {/* ⚽ Top Navbar Live Football Scores - reduced height, always visible */}
+          <button
+            type="button"
+            onClick={() => setShowLiveScoresModal(true)}
+            className={`top-navbar-livescore-btn ${showLiveScoresModal ? 'active' : ''}`}
+            title={liveMatchesCount > 0 ? `⚽ ${liveMatchesCount} Matches Live - Click for Match Center` : '⚽ Live Football Scores - Click for Match Center'}
+            aria-label="Live Football Scores"
+          >
+            <i className="fa-solid fa-futbol" />
+            <span className="top-livescore-text">
+              {liveMatchesCount > 0 ? `${liveMatchesCount} LIVE` : 'Scores'}
+            </span>
+            <span className="status-live-dot" />
+          </button>
 
-            {/* ⚽ Top Navbar Live Football Scores - placed on left of GioAI, reduced height, always visible */}
-            <button
-              type="button"
-              onClick={() => setShowLiveScoresModal(true)}
-              className={`top-navbar-livescore-btn ${showLiveScoresModal ? 'active' : ''}`}
-              title={liveMatchesCount > 0 ? `⚽ ${liveMatchesCount} Matches Live - Click for Match Center` : '⚽ Live Football Scores - Click for Match Center'}
-              aria-label="Live Football Scores"
-            >
-              <i className="fa-solid fa-futbol" />
-              <span className="top-livescore-text">
-                {liveMatchesCount > 0 ? `${liveMatchesCount} LIVE` : 'Scores'}
-              </span>
-              <span className="status-live-dot" />
-            </button>
+          {/* Facebook Messenger Action Button */}
+          <Link
+            to="/friends"
+            className={`fb-circle-btn ${isFriends ? 'active' : ''}`}
+            title="Messenger - Chats & Messages"
+            aria-label="Messenger"
+          >
+            <i className="fa-brands fa-facebook-messenger" />
+            {friendsBadgeCount > 0 && (
+              <span className="fb-circle-badge">{friendsBadgeCount > 99 ? '99+' : friendsBadgeCount}</span>
+            )}
+          </Link>
 
-            {/* GioAI Quick Button */}
-            <button
-              type="button"
-              onClick={() => setShowAiModal(true)}
-              className={`fb-circle-btn gioai-circle-btn ${showAiModal ? 'active' : ''}`}
-              title="✨ GioAI Assistant - Answers, Explanations & Translations"
-              aria-label="GioAI Assistant"
-            >
-              <i className="fa-solid fa-wand-magic-sparkles" />
-            </button>
+          {/* GioAI Quick Button */}
+          <button
+            type="button"
+            onClick={() => setShowAiModal(true)}
+            className={`fb-circle-btn gioai-circle-btn ${showAiModal ? 'active' : ''}`}
+            title="✨ GioAI Assistant - Answers, Explanations & Translations"
+            aria-label="GioAI Assistant"
+          >
+            <i className="fa-solid fa-wand-magic-sparkles" />
+          </button>
 
-            {/* Live Voice Translator */}
-            <button
-              type="button"
-              onClick={() => setShowVoiceTranslateModal(true)}
-              className="fb-circle-btn voice-trans-nav-btn"
-              title="🎙️ Live Voice Translator - Speak & Understand"
-              aria-label="Live Voice Translator"
-            >
-              <i className="fa-solid fa-microphone-lines" />
-            </button>
-
-            {/* QR Conversation Room */}
-            <button
-              type="button"
-              onClick={() => setShowQRModal(true)}
-              className="fb-circle-btn qr-nav-btn"
-              title="QR Conversation Room - Scan & Join"
-              aria-label="QR conversation room"
-            >
-              <i className="fa-solid fa-qrcode" />
-            </button>
-
-            {/* Theme Toggle */}
-            <button
-              onClick={toggleTheme}
-              className="fb-circle-btn theme-toggle"
-              title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-              aria-label="Toggle theme"
-            >
-              <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} />
-            </button>
-
-            {/* Settings Button (right next to Toggle) */}
-            <Link
-              to="/settings"
-              className={`fb-circle-btn fb-settings-btn ${isSettings ? 'active' : ''}`}
-              title={t('settings')}
-              aria-label={t('settings')}
-            >
-              <i className="fa-solid fa-gear" />
-            </Link>
-          </div>
+          {/* Theme Toggle */}
+          <button
+            onClick={toggleTheme}
+            className="fb-circle-btn theme-toggle"
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle theme"
+          >
+            <i className={`fa-solid ${theme === 'dark' ? 'fa-sun' : 'fa-moon'}`} />
+          </button>
 
           {/* User Profile Avatar with Facebook-style live online status indicator */}
           <div className="fb-profile-wrap">

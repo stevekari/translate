@@ -222,7 +222,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 12px;
+    gap: 9px;
     justify-self: end;
 }
 
@@ -236,6 +236,7 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
+    position: relative;
     color: var(--text);
     font-size: 1rem;
     cursor: pointer;
@@ -264,6 +265,23 @@
     background: rgba(24, 119, 242, 0.18);
     color: #1877f2;
     border-color: rgba(24, 119, 242, 0.5);
+}
+
+.fb-circle-badge {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+    background: #e41e3f;
+    color: #ffffff;
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 9999px;
+    min-width: 16px;
+    text-align: center;
+    line-height: 14px;
+    box-shadow: 0 2px 4px rgba(228, 30, 63, 0.4);
+    pointer-events: none;
 }
 
 .fb-mobile-menu-btn {

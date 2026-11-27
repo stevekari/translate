@@ -330,6 +330,10 @@ public class ChatWebSocketController {
                 "/topic/conversation." + conversationId,
                 signal
         );
+        messagingTemplate.convertAndSend(
+                "/topic/user." + otherUserId + ".calls",
+                signal
+        );
     }
 
     private void persistCallLog(long conversationId, Long senderId, Map<String, Object> signal) {

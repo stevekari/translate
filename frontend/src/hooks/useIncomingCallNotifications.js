@@ -269,6 +269,69 @@ export function useIncomingCallNotifications(userId, onMessage) {
           }
         });
 
+        // User-specific direct call signaling (guarantees instant call delivery across all pages)
+        client.subscribe(`/topic/user.${userId}.calls`, (frame) => {
+          try {
+            const signal = JSON.parse(frame.body);
+            if (!signal || !signal.callType) return;
+            if (String(signal.senderId) === String(userId)) return;
+
+            if (signal.callType === 'ice-candidate') {
+              setIncomingCall((currentCall) => {
+                if (!currentCall || currentCall.callId !== signal.callId) return currentCall;
+                return {
+                  ...currentCall,
+                  pendingIceCandidates: [
+                    ...(currentCall.pendingIceCandidates || []),
+                    signal.candidate,
+                  ],
+                };
+              });
+              return;
+            }
+
+            if (signal.callType === 'call-end') {
+              callSounds.stop();
+              callSounds.playEndedSound();
+              setIncomingCall(null);
+              return;
+            }
+
+            if (signal.callType === 'call-answer') {
+              setIncomingCall(null);
+              return;
+            }
+
+            if (signal.callType === 'call-offer') {
+              if (client.connected && signal.conversationId) {
+                client.publish({
+                  destination: '/app/call.signal',
+                  body: JSON.stringify({
+                    conversationId: signal.conversationId,
+                    callType: 'call-received',
+                    callId: signal.callId,
+                    mediaType: signal.mediaType,
+                  }),
+                });
+              }
+
+              // Resolve friend details from conversations list if available
+              const foundConv = conversations.find(
+                (c) => String(c.conversationId) === String(signal.conversationId)
+              );
+              const friend = foundConv?.otherUser || signal.friend || {
+                displayName: signal.callerName || 'Friend',
+                username: signal.callerUsername || 'user',
+                avatarUrl: signal.callerAvatarUrl || null,
+              };
+
+              setIncomingCall({ ...signal, friend });
+            }
+          } catch (err) {
+            console.warn('User direct call signal error', err);
+          }
+        });
+
         syncSubscriptions(client);
       },
       onStompError: () => {},

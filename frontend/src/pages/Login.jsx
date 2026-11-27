@@ -20,6 +20,11 @@ export default function Login({ onLogin }) {
     setError('');
     try {
       const response = await login(username, password);
+      const uId = response?.user?.id || response?.userId;
+      if (uId) {
+        localStorage.removeItem(`gio_welcome_seen_${uId}`);
+        sessionStorage.setItem('just_logged_in', 'true');
+      }
       onLogin(response);
       navigate('/home');
     } catch (err) {
@@ -28,6 +33,11 @@ export default function Login({ onLogin }) {
   };
 
   const handleGoogleSuccess = (response) => {
+    const uId = response?.user?.id || response?.userId;
+    if (uId) {
+      localStorage.removeItem(`gio_welcome_seen_${uId}`);
+      sessionStorage.setItem('just_logged_in', 'true');
+    }
     onLogin(response);
     navigate('/home');
   };

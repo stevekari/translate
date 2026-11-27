@@ -165,6 +165,19 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
             </div>
           </Link>
 
+          {/* Facebook Center Tab: Community & Friends */}
+          <button
+            type="button"
+            className={`fb-tab ${showGlobalCommunityModal ? 'active' : ''}`}
+            onClick={() => setShowGlobalCommunityModal((prev) => !prev)}
+            title="Global Community & Friends - Select & Share"
+            aria-label="Global Community & Friends"
+          >
+            <div className="fb-tab-icon-wrap">
+              <i className="fa-solid fa-users" />
+            </div>
+          </button>
+
           {/* Weather Tab - positioned at the top right after video call */}
           <button
             type="button"
@@ -183,21 +196,6 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
               )}
             </div>
           </button>
-
-          {/* Global Community & Friends Tab */}
-          <button
-            type="button"
-            className={`fb-tab global-community-nav-tab ${showGlobalCommunityModal ? 'active' : ''}`}
-            onClick={() => setShowGlobalCommunityModal(true)}
-            title="✨ Global Community & Friends - Click to Select or Share"
-            aria-label="Global Community & Friends"
-          >
-            <div className="fb-tab-icon-wrap global-community-tab-icon-wrap">
-              <i className="fa-solid fa-users-rays" />
-              <span className="global-community-nav-text">Community</span>
-              <span className="global-community-nav-sparkle">✨</span>
-            </div>
-          </button>
         </div>
       )}
 
@@ -206,17 +204,15 @@ export default function Navbar({ user, onLogout, isChatOpen }) {
         <div className="fb-nav-right">
           {/* Settings & Toggle placed right next to each other */}
           <div className="fb-nav-toggle-group">
-            {/* ✨ Top Navbar Global Community & Friends Button */}
+            {/* Global Community Circular Action Button */}
             <button
               type="button"
-              onClick={() => setShowGlobalCommunityModal(true)}
-              className={`top-navbar-community-btn ${showGlobalCommunityModal ? 'active' : ''}`}
-              title="✨ Global Community & Friends - Click to Select or Share"
+              onClick={() => setShowGlobalCommunityModal((prev) => !prev)}
+              className={`fb-circle-btn ${showGlobalCommunityModal ? 'active' : ''}`}
+              title="Global Community & Friends - Select & Share"
               aria-label="Global Community & Friends"
             >
-              <i className="fa-solid fa-users-rays" />
-              <span className="top-community-text">Community</span>
-              <span className="sparkle-badge">✨</span>
+              <i className="fa-solid fa-users" />
             </button>
 
             {/* ⚽ Top Navbar Live Football Scores - placed on left of GioAI, reduced height, always visible */}

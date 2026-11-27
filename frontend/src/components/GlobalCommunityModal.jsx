@@ -81,6 +81,16 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isOpen, onClose]);
 
+  // Lock background scroll while modal is open
+  useEffect(() => {
+    if (!isOpen) return;
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleCopyLink = () => {
@@ -146,7 +156,6 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
       }
     } catch (err) {
       console.error('Failed to send share message to friend:', err);
-      alert('Failed to send link to friend. Copied to clipboard instead!');
       handleCopyLink();
     } finally {
       setSharingToId(null);
@@ -160,35 +169,35 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
   });
 
   return (
-    <div className="match-modal-backdrop" onClick={onClose} role="dialog" aria-modal="true">
-      <div className="match-modal-card global-community-modal-card" onClick={(e) => e.stopPropagation()}>
-        {/* Header */}
-        <div className="match-modal-header gcm-header">
+    <div className="gcm-modal-overlay" onClick={onClose} role="dialog" aria-modal="true" aria-label="Global Community & Friends">
+      <div className="gcm-modal-card" onClick={(e) => e.stopPropagation()}>
+        {/* Top Header - Weather UX Style */}
+        <div className="gcm-header">
           <div className="gcm-header-title-wrap">
-            <span className="gcm-sparkle-icon">✨</span>
-            <div>
+            <i className="fa-solid fa-users-rays gcm-header-icon" />
+            <div className="gcm-header-text">
               <h2 className="gcm-title">Global Community &amp; Friends</h2>
-              <p className="gcm-sub">Connect, share invite links, and chat with friends worldwide 🌍</p>
+              <span className="gcm-sub">Select friends to chat &amp; share your invite link worldwide 🌍</span>
             </div>
           </div>
           <button
             type="button"
-            className="match-modal-close"
+            className="weather-close-btn gcm-top-close-btn"
             onClick={onClose}
-            title="Close modal"
+            title="Close (Esc)"
             aria-label="Close"
           >
             <i className="fa-solid fa-xmark"></i>
           </button>
         </div>
 
-        {/* Body Content */}
+        {/* Modal Body: gcm-body */}
         <div className="gcm-body">
-          {/* 1. Quick Share & Invite Capsule */}
-          <section className="gcm-share-section">
-            <div className="gcm-section-label">
+          {/* 1. Share Hub Section */}
+          <section className="gcm-card-section">
+            <div className="gcm-section-header">
               <i className="fa-solid fa-bullhorn" />
-              <span>Share Your Giochat Invite Link:</span>
+              <span>Your Personal Invite Link:</span>
             </div>
 
             <div className="gcm-link-bar">
@@ -197,7 +206,7 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
               </div>
               <button
                 type="button"
-                className={`gcm-copy-btn ${copiedLink ? 'copied' : ''}`}
+                className={`gcm-copy-pill ${copiedLink ? 'copied' : ''}`}
                 onClick={handleCopyLink}
                 title="Copy personal invite link"
               >
@@ -206,12 +215,12 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
               </button>
             </div>
 
-            <div className="gcm-share-actions-row">
+            <div className="gcm-social-grid">
               <a
                 href={`https://api.whatsapp.com/send?text=${encodeURIComponent(inviteMessage)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="gcm-social-btn whatsapp"
+                className="gcm-social-chip whatsapp"
                 title="Share via WhatsApp"
               >
                 <i className="fa-brands fa-whatsapp" />
@@ -222,7 +231,7 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
                 href={`https://t.me/share/url?url=${encodeURIComponent(shareLink)}&text=${encodeURIComponent(inviteMessage)}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="gcm-social-btn telegram"
+                className="gcm-social-chip telegram"
                 title="Share via Telegram"
               >
                 <i className="fa-brands fa-telegram" />
@@ -231,9 +240,9 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
 
               <button
                 type="button"
-                className="gcm-social-btn native-share"
+                className="gcm-social-chip native-share"
                 onClick={handleNativeShare}
-                title="More Share Options"
+                title="Share via system apps"
               >
                 <i className="fa-solid fa-share-nodes" />
                 <span>Share...</span>
@@ -241,49 +250,50 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
 
               <button
                 type="button"
-                className={`gcm-social-btn qr-toggle ${showQrCode ? 'active' : ''}`}
+                className={`gcm-social-chip qr-chip ${showQrCode ? 'active' : ''}`}
                 onClick={() => setShowQrCode(!showQrCode)}
-                title="Show QR Code to scan in person"
+                title="Toggle QR Code to scan in person"
               >
                 <i className="fa-solid fa-qrcode" />
                 <span>{showQrCode ? 'Hide QR' : 'QR Code'}</span>
               </button>
             </div>
 
-            {/* QR Code In-Person Scan Drawer */}
+            {/* In-Person QR Code Card */}
             {showQrCode && qrSvg && (
-              <div className="gcm-qr-card animate-fade-in">
+              <div className="gcm-qr-card-weather animate-fade-in">
                 <div className="gcm-qr-svg-wrap" dangerouslySetInnerHTML={{ __html: qrSvg }} />
-                <p className="gcm-qr-hint">Scan with camera to join your Giochat community room immediately</p>
+                <p className="gcm-qr-hint">Scan with camera to connect on Giochat instantly</p>
               </div>
             )}
           </section>
 
           {/* 2. Select & Share with Friends Section */}
-          <section className="gcm-friends-section">
-            <div className="gcm-section-label">
+          <section className="gcm-card-section gcm-friends-section">
+            <div className="gcm-section-header">
               <i className="fa-solid fa-user-group" />
               <span>Select Friends to Chat or Share With ({friendsList.length}):</span>
             </div>
 
-            {/* Friends Search Input */}
-            <div className="gcm-search-wrap">
-              <i className="fa-solid fa-magnifying-glass gcm-search-icon" />
+            {/* Search Input matching Weather toolbar */}
+            <div className="weather-search-wrapper gcm-search-wrap">
+              <i className="fa-solid fa-magnifying-glass weather-search-icon" />
               <input
                 type="text"
-                className="gcm-search-input"
+                className="weather-search-input gcm-search-input"
                 placeholder="Search friends by name or username..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
+                aria-label="Search friends"
               />
               {searchQuery && (
                 <button
                   type="button"
-                  className="gcm-clear-search-btn"
+                  className="weather-search-clear gcm-search-clear"
                   onClick={() => setSearchQuery('')}
-                  title="Clear search"
+                  aria-label="Clear search"
                 >
-                  <i className="fa-solid fa-xmark" />
+                  <i className="fa-solid fa-circle-xmark" />
                 </button>
               )}
             </div>
@@ -291,14 +301,18 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
             {/* Friends List Container */}
             <div className="gcm-friends-list">
               {loadingFriends ? (
-                <div className="gcm-empty-state">
+                <div className="gcm-empty-card">
                   <i className="fa-solid fa-circle-notch fa-spin" />
-                  <p>Loading your friends...</p>
+                  <span>Loading your friends...</span>
                 </div>
               ) : filteredFriends.length === 0 ? (
-                <div className="gcm-empty-state">
+                <div className="gcm-empty-card">
                   <i className="fa-solid fa-user-plus" />
-                  <p>{searchQuery ? 'No friends match your search.' : 'No friends connected yet. Share your invite link above to bring friends to Giochat!'}</p>
+                  <span>
+                    {searchQuery
+                      ? 'No friends match your search.'
+                      : 'No friends connected yet. Share your invite link above to bring friends to Giochat!'}
+                  </span>
                 </div>
               ) : (
                 filteredFriends.map((friend) => {
@@ -326,7 +340,7 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
                       <div className="gcm-friend-actions">
                         <button
                           type="button"
-                          className={`gcm-action-btn share-to-chat ${isSuccess ? 'success' : ''}`}
+                          className={`gcm-action-pill share-to-chat ${isSuccess ? 'success' : ''}`}
                           onClick={() => handleShareToFriend(friend)}
                           disabled={isSharing}
                           title="Send your invite link directly into chat with this friend"
@@ -348,7 +362,7 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
 
                         <button
                           type="button"
-                          className="gcm-action-btn chat-direct"
+                          className="gcm-action-pill chat-direct"
                           onClick={() => handleOpenChat(friend)}
                           title={`Open chat with ${friend.displayName}`}
                         >
@@ -362,6 +376,20 @@ export default function GlobalCommunityModal({ isOpen, onClose, user }) {
               )}
             </div>
           </section>
+
+          {/* 3. CANCEL BUTTON inside gcm-body */}
+          <div className="gcm-cancel-row">
+            <button
+              type="button"
+              className="gcm-cancel-btn"
+              onClick={onClose}
+              title="Cancel and close modal"
+              aria-label="Cancel"
+            >
+              <i className="fa-solid fa-xmark" />
+              <span>Cancel</span>
+            </button>
+          </div>
         </div>
       </div>
     </div>

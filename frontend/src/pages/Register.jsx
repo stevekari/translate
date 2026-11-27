@@ -103,6 +103,11 @@ export default function Register({ onLogin }) {
 
     try {
       const response = await register(username.trim(), email.trim(), password, name.trim(), avatarUrl || null);
+      const uId = response?.user?.id || response?.userId;
+      if (uId) {
+        localStorage.removeItem(`gio_welcome_seen_${uId}`);
+        sessionStorage.setItem('just_logged_in', 'true');
+      }
       onLogin(response);
 
       if (response?.previouslyDeleted) {
@@ -130,6 +135,11 @@ export default function Register({ onLogin }) {
   };
 
   const handleGoogleSuccess = (response) => {
+    const uId = response?.user?.id || response?.userId;
+    if (uId) {
+      localStorage.removeItem(`gio_welcome_seen_${uId}`);
+      sessionStorage.setItem('just_logged_in', 'true');
+    }
     onLogin(response);
 
     if (response?.previouslyDeleted) {

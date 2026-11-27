@@ -43,8 +43,19 @@ export default function CommunityHome({ user }) {
   const [isCreateReelOpen, setIsCreateReelOpen] = useState(false);
   const [activeReelIndex, setActiveReelIndex] = useState(null);
 
-  // 30-Second Auto-Dismissing Welcome Greeting State
-  const [showWelcomeBanner, setShowWelcomeBanner] = useState(true);
+  // Welcome Banner: Appears ONCE upon login for 30s, then NEVER appears again
+  const [showWelcomeBanner, setShowWelcomeBanner] = useState(() => {
+    const uId = user?.userId || user?.id;
+    if (!uId) return false;
+    const seen = localStorage.getItem(`gio_welcome_seen_${uId}`);
+    const justLoggedIn = sessionStorage.getItem('just_logged_in');
+    if (justLoggedIn === 'true' && seen !== 'true') {
+      localStorage.setItem(`gio_welcome_seen_${uId}`, 'true');
+      sessionStorage.removeItem('just_logged_in');
+      return true;
+    }
+    return false;
+  });
   const [welcomeSecondsLeft, setWelcomeSecondsLeft] = useState(30);
 
   useEffect(() => {
@@ -53,6 +64,8 @@ export default function CommunityHome({ user }) {
       setWelcomeSecondsLeft((prev) => {
         if (prev <= 1) {
           setShowWelcomeBanner(false);
+          const uId = user?.userId || user?.id;
+          if (uId) localStorage.setItem(`gio_welcome_seen_${uId}`, 'true');
           clearInterval(interval);
           return 0;
         }
@@ -60,7 +73,13 @@ export default function CommunityHome({ user }) {
       });
     }, 1000);
     return () => clearInterval(interval);
-  }, [showWelcomeBanner]);
+  }, [showWelcomeBanner, user]);
+
+  const handleDismissWelcome = () => {
+    setShowWelcomeBanner(false);
+    const uId = user?.userId || user?.id;
+    if (uId) localStorage.setItem(`gio_welcome_seen_${uId}`, 'true');
+  };
 
   useEffect(() => {
     const handleOpenReels = (e) => {
@@ -1110,8 +1129,8 @@ export default function CommunityHome({ user }) {
           onSelectReel={(idx) => setActiveReelIndex(idx)}
         />
 
-        {/* 30-Second Auto-Dismissing Welcome Greeting Widget */}
-        {showWelcomeBanner ? (
+        {/* Welcome Greeting: Appears ONCE on login, auto-hides in 30s, and NEVER appears again */}
+        {showWelcomeBanner && (
           <div className="home-welcome-widget animate-fade-in">
             <div className="home-welcome-top-row">
               <div className="home-welcome-left">
@@ -1135,14 +1154,14 @@ export default function CommunityHome({ user }) {
               </div>
 
               <div className="home-welcome-top-actions">
-                <span className="welcome-countdown-chip" title="This welcome popup closes automatically in 30 seconds">
+                <span className="welcome-countdown-chip" title="Closes in 30 seconds">
                   <i className="fa-solid fa-clock-rotate-left"></i>
                   <span>Hiding in {welcomeSecondsLeft}s</span>
                 </span>
                 <button
                   type="button"
                   className="welcome-close-btn"
-                  onClick={() => setShowWelcomeBanner(false)}
+                  onClick={handleDismissWelcome}
                   title="Close welcome message"
                   aria-label="Close"
                 >
@@ -1151,64 +1170,12 @@ export default function CommunityHome({ user }) {
               </div>
             </div>
 
-            <div className="home-welcome-pills">
-              <button
-                type="button"
-                className={`welcome-nav-pill ${filter === 'wall' ? 'active' : ''}`}
-                onClick={() => {
-                  setFilter('wall');
-                  window.scrollTo({ top: 380, behavior: 'smooth' });
-                }}
-                title="Open My Personal Wall"
-              >
-                <i className="fa-solid fa-address-card"></i>
-                <span>My Wall</span>
-              </button>
-              <button
-                type="button"
-                className={`welcome-nav-pill ${filter === 'general' ? 'active' : ''}`}
-                onClick={() => {
-                  setFilter('general');
-                  window.scrollTo({ top: 380, behavior: 'smooth' });
-                }}
-                title="View General Feedback Timeline"
-              >
-                <i className="fa-solid fa-comments"></i>
-                <span>General Feed</span>
-              </button>
-              <button
-                type="button"
-                className="welcome-nav-pill live-scores-pill"
-                onClick={() => setShowLiveScoresModal(true)}
-                title="Open Live Football Scores"
-              >
-                <span className="live-pill-red-dot"></span>
-                <span>⚽ Live Scores</span>
-              </button>
-            </div>
-
-            {/* 30-Second Countdown Progress Bar */}
             <div className="welcome-progress-track">
               <div
                 className="welcome-progress-fill"
                 style={{ width: `${(welcomeSecondsLeft / 30) * 100}%` }}
               />
             </div>
-          </div>
-        ) : (
-          <div className="home-welcome-minibar">
-            <button
-              type="button"
-              className="welcome-reopen-btn"
-              onClick={() => {
-                setShowWelcomeBanner(true);
-                setWelcomeSecondsLeft(30);
-              }}
-              title="Show welcome greeting again"
-            >
-              <span>👋 Welcome back, {user?.displayName || user?.username}</span>
-              <span className="welcome-reopen-hint">Tap to expand</span>
-            </button>
           </div>
         )}
 
@@ -1613,8 +1580,7 @@ export default function CommunityHome({ user }) {
                 <div className="empty-wall-icon-wrap">
                   <i className="fa-solid fa-camera-retro"></i>
                 </div>
-                <h3>Welcome to Your Personal Wall!</h3>
-                <p>You haven't posted any photos or messages yet. Write a post or upload a photo above to share with friends on your wall and General Feedback!</p>
+                <p>You haven't posted any photos or messages yet. Write a post or upload a photo above to share on your wall and General Feedback.</p>
               </div>
             ) : (
               feedTimeline.map((item) => {

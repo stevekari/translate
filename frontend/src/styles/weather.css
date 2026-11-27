@@ -7,13 +7,13 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    background: transparent;
+    background: transparent !important;
     border: none;
     cursor: pointer;
     text-decoration: none;
     position: relative;
-    padding: 0 16px;
-    height: 100%;
+    padding: 0 12px;
+    height: 40px;
     flex: initial;
     max-width: none !important;
     color: var(--text-secondary, #94a3b8);
@@ -22,11 +22,14 @@
 
 .weather-nav-tab:hover {
     color: var(--accent, #10b981);
-    background: rgba(255, 255, 255, 0.05);
+    background: transparent !important;
+    transform: scale(1.04);
 }
 
 .weather-nav-tab.active {
     color: var(--accent, #10b981);
+    background: transparent !important;
+    border-bottom: 2px solid var(--accent, #10b981);
 }
 
 .weather-tab-icon-wrap {

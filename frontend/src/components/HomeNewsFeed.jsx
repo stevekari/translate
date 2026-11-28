@@ -5,22 +5,8 @@ import { quickTranslate, sendMessageRest, getMyConversations, startConversation 
 import { isFriendDeleted } from '../utils/deletedFriends';
 import { useLanguage } from '../contexts/LanguageContext';
 import { resolveBackendUrl } from '../utils/apiBaseUrl';
-
-const GLOBAL_LANGUAGES = [
-  { code: 'en', name: 'English', flag: '🇺🇸' },
-  { code: 'tw', name: 'Twi', flag: '🇬🇭' },
-  { code: 'ak', name: 'Twi', flag: '🇬🇭' },
-  { code: 'es', name: 'Español', flag: '🇪🇸' },
-  { code: 'fr', name: 'Français', flag: '🇫🇷' },
-  { code: 'de', name: 'Deutsch', flag: '🇩🇪' },
-  { code: 'pt', name: 'Português', flag: '🇵🇹' },
-  { code: 'it', name: 'Italiano', flag: '🇮🇹' },
-  { code: 'ar', name: 'العربية', flag: '🇸🇦' },
-  { code: 'nl', name: 'Nederlands', flag: '🇳🇱' },
-  { code: 'zh', name: '中文', flag: '🇨🇳' },
-  { code: 'ru', name: 'Русский', flag: '🇷🇺' },
-  { code: 'ja', name: '日本語', flag: '🇯🇵' },
-];
+import LanguagePickerModal from './LanguagePickerModal';
+import { WORLD_LANGUAGES, getLanguageInfo } from '../utils/languages';
 
 export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   const navigate = useNavigate();
@@ -35,11 +21,12 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
   });
   const [targetLang, setTargetLang] = useState(() => {
     const saved = localStorage.getItem('gio_news_target_lang');
-    if (saved && GLOBAL_LANGUAGES.some((l) => l.code === saved)) {
+    if (saved && WORLD_LANGUAGES.some((l) => l.code === saved)) {
       return saved;
     }
     return defaultTarget;
   });
+  const [showNewsLangModal, setShowNewsLangModal] = useState(false);
   const [autoTranslate, setAutoTranslate] = useState(() => {
     return localStorage.getItem('gio_news_auto_translate') === 'true';
   });
@@ -410,7 +397,7 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
     }
   };
 
-  const activeLangObj = GLOBAL_LANGUAGES.find((l) => l.code === targetLang) || GLOBAL_LANGUAGES[0];
+  const activeLangObj = getLanguageInfo(targetLang);
   const activeCountryObj = NEWS_COUNTRIES.find((c) => c.code === activeCountry) || NEWS_COUNTRIES[0];
 
   return (
@@ -448,21 +435,15 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
             </div>
 
             {/* Translation Language Selector */}
-            <div className="news-lang-select-wrap">
+            <button
+              type="button"
+              className="news-lang-select-wrap news-language-button"
+              onClick={() => setShowNewsLangModal(true)}
+              title="Choose any language for news translation"
+            >
               <i className="fa-solid fa-globe lang-globe-icon"></i>
-              <select
-                className="news-target-lang-select"
-                value={targetLang}
-                onChange={(e) => handleChangeTargetLang(e.target.value)}
-                title="Select preferred translation language for all news"
-              >
-                {GLOBAL_LANGUAGES.map((l) => (
-                  <option key={l.code} value={l.code}>
-                    {l.flag} {l.name}
-                  </option>
-                ))}
-              </select>
-            </div>
+              <span className="news-language-label">{activeLangObj.flag} {activeLangObj.name}</span>
+            </button>
 
             {/* Auto Translate Toggle */}
             <button
@@ -944,6 +925,15 @@ export default function HomeNewsFeed({ user, hasCommunityPosts = true }) {
           </div>
         </div>
       )}
+
+      <LanguagePickerModal
+        isOpen={showNewsLangModal}
+        onClose={() => setShowNewsLangModal(false)}
+        currentLanguage={targetLang}
+        onSelectLanguage={handleChangeTargetLang}
+        title="Translate News"
+        subtitle="Choose the language you want news articles translated into"
+      />
 
       {/* Send to Chat Modal */}
       {sendToChatArticle && (

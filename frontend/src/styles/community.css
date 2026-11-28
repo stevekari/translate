@@ -3205,6 +3205,17 @@
   border: 1px solid rgba(255, 255, 255, 0.14);
 }
 
+.news-language-button {
+  color: var(--text-primary, #f8fafc);
+  cursor: pointer;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.news-language-label {
+  white-space: nowrap;
+}
+
 :root[data-theme='light'] .news-lang-select-wrap {
   background: rgba(0, 0, 0, 0.05);
   border-color: rgba(0, 0, 0, 0.1);

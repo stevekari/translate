@@ -13,6 +13,7 @@ import { signInWithGoogle } from '../firebase';
 import PasswordStrengthMeter, { evaluatePasswordStrength } from '../components/PasswordStrengthMeter';
 import { getFamilyDictionary, addFamilyTerm, removeFamilyTerm } from '../utils/familyDictionary';
 import { getFadingModeConfig, saveFadingModeConfig } from '../utils/fadingTranslation';
+import { WORLD_LANGUAGES } from '../utils/languages';
 
 export default function Settings({ user, onProfileUpdate, onLogout }) {
   const navigate = useNavigate();
@@ -911,8 +912,10 @@ export default function Settings({ user, onProfileUpdate, onLogout }) {
                     onChange={(e) => handleSaveTranslationSettings(e.target.value, autoTranslate)}
                     aria-label={t('myChatLanguage')}
                   >
-                    {languageOptions.map((option) => (
-                      <option key={option.value} value={option.value}>{option.label}</option>
+                    {WORLD_LANGUAGES.map((lang) => (
+                      <option key={lang.code} value={lang.code}>
+                        {lang.flag} {lang.name}
+                      </option>
                     ))}
                   </select>
                 </div>

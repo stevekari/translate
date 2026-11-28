@@ -54,6 +54,8 @@ public class SecurityConfig {
                                 "/api/register",
                                 "/api/ai/**",
                                 "/ai/**",
+                                "/api/translate/**",
+                                "/translate/**",
                                 "/api/news/**",
                                 "/news/**",
                                 "/ws/**",

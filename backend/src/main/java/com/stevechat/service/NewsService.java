@@ -54,14 +54,16 @@ public class NewsService {
                 .build();
     }
 
-    public List<NewsArticleDto> getLiveNews(String country, String category) {
+    public List<NewsArticleDto> getLiveNews(String country, String category, boolean forceRefresh) {
         String cCode = (country == null || country.isBlank()) ? "ALL" : country.trim().toUpperCase(Locale.ROOT);
         String cat = (category == null || category.isBlank()) ? "all" : category.trim();
 
         String cacheKey = cCode + "_" + cat.toLowerCase(Locale.ROOT);
-        CachedResult cached = cache.get(cacheKey);
-        if (cached != null && (System.currentTimeMillis() - cached.timestamp < CACHE_TTL_MS)) {
-            return cached.articles;
+        if (!forceRefresh) {
+            CachedResult cached = cache.get(cacheKey);
+            if (cached != null && (System.currentTimeMillis() - cached.timestamp < CACHE_TTL_MS)) {
+                return cached.articles;
+            }
         }
 
         List<NewsArticleDto> articles;

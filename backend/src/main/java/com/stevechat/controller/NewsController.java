@@ -21,8 +21,9 @@ public class NewsController {
     @GetMapping
     public ResponseEntity<List<NewsArticleDto>> getLiveNews(
             @RequestParam(required = false, defaultValue = "ALL") String country,
-            @RequestParam(required = false, defaultValue = "all") String category) {
-        List<NewsArticleDto> articles = newsService.getLiveNews(country, category);
+            @RequestParam(required = false, defaultValue = "all") String category,
+            @RequestParam(required = false, defaultValue = "false") boolean forceRefresh) {
+        List<NewsArticleDto> articles = newsService.getLiveNews(country, category, forceRefresh);
         return ResponseEntity.ok(articles);
     }
 }

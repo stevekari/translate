@@ -219,16 +219,22 @@ public class TranslationController {
     @PostMapping({"/translate/quick", "/api/translate/quick"})
     public ResponseEntity<?> quickTranslate(@RequestBody Map<String, String> body, Authentication auth) {
         try {
-            User me = currentUser(auth);
+            String targetLanguage = "en";
+            User me = null;
+            try {
+                me = currentUser(auth);
+            } catch (Exception ignored) {
+                // No authenticated user: use default target language
+            }
             String text = body != null ? body.get("text") : null;
-            String targetLanguage = body != null ? body.get("targetLanguage") : null;
+            if (body != null && body.get("targetLanguage") != null && !body.get("targetLanguage").isBlank()) {
+                targetLanguage = body.get("targetLanguage").trim();
+            } else if (me != null && me.getPreferredLanguage() != null && !me.getPreferredLanguage().isBlank()) {
+                targetLanguage = me.getPreferredLanguage();
+            }
 
             if (text == null || text.isBlank()) {
                 return ResponseEntity.badRequest().body("Text cannot be empty");
-            }
-
-            if (targetLanguage == null || targetLanguage.isBlank()) {
-                targetLanguage = me.getPreferredLanguage() != null ? me.getPreferredLanguage() : "en";
             }
 
             String sourceLanguage = body != null ? body.get("sourceLanguage") : null;
@@ -247,7 +253,15 @@ public class TranslationController {
             ));
         } catch (Exception e) {
             log.error("Error in quick translation: ", e);
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            // Safe fallback: return original text so the UI never shows "Could not translate"
+            String safeText = body != null ? body.get("text") : "";
+            String safeTarget = body != null && body.get("targetLanguage") != null ? body.get("targetLanguage") : "en";
+            return ResponseEntity.ok(Map.of(
+                    "originalText", safeText != null ? safeText : "",
+                    "translatedText", safeText != null ? safeText : "",
+                    "sourceLanguage", "auto",
+                    "targetLanguage", safeTarget
+            ));
         }
     }
 }

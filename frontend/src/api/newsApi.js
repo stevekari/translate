@@ -332,10 +332,10 @@ export async function getLiveNews(category = 'all', country = 'ALL', forceRefres
     } catch {}
   }
 
-  // 2. First attempt: Spring Boot live backend endpoint (/api/news)
+    // 2. First attempt: Spring Boot live backend endpoint (/api/news)
   try {
     const res = await api.get('/api/news', {
-      params: { country, category },
+      params: { country, category, forceRefresh: forceRefresh },
       timeout: 5000,
     });
     if (res.data && Array.isArray(res.data) && res.data.length > 0) {
